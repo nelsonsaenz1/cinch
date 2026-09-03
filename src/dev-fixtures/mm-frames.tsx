@@ -37,6 +37,10 @@ export const MM_STANDARD = {
   plan: 'standard',
   copy: PLANS.standard,
   trialing: false,
+  // A live subscription, which is what makes this the manage page rather than
+  // the comparison — see `membership-surface.ts`. The free and trialing frames
+  // below turn it off, and that alone is what moves them.
+  paid: true,
   trialEndsAt: null,
   currentPeriodEnd: new Date('2026-09-14T12:00:00Z'),
   used: 88,
@@ -44,6 +48,9 @@ export const MM_STANDARD = {
   restoreAvailable: false,
   restoring: false,
   restoreEnding: null,
+  opening: false,
+  unavailable: false,
+  declined: false,
 } satisfies Partial<MembershipBodyProps>;
 
 export type MmOverrides = Partial<MembershipBodyProps>;
@@ -57,6 +64,7 @@ export function MmFrame(overrides: MmOverrides = {}) {
       onRetry={noop}
       onUpgrade={noop}
       onCancelBilling={noop}
+      onSeePlans={noop}
       onRestore={noop}
       onBackToSettings={noop}
       {...MM_STANDARD}
@@ -87,7 +95,11 @@ export function MuFrame(overrides: MuOverrides = {}) {
     <UpgradeBody
       onBack={() => router.back()}
       loading={false}
+      unconfirmed={false}
       plan="standard"
+      paid
+      trialing={false}
+      trialEndsAt={null}
       opening={opening}
       unavailable={false}
       declined={false}

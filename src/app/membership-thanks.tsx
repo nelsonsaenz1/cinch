@@ -13,6 +13,7 @@ import {
 } from '@/features/billing/paywall-origin';
 import { MembershipThanksView } from '@/features/billing/membership-thanks-view';
 import { usePlan } from '@/features/billing/use-plan';
+import { thanksVerified } from '@/features/membership/membership-surface';
 
 /** Same URL `profile.tsx`'s Membership section already hands a paying user to. */
 const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
@@ -20,12 +21,24 @@ const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 /**
  * MB-06 — "Bought, straight back to the thing they wanted."
  *
- * Reached exactly once: `use-gate.ts` pushes here the instant `onDismiss`
- * reports a real `purchased` or `restored` result, never on a silent skip
- * (contract §7, and see the long comment on `Presentation.purchase` there
- * for why that distinction matters — a skip means the user already had
- * access and never bought anything, and this screen would be lying about a
- * receipt that does not exist).
+ * Pushed by `use-gate.ts` the instant `onDismiss` reports a real `purchased`
+ * or `restored` result, never on a silent skip (contract §7, and see the long
+ * comment on `Presentation.purchase` there for why that distinction matters —
+ * a skip means the user already had access and never bought anything).
+ *
+ * ── "REACHED EXACTLY ONCE" WAS AN ASSUMPTION, NOT A GUARANTEE ─────────────
+ *
+ * `/membership-thanks` is a path in the route tree like any other. A typed
+ * deep link reaches it, a restored navigation state reaches it, and any
+ * `router.push` somebody adds later reaches it — and on every one of those the
+ * screen opened with "You're in." and "Your purchase went through", which is a
+ * receipt printed from a URL. Navigation is not evidence of a transaction.
+ *
+ * The evidence is `paywall-origin.ts`'s record, which `settle()` writes on a
+ * real purchase or restore and on nothing else. `thanksVerified()` is the one
+ * question this screen asks of it; without it the page draws a neutral
+ * reconciliation — what the subscription read says, and a way back — and never
+ * claims anything was bought.
  */
 export default function MembershipThanksScreen() {
   const qc = useQueryClient();
@@ -35,6 +48,7 @@ export default function MembershipThanksScreen() {
   // "Upgrade") must not rewrite the origin out from under a thanks screen
   // that is already on the stack — see paywall-origin.ts's own note.
   const [origin] = useState<PaywallOrigin | null>(() => peekPaywallOrigin());
+  const verified = thanksVerified(origin);
 
   // The webhook that fills `subscriptions.plan` and `current_period_end`
   // (`supabase/functions/superwall-webhook`) can genuinely lag the purchase
@@ -69,10 +83,21 @@ export default function MembershipThanksScreen() {
 
   const planKnown = !plan.loading && plan.plan !== 'free';
 
+  /**
+   * Clear on the way out, however the reader leaves.
+   *
+   * `goBack` already clears, but a swipe-back dismisses the screen without
+   * touching it — and a record left standing is a later, unrelated visit to
+   * this route inheriting a purchase that has already been reported. The
+   * origin's own docblock has always described this cleanup; nothing did it.
+   */
+  useEffect(() => clearPaywallOrigin, []);
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
       <View className="flex-1 justify-center px-gutter">
         <MembershipThanksView
+          verified={verified}
           loading={plan.loading}
           planKnown={planKnown}
           planName={`Cinch ${PLANS[plan.plan].name}`}

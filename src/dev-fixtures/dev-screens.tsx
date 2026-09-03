@@ -608,6 +608,7 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['MM-19 · paywall declined', '/dev-mm-19-upgrade-declined'],
       ['MM-20 · paywall unavailable', '/dev-mm-20-upgrade-unavailable'],
       ['MM-21 · upgrade deep-link refusal', '/dev-mm-21-upgrade-refusal'],
+      ['MM-22 · plans, free account', '/dev-mm-22-plans-free'],
     ],
   ],
   [

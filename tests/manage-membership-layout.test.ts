@@ -35,7 +35,6 @@ import {
   mastheadTier,
   membershipDateLong,
   NEAR_LIMIT_SLOTS,
-  NO_MEMBERSHIP_LINE,
   PAID_MARK_PREFIX,
   PRO_IS_LARGEST,
   RESTORE_FAILED,
@@ -221,17 +220,34 @@ test('a failed read is never drawn as free, and never as an alarm', () => {
   assert.doesNotMatch(`${UNCONFIRMED_TITLE} ${UNCONFIRMED_BODY}`, /\bfree\b|expired|cancelled/i);
 });
 
-test('the free refusal carries no upsell', () => {
-  assert.match(NO_MEMBERSHIP_LINE, /no membership on this account/);
-  assert.doesNotMatch(NO_MEMBERSHIP_LINE, /upgrade|subscribe|join|get /i);
-});
-
-test('the upgrade deep-link refusal names the tier from PLANS and offers a way back', () => {
+/**
+ * REPLACES 'the free refusal carries no upsell' (2026-09-02).
+ *
+ * That test pinned `NO_MEMBERSHIP_LINE` — "There is no membership on this
+ * account to manage." — and its rule was right about upsell-on-a-refusal and
+ * wrong that this was a refusal at all. The founder's audit found the sentence
+ * shown to an account that Today and Closet were actively selling to, beside
+ * an Upgrade route telling the same account it was already on Pro. The state
+ * is a confirmed free account, not a rejection, and it now draws the
+ * comparison and one door. The constant is deleted;
+ * `tests/membership-surface.test.ts` owns what that state may say.
+ *
+ * What survives from the old rule is the part that was about copy rather than
+ * about the state: no page in this pair sells on an error or an absence. The
+ * failed read above still carries no offer, and the assertion below still
+ * holds the ONE refusal that remains to naming the tier it is refusing for.
+ */
+test('the upgrade refusal is only ever true, and offers a way back', () => {
   assert.equal(canUpgrade('pro'), false);
   assert.equal(canUpgrade('free'), false);
   assert.equal(canUpgrade('standard'), true);
   assert.ok(upgradeRefusedBody().includes(PLANS.pro.name));
   assert.match(UPGRADE_REFUSED_TITLE, /Nothing to move to/);
+  // And it is now reached only by a PAYING Pro member — `canUpgrade('free')`
+  // being false no longer routes a free account into Pro's sentence. See
+  // `upgradeSurface` in tests/membership-surface.test.ts.
+  const body = readFileSync('src/components/membership/upgrade-body.tsx', 'utf8');
+  assert.match(body, /surface\.kind === 'at-top'/);
 });
 
 // ---------------------------------------------------------------------------
@@ -307,7 +323,14 @@ test('the upgrade routing is the shipped routing, opened through the gate alone'
 
 test('the upgrade row still renders only for a member who can move', () => {
   const body = readFileSync('src/components/membership/membership-body.tsx', 'utf8');
-  assert.match(body, /canUpgrade\(plan\)/);
+  // WAS `canUpgrade(plan)`, read straight in the layout. It now reads
+  // `surface.upgradable`, which is `canUpgrade` applied to a PAID account
+  // inside `membershipSurface()` — the same rule, asked once, so that MB-08
+  // and MB-09 cannot answer it differently for the same reader. The
+  // eligibility function is still the only implementation of the rule;
+  // tests/membership-surface.test.ts holds that.
+  assert.match(body, /surface\.upgradable/);
+  assert.doesNotMatch(body, /canUpgrade\(/);
   // And the row's own label is still the one `manage-membership.ts` owns,
   // rather than a second copy of the string in a layout.
   assert.match(body, /UPGRADE_ROW_LABEL/);

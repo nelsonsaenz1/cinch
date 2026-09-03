@@ -86,9 +86,34 @@ test('a trial is drawn only when the read returns one, and always with its end',
   assert.equal(membershipRowFor(base).state, 'confirmed');
 });
 
-test('a settled free account draws no row', () => {
+/**
+ * REPLACES 'a settled free account draws no row' (2026-09-02).
+ *
+ * Correction 30 hid the free row because there was no Free membership object
+ * for one to be about, and because `/membership` refused a free account with a
+ * single sentence. Both halves of that have changed: the page now draws the
+ * comparison and a door, and the founder's audit found the hidden row was
+ * leaving free accounts with no way to reach it from Settings while Today and
+ * Closet were selling to them.
+ *
+ * The objection the old test encoded — that printing "Free" presents
+ * `usePlan()`'s least-privilege default as a confirmed fact — is answered by
+ * where the branch sits rather than by hiding it: `loading` and `unconfirmed`
+ * are both ruled out above it, which is what makes this answer confirmed. The
+ * two states that have genuinely read nothing still name no tier, and the test
+ * above still holds them to it.
+ */
+test('a settled free account names its tier and opens the page', () => {
   const row = membershipRowFor(base);
-  assert.equal(row.visible, false);
+  assert.equal(row.visible, true);
+  assert.equal(row.state, 'confirmed');
+  assert.equal(row.label, `Cinch ${PLANS.free.name}`);
+  assert.equal(row.chevron, true);
+  assert.equal(row.retry, false);
+  // The ceiling it actually holds, from PLANS — and still no price, no offer
+  // and no upgrade word on the row itself.
+  assert.ok(row.value.includes(String(PLANS.free.items)));
+  assert.doesNotMatch(`${row.label} ${row.value}`, /\$|price|renew|upgrade|subscribe/i);
 });
 
 test('no membership surface prints a price or a duration', () => {

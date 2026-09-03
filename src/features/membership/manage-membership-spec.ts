@@ -52,8 +52,14 @@ export const UPGRADE_EYEBROW = 'MOVE TO PRO';
  * "Checking…" is set as the plate rather than as a line under one, because a
  * masthead that printed a tier it had not read would be the lie this whole
  * page is organised against. `MASTHEAD_UNREAD` is the neutral word the failed
- * read and the free refusal both stand under — never "Cinch Free", which would
- * present `usePlan()`'s least-privilege default as a confirmed fact.
+ * read stands under — never "Cinch Free", which would present `usePlan()`'s
+ * least-privilege default as a confirmed fact.
+ *
+ * A CONFIRMED free account does name its tier, and that is not the same
+ * claim: `membershipSurface()` reaches that state only after `loading` and
+ * `unconfirmed` are both ruled out, so "Cinch Free" there is a read rather
+ * than a default. The two states that have genuinely read nothing still name
+ * nothing.
  */
 export const MASTHEAD_CHECKING = 'Checking…';
 export const MASTHEAD_UNREAD = 'Membership';
@@ -330,14 +336,23 @@ export const PRO_IS_LARGEST: CapacityAdvice = {
 // ---------------------------------------------------------------------------
 
 /**
- * A confirmed free account, reached by a typed deep link.
+ * ── THE FREE REFUSAL IS GONE (2026-09-02) ─────────────────────────────────
  *
- * One truthful sentence and a way back. NO UPSELL is placed on a refusal — the
- * first purchase is the paywall's own job at `reveal_complete` and the limit
- * placements, and a refusal that turns into a sales page is the pattern this
- * page exists to not be.
+ * `NO_MEMBERSHIP_LINE` — "There is no membership on this account to manage." —
+ * stood here, drawn to a confirmed free account with one way back. It was
+ * written for a page nobody was supposed to reach without a subscription, and
+ * the reasoning under it was sound as far as it went: no upsell is placed on a
+ * refusal.
+ *
+ * The mistake was upstream of the copy. That reader was not refused anything.
+ * They opened the membership page of an app that had been selling them a
+ * membership on Today and in Closet, and the page told them there was nothing
+ * there. The state is not a refusal, so it does not get refusal copy — it gets
+ * what it holds, what each tier adds, and one door. `membership-surface.ts`
+ * owns the distinction now, and `tests/membership-surface.test.ts` holds it.
+ *
+ * The way back stays; every state on both pages has one.
  */
-export const NO_MEMBERSHIP_LINE = 'There is no membership on this account to manage.';
 export const BACK_TO_SETTINGS = 'Back to Settings';
 
 /** The read failed. Never collapsed into "free" — see `use-plan.ts`. */
@@ -433,8 +448,17 @@ export const BACK_TO_MEMBERSHIP = 'Back to membership';
  * a screen-reader user assemble the comparison themselves out of fragments
  * that arrive in the order the layout happened to place them.
  */
-export function deltaSpoken(delta: { label: string; from: string; to: string }): string {
-  return `${delta.label}. Now ${delta.from}. On ${PLANS.pro.name}, ${delta.to}.`;
+export function deltaSpoken(
+  delta: { label: string; from: string; to: string },
+  /**
+   * The tier the right-hand column is. Defaults to Pro, which is the only
+   * answer MB-09 has ever had; the free comparison draws one plate per paid
+   * tier and has to name whichever it is, or a screen-reader user hears the
+   * Standard table announce Pro's name against Standard's figures.
+   */
+  toName: string = PLANS.pro.name,
+): string {
+  return `${delta.label}. Now ${delta.from}. On ${toName}, ${delta.to}.`;
 }
 
 /**

@@ -165,7 +165,12 @@ export default function SettingsScreen() {
     loading: plan.loading,
     unconfirmed: plan.unconfirmed,
   });
-  const paidPlan = !plan.trialing && plan.plan !== 'free';
+  // `usePlan().paid` and not a fourth re-derivation of it. The delete card's
+  // subscription clause is about a STORE SUBSCRIPTION that keeps billing, and
+  // `!trialing && plan !== 'free'` answered a different question: it dropped
+  // the clause for a paying member whose row still carried an old
+  // `trial_ends_at`, which is the one account that most needs to read it.
+  const paidPlan = plan.paid;
 
   // "Cinch 1.0.0 (218)" — expo-constants carries the config version in every
   // build. The iOS build number only exists once EAS stamps one in; until then

@@ -164,11 +164,12 @@ export default function ProfileScreen() {
 
   const openPlans = useCallback(() => {
     setPlanUnavailable(false);
-    // A Standard member has a page of their own to read; a free member has no
-    // membership to manage, so they get the file's own generic "See plans"
-    // door — the same placement and the same paywall as every other one. This
-    // is the routing exactly as it shipped; the redesign moved the row, not the
-    // door behind it.
+    // A Standard member has a delta page of their own to read; everybody else
+    // gets the generic "See plans" door — the same gate, the same paywall as
+    // every other one. Unchanged routing, and it is now consistent with what
+    // `/membership-upgrade` does on its own: a free or trialing account that
+    // reaches that route by deep link meets the comparison rather than the
+    // "already on Pro" refusal it used to.
     if (plan.plan === 'standard') {
       router.push('/membership-upgrade' as Href);
       return;
@@ -181,6 +182,40 @@ export default function ProfileScreen() {
   }, [gate, plan.plan, router]);
 
   const username = myProfile.data?.username ?? '';
+
+  /**
+   * Does this account have a profile of its own yet?
+   *
+   * PR-C1's example card answers "what will my profile look like", and that is
+   * a question only somebody who has not made one is asking. It was gated on a
+   * first VISIT instead — one AsyncStorage flag, per install — so an
+   * established account that reinstalled, or simply never opened Profile,
+   * opened its own room to a fictional stranger's card above its own name.
+   *
+   * THREE SIGNALS, and they are the three the card itself draws: a display
+   * name, a handle and an avatar. Any one of them is a profile somebody has
+   * made on purpose. Deliberately NOT part of it:
+   *
+   *   - the Apple Sign In `full_name` that `fetchProfileHeader` falls back to.
+   *     It was captured at signup and never chosen, so treating it as a
+   *     profile would hide the card from every account that has one, which is
+   *     every account.
+   *   - closet size, outfit count, friends. They are evidence of an
+   *     established ACCOUNT and say nothing about whether the identity a
+   *     friend would see has been filled in — which is the only thing this
+   *     card is about.
+   *
+   * Held until the read SETTLES. An empty `myProfile` mid-flight looks exactly
+   * like an empty profile, and a card that flashes over an established
+   * account's name for a beat is the same defect one frame shorter.
+   */
+  const hasOwnProfile =
+    myProfile.isSuccess &&
+    Boolean(
+      myProfile.data?.displayName?.trim() ||
+        myProfile.data?.username?.trim() ||
+        myProfile.data?.avatarUrl?.trim(),
+    );
 
   const view: ProfileView = useMemo(() => {
     const state = profileBodyState({
@@ -274,15 +309,25 @@ export default function ProfileScreen() {
       onAddClothes: () => router.push('/add-clothes'),
 
       /**
-       * PR-C1 — the coaching card, on the first visit only.
+       * PR-C1 — the coaching card, for an account with no profile of its own.
        *
-       * Held back until the header query settles, so the destination is decided
-       * on the real handle and photograph rather than on the empty strings a
+       * Two conditions now, and the second is the new one: the card is still
+       * shown once per install, and it is only ever shown to somebody it is
+       * about (`hasOwnProfile` — see its note above). An established account
+       * leads with its own identity, which is what the row under this slot has
+       * always been.
+       *
+       * Held back until both reads settle, so the destination is decided on
+       * the real handle and photograph rather than on the empty strings a
        * loading query returns. PR-C2 is this screen with the card absent, and
        * nothing replaces it: no banner, no dot, no second invitation.
        */
       coaching:
-        coaching.show && !profileHeader.isLoading && !profileHeader.isError ? (
+        coaching.show &&
+        myProfile.isSuccess &&
+        !hasOwnProfile &&
+        !profileHeader.isLoading &&
+        !profileHeader.isError ? (
           <ProfileCoachingCard
             destination={coachingDestination({
               handle: username,
@@ -318,6 +363,8 @@ export default function ProfileScreen() {
     grid,
     kept,
     menuOpen,
+    hasOwnProfile,
+    myProfile.isSuccess,
     numbers,
     openPlans,
     outfitCount,

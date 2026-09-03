@@ -14,12 +14,12 @@ import { usePlan } from '@/features/billing/use-plan';
  * `membership_upgrade` → campaign 101571 → paywall 254200, opened through
  * `useGate` and through nothing else. `features/billing/` is untouched.
  *
- * Reached from MB-08's "Move to Pro" row, which renders only once the
- * subscription read has confirmed a paid plan below Pro. A free account has no
- * upgrade — it has a first purchase, which is the paywall's own job at
- * `reveal_complete` and the limit placements — and a Pro member has nothing
- * above them. Both reach this route only as a typed deep link, and both are
- * refused with a way back.
+ * Reached from MB-08's "Move to Pro" row, from Profile's plan door, and by
+ * deep link. `upgradeSurface()` decides what that means for the account that
+ * arrived: a paying member below Pro sees the delta, a paying Pro member sees
+ * the one refusal that is true of them, and a free or trialing account sees
+ * the comparison and the same gate — never "This account is already on Pro",
+ * which is what the single shipped refusal told both of them.
  */
 export default function MembershipUpgradeScreen() {
   const router = useRouter();
@@ -49,7 +49,11 @@ export default function MembershipUpgradeScreen() {
     <UpgradeBody
       onBack={() => router.back()}
       loading={plan.loading}
+      unconfirmed={plan.unconfirmed}
       plan={plan.plan}
+      paid={plan.paid}
+      trialing={plan.trialing}
+      trialEndsAt={plan.trialEndsAt}
       opening={opening}
       unavailable={unavailable}
       declined={declined}
