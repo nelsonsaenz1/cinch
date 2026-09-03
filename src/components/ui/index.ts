@@ -44,6 +44,10 @@ export {
   type PressableSurfaceProps,
 } from '@/components/ui/pressable-surface';
 export { Rule } from '@/components/ui/rule';
+// The route-level half of the bounded loading contract — `@/lib/bounded-load`
+// holds the rule, `@/lib/use-bounded-load` holds the clock, and this draws the
+// four states a screen should not design for itself.
+export { RouteState, type RouteStateProps } from '@/components/ui/route-state';
 export { SearchField, type SearchFieldProps } from '@/components/ui/search-field';
 export { BackButton, ScreenHeader, type ScreenHeaderProps } from '@/components/ui/screen-header';
 export { SectionHeader, type SectionHeaderProps } from '@/components/ui/section-header';

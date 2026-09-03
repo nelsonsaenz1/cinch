@@ -10,6 +10,8 @@ import { ErrorState } from '@/components/ui/error-state';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
 import { ListSkeleton } from '@/components/ui/skeleton';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import {
   DISMISS_SCOPE,
   INVITATION_PROMISE,
@@ -110,6 +112,21 @@ export default function InvitationDetailScreen() {
   );
 
   const loading = event.isLoading || (Boolean(circleId) && invitations.isLoading);
+
+  /**
+   * UX #59 — the activity detail's skeleton is bounded now.
+   *
+   * The header and the retry were already here; the wait was not. A read that
+   * never settles left three placeholder rows shimmering under "Loading your
+   * activity…" with nothing to press, which is the finding's "no progress or
+   * timeout signal" exactly.
+   */
+  const load = useBoundedLoad({
+    loading,
+    error: event.isError,
+    retrying: event.isRefetching || invitations.isRefetching,
+    onRetry: () => void event.refetch(),
+  });
   // Resolved and not answerable, by any of the three routes above.
   const revoked =
     !loading && (!event.data || Boolean(event.data.revokedAt) || !stillPending);
@@ -132,14 +149,20 @@ export default function InvitationDetailScreen() {
         backLabel={NAV_TITLE}
       />
 
-      {loading ? (
+      {load.state === 'skeleton' ? (
         <ListSkeleton count={3} label="Loading your activity…" />
-      ) : event.isError ? (
+      ) : load.failed ? (
         // A failed READ is not a revoked event. Rendering the revoked state
         // here asserted "no longer available" over a connection problem
-        // (2026-09-02 audit); this says only that the read failed, and offers it again.
+        // (2026-09-02 audit); this says only that the read failed, and offers it
+        // again. UX #59 adds the second half: a read that never returns now ends
+        // here too, in the timeout's own words, rather than shimmering forever.
         <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-          <ErrorState onRetry={() => void event.refetch()} retrying={event.isRefetching} />
+          <ErrorState
+            {...(load.timedOut ? BOUNDED_TIMEOUT_COPY : {})}
+            onRetry={load.retry}
+            retrying={load.retrying}
+          />
         </View>
       ) : revoked ? (
         // AC-05. Inert, explained, and dismissible — never an error and never a

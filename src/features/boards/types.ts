@@ -64,4 +64,20 @@ export type KeptPlate = {
    * fourth cell stays empty rather than the grid stretching.
    */
   imagePaths: (string | null)[];
+  /**
+   * What each of those four cells says when there is no photograph in it —
+   * UX #62's "every image surface needs a meaningful fallback (garment
+   * name/type/color), not a blank tile".
+   *
+   * Four entries, index-aligned with `imagePaths`, so the tile never correlates
+   * two lists. Both fields are null for a cell with no piece behind it and for
+   * a piece the tagger left untagged; a null is drawn as the plate's own ground
+   * rather than as an invented word.
+   */
+  cells: {
+    /** "Shearling coat" — the tagger's word, or the bucket. */
+    label: string | null;
+    /** `items.colors[0]`, for the swatch. */
+    color: { hex: string | null; name: string | null } | null;
+  }[];
 };

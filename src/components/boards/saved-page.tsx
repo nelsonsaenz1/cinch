@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PlateCard, PlateCardSkeleton } from '@/components/boards/plate-card';
 import { BackButton, Button, Chip, ErrorState, Skeleton, Text } from '@/components/ui';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
 import {
   allChipLabel,
   boardChipLabel,
@@ -34,6 +35,13 @@ const COLUMN_GAP = 14;
 export type SavedPageProps = {
   loading: boolean;
   error: boolean;
+  /**
+   * The bounded contract's timeout — the skeleton outran its window and the
+   * read is still out. Drawn as an error because it needs the same retry and
+   * the same way back, but never in the error's words: "couldn’t reach it" is
+   * a claim about a request that came back, and this one has not.
+   */
+  timedOut?: boolean;
   retrying?: boolean;
   onRetry?: () => void;
   /** Every kept plate. `All` is the whole set; the chips lead elsewhere. */
@@ -61,6 +69,7 @@ export type SavedPageProps = {
 export function SavedPage({
   loading,
   error,
+  timedOut = false,
   retrying = false,
   onRetry,
   plates,
@@ -110,7 +119,7 @@ export function SavedPage({
           <Text variant="display" trim accessibilityRole="header">
             Saved looks
           </Text>
-          {!loading && !error && summary ? (
+          {!loading && !error && !timedOut && summary ? (
             <Text variant="note" className="mt-2">
               {summary}
             </Text>
@@ -164,15 +173,19 @@ export function SavedPage({
           </View>
         ) : null}
 
-        {error ? (
+        {error || timedOut ? (
           // Not an empty state. An empty state claims there is nothing kept,
           // and an unread collection is not an empty one — the distinction
           // `EmptyState`'s own docblock exists to hold.
           <View className="pt-4">
             <ErrorState
-              kicker="Couldn’t reach it"
-              title="Couldn’t read what you’ve kept"
-              body="Cinch couldn’t reach your saved looks just now. Nothing has been lost — this is a connection problem, and everything you kept is still there."
+              {...(timedOut
+                ? BOUNDED_TIMEOUT_COPY
+                : {
+                    kicker: 'Couldn’t reach it',
+                    title: 'Couldn’t read what you’ve kept',
+                    body: 'Cinch couldn’t reach your saved looks just now. Nothing has been lost — this is a connection problem, and everything you kept is still there.',
+                  })}
               onRetry={onRetry}
               retrying={retrying}
             />

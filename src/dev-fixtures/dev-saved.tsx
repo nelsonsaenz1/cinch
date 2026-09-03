@@ -69,6 +69,10 @@ function plate(
     wornCount,
     itemIds: images.map((_, i) => `${id}-item-${i}`),
     imagePaths: [images[0] ?? null, images[1] ?? null, images[2] ?? null, images[3] ?? null],
+    // Every fixture piece HAS a photograph, so UX #62's pictureless treatment
+    // never fires here. Empty cells rather than invented names: a fixture that
+    // posed a swatch nobody's data would produce is a fixture of nothing.
+    cells: [0, 1, 2, 3].map(() => ({ label: null, color: null })),
   };
 }
 

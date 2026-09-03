@@ -1,10 +1,12 @@
 import { SymbolView } from 'expo-symbols';
 import { ScrollView, View } from 'react-native';
 
+import { GarmentFallback } from '@/components/media/garment-fallback';
 import { GarmentImage } from '@/components/media/garment-image';
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
 import {
   BADGE_RADIUS,
   BAND_DOT,
@@ -104,7 +106,23 @@ import { GUTTER, MIN_TAP_TARGET, canvasAlpha, useTheme, warningAlpha } from '@/t
 // The view
 // ---------------------------------------------------------------------------
 
-export type TripTile = { uri?: string };
+/**
+ * One garment well on a trip's collage.
+ *
+ * `uri` alone until UX #62: "trips become grids of indistinguishable beige
+ * blocks." Four wells drawing `<View />` for a fallback made every unpacked
+ * trip the same picture, and a bag whose garments have no cutouts was a set of
+ * empty rectangles that read as a broken image rather than as a bag. The label
+ * and the colour are what the well says instead — both read off the reader's
+ * own closet row, neither invented here.
+ */
+export type TripTile = {
+  uri?: string;
+  /** "Shearling coat" — the tagger's word, or the bucket. Empty for no piece. */
+  label?: string;
+  /** The piece's first colour, for the swatch. Null when it has none. */
+  color?: { hex?: string | null; name?: string | null } | null;
+};
 
 export type TripCardView = {
   id: string;
@@ -127,6 +145,13 @@ export type TripsListView = {
   loading: boolean;
   /** The refresh failed and what is drawn is what the device already had. */
   offline: boolean;
+  /**
+   * The bounded contract's timeout — the shelf read is STILL out rather than
+   * having come back wrong. Drawn in the offline frame (same band, same cached
+   * rows, same Try again) with the timeout's own words: "Offline" is a
+   * diagnosis, and nothing here has diagnosed anything yet.
+   */
+  timedOut?: boolean;
   /** The soonest upcoming trip, drawn full-bleed. */
   next: TripCardView | null;
   /** Everything upcoming after that one. */
@@ -298,15 +323,20 @@ function PaperEyebrow({ label }: { label: string }) {
  * container rather than as a border on each — the same construction the event
  * poster's plate and the Plan week's plate both use.
  */
-function Well({ uri, ground }: { uri?: string; ground: string }) {
+function Well({ tile, ground }: { tile?: TripTile; ground: string }) {
   return (
     <View style={{ flex: 1, minWidth: 0, backgroundColor: ground, overflow: 'hidden' }}>
       <GarmentImage
-        uri={uri}
+        uri={tile?.uri}
         contentFit="cover"
         transition={140}
         style={{ width: '100%', height: '100%' }}
-        fallback={<View />}
+        // A cell with no piece behind it stays blank, which is right — a
+        // three-piece bag has a fourth well by design. A cell that HAS a piece
+        // and no photograph says which piece, on that piece's colour.
+        fallback={
+          tile?.label ? <GarmentFallback label={tile.label} color={tile.color} /> : <View />
+        }
       />
     </View>
   );
@@ -334,7 +364,7 @@ function HeroCollage({ tiles, large }: { tiles: TripTile[]; large: boolean }) {
         flexShrink: 0,
       }}>
       {grounds.map((ground, i) => (
-        <Well key={i} uri={tiles[i]?.uri} ground={ground} />
+        <Well key={i} tile={tiles[i]} ground={ground} />
       ))}
     </View>
   );
@@ -363,9 +393,9 @@ function CardCollage({ tiles, large, size }: { tiles: TripTile[]; large: boolean
           overflow: 'hidden',
           flexShrink: 0,
         }}>
-        <Well uri={tiles[0]?.uri} ground={theme.sand} />
-        <Well uri={tiles[1]?.uri} ground={theme.tray} />
-        <Well uri={tiles[2]?.uri} ground={theme.sand} />
+        <Well tile={tiles[0]} ground={theme.sand} />
+        <Well tile={tiles[1]} ground={theme.tray} />
+        <Well tile={tiles[2]} ground={theme.sand} />
       </View>
     );
   }
@@ -382,12 +412,12 @@ function CardCollage({ tiles, large, size }: { tiles: TripTile[]; large: boolean
         flexShrink: 0,
       }}>
       <View style={{ flex: 1, minHeight: 0, flexDirection: 'row', gap: CARD_THUMB_GAP }}>
-        <Well uri={tiles[0]?.uri} ground={theme.sand} />
-        <Well uri={tiles[1]?.uri} ground={theme.tray} />
+        <Well tile={tiles[0]} ground={theme.sand} />
+        <Well tile={tiles[1]} ground={theme.tray} />
       </View>
       <View style={{ flex: 1, minHeight: 0, flexDirection: 'row', gap: CARD_THUMB_GAP }}>
-        <Well uri={tiles[2]?.uri} ground={theme.tray} />
-        <Well uri={tiles[3]?.uri} ground={theme.sand} />
+        <Well tile={tiles[2]} ground={theme.tray} />
+        <Well tile={tiles[3]} ground={theme.sand} />
       </View>
     </View>
   );
@@ -635,7 +665,16 @@ function PastRow({ trip, last, onOpen }: { trip: PastTripView; last: boolean; on
           contentFit="cover"
           transition={140}
           style={{ width: '100%', height: '100%' }}
-          fallback={<View />}
+          fallback={
+            trip.tile?.label ? (
+              // One small square standing for a whole past trip: at 40pt the
+              // name will not fit, so the colour alone carries it. Better a
+              // real colour from the bag than a tray-coloured hole.
+              <GarmentFallback label={null} color={trip.tile.color} />
+            ) : (
+              <View />
+            )
+          }
         />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
@@ -763,7 +802,7 @@ function EmptyBody() {
  * and #4A3208 are neither palette tokens nor legal as type under
  * `theme/contrast.ts`; ink is darker and passes.
  */
-function OfflineBand({ cached }: { cached: boolean }) {
+function OfflineBand({ cached, timedOut = false }: { cached: boolean; timedOut?: boolean }) {
   const theme = useTheme();
   return (
     <View
@@ -790,14 +829,18 @@ function OfflineBand({ cached }: { cached: boolean }) {
           }}
         />
         <Text variant="eyebrow" style={{ color: theme.ink }}>
-          {TRIPS_COPY.offlineKicker}
+          {timedOut ? BOUNDED_TIMEOUT_COPY.kicker : TRIPS_COPY.offlineKicker}
         </Text>
       </View>
       <Text variant="title" accessibilityRole="header" style={{ paddingBottom: 2 }}>
-        {TRIPS_COPY.offlineTitle}
+        {timedOut ? BOUNDED_TIMEOUT_COPY.title : TRIPS_COPY.offlineTitle}
       </Text>
       <Text variant="body" className="text-muted" style={{ maxWidth: 290 }}>
-        {cached ? TRIPS_COPY.offlineBody : TRIPS_COPY.offlineBodyEmpty}
+        {timedOut
+          ? BOUNDED_TIMEOUT_COPY.body
+          : cached
+            ? TRIPS_COPY.offlineBody
+            : TRIPS_COPY.offlineBodyEmpty}
       </Text>
     </View>
   );
@@ -916,7 +959,7 @@ export function TripsListBody({ view, large = false }: { view: TripsListView; la
             <WaitingBody />
           ) : view.offline ? (
             <>
-              <OfflineBand cached={cached.length > 0} />
+              <OfflineBand cached={cached.length > 0} timedOut={view.timedOut} />
               {cached.length > 0 ? (
                 <>
                   <PaperEyebrow label={TRIPS_COPY.cached} />

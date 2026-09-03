@@ -8,6 +8,7 @@ import {
   useExportDownloadLink,
   useRequestDataExport,
 } from '@/features/privacy/use-data-export';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 
 /**
  * PD-04 / PD-05 — Export your data.
@@ -24,13 +25,33 @@ export default function ExportDataScreen() {
   const request = useRequestDataExport();
   const download = useExportDownloadLink();
 
+  /**
+   * UX #52 — the export history's skeleton is bounded now.
+   *
+   * "Data Export enters two large unlabeled skeleton blocks with no visible
+   * progress, retry, or explanation." The retry existed but only behind a
+   * failure; a read that simply never returned left the two blocks shimmering
+   * with nothing to press. The bound gives that wait an end and the same retry.
+   *
+   * The ASYNCHRONY the finding also asks about is a different read: the archive
+   * itself is assembled server-side and mailed, and the pending card below
+   * already says so in words ("You can leave this screen — the email arrives
+   * at …"). What was missing was that the WAIT ON THE HISTORY did not say it
+   * was a different thing; the labelled skeleton in `ExportPage` now does.
+   */
+  const load = useBoundedLoad({
+    loading: exports.isLoading,
+    error: exports.isError,
+    retrying: exports.isRefetching,
+    onRetry: () => void exports.refetch(),
+  });
+
   return (
     <ExportPage
-      loading={exports.isLoading}
-      error={exports.isError}
-      onRetry={() => {
-        void exports.refetch();
-      }}
+      loading={load.state === 'skeleton'}
+      error={load.state === 'error'}
+      timedOut={load.timedOut}
+      onRetry={load.retry}
       exports={exports.data ?? []}
       email={email.data ?? null}
       requesting={request.isPending}

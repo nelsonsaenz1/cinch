@@ -147,13 +147,51 @@ export function PackingGate({
       </Text>
 
       {unavailable ? (
-        // `muted`, not `faint`: this line is the only statement of why there
-        // is no button, so it is real content, and `faint` on canvas fails
-        // AA (see the contrast note in ui/text.tsx). Quiet is the voice, not
-        // the contrast.
-        <Text variant="body" className="mt-3 text-muted">
-          Membership opens soon — Packing unlocks with it.
-        </Text>
+        /*
+         * UX #64 — this line used to read "Membership opens soon — Packing
+         * unlocks with it."
+         *
+         * That was true while the membership sheet was unbuilt, and it stopped
+         * being true the moment membership shipped. Inside a live App Store
+         * product it is now a false statement about a released feature: it
+         * tells a reader who could subscribe right now that the thing she is
+         * looking at does not exist yet, and it gives her nothing to do. What
+         * actually happened is narrower and temporary — StoreKit or Superwall
+         * did not answer on this device, this time — so the line says that,
+         * and the tap is offered again rather than withdrawn.
+         *
+         * `muted`, not `faint`: this is the only statement of why the sheet did
+         * not open, so it is real content, and `faint` on canvas fails AA (see
+         * the contrast note in ui/text.tsx). Quiet is the voice, not the
+         * contrast.
+         *
+         * The GATE itself is untouched. `usePackingAccess` still decides who
+         * gets Packing; this branch only changes what is said when the sheet
+         * behind the button could not be presented.
+         */
+        <View className="mt-3">
+          <Text variant="body" className="text-muted">
+            The membership sheet didn’t open just now. Nothing was charged and nothing about your
+            account has changed — try again, or reach us from Help and we’ll sort it out.
+          </Text>
+          {/*
+            Secondary, not the oxblood fill: this is a recovery step, and the
+            screen's one accent action is reserved for the commitment itself —
+            the same rule `ErrorState` follows for its own retry.
+          */}
+          {/*
+            No busy title: the moment the tap lands, `unlockState` leaves
+            `unavailable` and this whole branch is replaced by the CTA, which
+            carries the spinner. A "Trying…" here could never be rendered.
+          */}
+          <Button
+            title="Try again"
+            variant="secondary"
+            onPress={onUnlock}
+            haptic
+            className="mt-4 self-stretch"
+          />
+        </View>
       ) : (
         // The screen's one oxblood action. It opens the membership sheet,
         // which is where every term — price, period, renewal — is read live

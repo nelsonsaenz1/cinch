@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GarmentFallback } from '@/components/media/garment-fallback';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Rule } from '@/components/ui/rule';
@@ -147,6 +147,7 @@ export function EntryPage(props: EntryPageProps) {
                   key={piece.id}
                   uri={props.resolveImage(piece)}
                   label={pieceTitle(piece)}
+                  colorName={piece.colorName}
                 />
               ))}
             </View>
@@ -302,16 +303,23 @@ export function EntryMissing({ onBack }: { onBack: () => void }) {
 // ---------------------------------------------------------------------------
 
 /** Fitted, never cropped — the same rule as every other well in the app. */
-function PieceWell({ uri, label }: { uri: string | undefined; label: string }) {
-  const theme = useTheme();
-
+function PieceWell({
+  uri,
+  label,
+  colorName,
+}: {
+  uri: string | undefined;
+  label: string;
+  /** `items.colors[0].name` as the diary projects it — "cognac", "olive green". */
+  colorName: string | null;
+}) {
   return (
     <View
       accessible
       accessibilityRole="image"
       accessibilityLabel={label}
       className="items-center justify-center overflow-hidden rounded bg-tray"
-      style={{ width: WELL, height: WELL, padding: 6 }}>
+      style={{ width: WELL, height: WELL, padding: uri ? 6 : 0 }}>
       {uri ? (
         <Image
           source={{ uri }}
@@ -321,12 +329,20 @@ function PieceWell({ uri, label }: { uri: string | undefined; label: string }) {
           accessibilityIgnoresInvertColors
         />
       ) : (
-        <SymbolView
-          name="tshirt"
-          size={26}
-          tintColor={theme.hairline}
-          resizeMode="scaleAspectFit"
-        />
+        /*
+         * UX #62 — this was a `tshirt` glyph in `hairline` on the tray.
+         *
+         * "Diary days… become grids of indistinguishable beige blocks." A
+         * five-piece look with no photographs was five identical squares, so
+         * the composed plate at the top of the day said nothing the rows
+         * underneath did not already say better. The piece's own name and its
+         * own colour are both in the projection; drawn, they make the plate a
+         * likeness of the outfit again.
+         *
+         * The padding drops to zero in this branch on purpose: the swatch IS
+         * the well, edge to edge, where a photograph is a picture inset in one.
+         */
+        <GarmentFallback label={label} color={{ name: colorName }} />
       )}
     </View>
   );

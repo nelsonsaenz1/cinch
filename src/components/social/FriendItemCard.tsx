@@ -1,8 +1,8 @@
-import { SymbolView } from 'expo-symbols';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
+import { GarmentFallback } from '@/components/media/garment-fallback';
 import { GarmentWell } from '@/components/social/garment-well';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
@@ -82,13 +82,20 @@ function FriendItemCardComponent({ item, imageUri, onPress }: FriendItemCardProp
             recyclingKey={item.id}
             contentFit="cover"
             style={{ flex: 1 }}
+            /*
+             * UX #62 — this was a `tshirt` glyph in `hairline` on the tray.
+             *
+             * "Friend closets… become grids of indistinguishable beige blocks."
+             * Literally so: six pictureless pieces were six identical squares
+             * with the same faint outline in them, and a friend whose closet
+             * has not been photographed was unbrowsable. The name is already
+             * composed for the row beneath and for VoiceOver, and her colour is
+             * already in the projection, so the well can simply say what the
+             * piece IS — cognac, and the word "boots" — instead of apologising
+             * for the photograph it does not have.
+             */
             fallback={
-              <SymbolView
-                name="tshirt"
-                size={26}
-                tintColor={theme.hairline}
-                resizeMode="scaleAspectFit"
-              />
+              <GarmentFallback label={friendPieceName(item)} color={item.colors[0] ?? null} />
             }
           />
 

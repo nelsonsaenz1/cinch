@@ -1,11 +1,13 @@
 import { SymbolView } from 'expo-symbols';
 import { ScrollView, TextInput, View, type DimensionValue } from 'react-native';
 
+import { GarmentFallback } from '@/components/media/garment-fallback';
 import { GarmentImage } from '@/components/media/garment-image';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
 import {
   BADGE_DOT,
   BADGE_RADIUS,
@@ -125,6 +127,11 @@ export type DetailTile = {
   /** "Linen shirt", from the reader's own garment. Empty when it is gone. */
   name: string;
   uri?: string;
+  /**
+   * The piece's first colour, for the pictureless well — UX #62. Null when the
+   * garment carries no colour, or when it is no longer in the closet at all.
+   */
+  color?: { hex?: string | null; name?: string | null } | null;
   checked: boolean;
 };
 
@@ -165,6 +172,12 @@ export type TripDetailBody =
       dates: string | null;
       /** How many pieces this device has ticked — the frame's own receipt. */
       ticked: number;
+      /**
+       * The bounded contract's timeout: the read is STILL out rather than
+       * having come back wrong. Same frame, same two ways forward; the kicker
+       * stops saying "Offline", which would be a diagnosis nobody has made.
+       */
+      timedOut?: boolean;
       onRetry: () => void;
       onAllTrips: () => void;
     }
@@ -590,7 +603,17 @@ function PieceTile({
         contentFit="cover"
         transition={140}
         style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}
-        fallback={<View />}
+        /*
+         * UX #62 — this was `<View />` over the group's ground, so a bag of
+         * pictureless pieces was a row of identical tiles with a 10pt overlay
+         * on some of them and nothing on the rest.
+         *
+         * The swatch takes the piece's own colour and leaves the NAME to the
+         * overlay or the line beneath, which already draw it at the right size
+         * for the tile — repeating it inside the swatch would print the same
+         * words twice in the same box.
+         */
+        fallback={<GarmentFallback label={null} color={tile.color} />}
       />
       {showName && !nameBelow && tile.name ? (
         <Text variant="eyebrow" numberOfLines={2} style={{ color: theme.muted }}>
@@ -1125,14 +1148,14 @@ function ErrorBody({
             }}
           />
           <Text variant={large ? 'callout' : 'eyebrow'} style={{ color: theme.ink }}>
-            {TRIP_DETAIL_COPY.offlineKicker}
+            {view.timedOut ? BOUNDED_TIMEOUT_COPY.kicker : TRIP_DETAIL_COPY.offlineKicker}
           </Text>
         </View>
         <Text variant="title" accessibilityRole="header" style={{ paddingBottom: 2 }}>
-          {TRIP_DETAIL_COPY.errorTitle}
+          {view.timedOut ? BOUNDED_TIMEOUT_COPY.title : TRIP_DETAIL_COPY.errorTitle}
         </Text>
         <Text variant="body" className="text-muted" style={{ maxWidth: 290 }}>
-          {TRIP_DETAIL_COPY.errorBody}
+          {view.timedOut ? BOUNDED_TIMEOUT_COPY.body : TRIP_DETAIL_COPY.errorBody}
         </Text>
       </View>
 

@@ -19,6 +19,7 @@ import {
 import { PACKING_HREF, offerBoardToPacking } from '@/features/boards/packing-handoff';
 import type { KeptPlate } from '@/features/boards/types';
 import { useLookbook } from '@/features/boards/use-lookbook';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 
 /**
  * KP-03 — one board open.
@@ -54,6 +55,22 @@ export default function BoardScreen() {
   const [deleting, setDeleting] = useState(false);
   const [moving, setMoving] = useState<{ plate: KeptPlate; boardId: string | null } | null>(null);
 
+  /**
+   * UX #59 / #30 — the board's skeleton is bounded now.
+   *
+   * `useLookbook` reduces two queries to one `loading` and one `error`; what
+   * it could not say was "still waiting, and it has been a while". The bound
+   * turns an indefinite grid of placeholders into a state with a retry, and
+   * the page's own error wording is kept for a real failure and replaced for
+   * the timeout — see `boundedErrorCopy`.
+   */
+  const load = useBoundedLoad({
+    loading: lookbook.loading,
+    error: lookbook.error,
+    retrying: lookbook.retrying,
+    onRetry: lookbook.refetch,
+  });
+
   const board = id ? lookbook.boardById(id) : null;
   const plates = board ? platesOnBoard(lookbook.plates, board.id) : [];
 
@@ -63,7 +80,7 @@ export default function BoardScreen() {
   // deleted on another device, or a stale deep link. Only claimed once both
   // queries have actually answered, so a cold start never accuses the app of
   // losing something it has simply not read yet.
-  if (!board && !lookbook.loading && !lookbook.error) {
+  if (!board && load.state === 'content') {
     return (
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <ScreenHeader align="leading" title="Board" onBack={back} />
@@ -117,10 +134,11 @@ export default function BoardScreen() {
         // would flash a second, different loading screen.
         board={board ?? { id: id ?? '', name: 'Board', startsOn: null, endsOn: null, createdAt: null }}
         plates={plates}
-        loading={lookbook.loading}
-        error={lookbook.error}
-        retrying={lookbook.retrying}
-        onRetry={lookbook.refetch}
+        loading={load.state === 'skeleton'}
+        error={load.state === 'error'}
+        timedOut={load.timedOut}
+        retrying={load.retrying}
+        onRetry={load.retry}
         imageUrisFor={lookbook.imageUrisFor}
         onBack={back}
         onEdit={() => setEditing(true)}

@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GarmentFallback } from '@/components/media/garment-fallback';
+import type { Oklch } from '@/lib/color';
 import { GarmentImage } from '@/components/media/garment-image';
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -124,11 +126,29 @@ import { GUTTER, MIN_TAP_TARGET, canvasAlpha, useTheme, warningAlpha } from '@/t
  * card states is the one that matters, which is whether anybody else can see it
  * yet.
  */
+/**
+ * One cell of a look's plate.
+ *
+ * `uri` alone until UX #62: a garment with no cutout produced an empty sand
+ * rectangle, and three of them produced a board where every look was the same
+ * picture. The label and the colour are what the well says INSTEAD of the
+ * photograph — both facts the route already has on the `Garment` it builds the
+ * option from, neither of them invented here.
+ */
+export type EventLookTile = {
+  /** The signed render, in the usual plate → cutout → thumbnail order. */
+  uri?: string;
+  /** "Shearling coat" — the tagger's word, or the bucket. */
+  label: string;
+  /** The piece's first colour, for the swatch. Null for an untagged piece. */
+  color: { oklch: Oklch } | null;
+};
+
 export type EventLookOption = {
   id: string;
   /** The look's own name. Null when nothing has named it. */
   label: string | null;
-  tiles: { uri?: string }[];
+  tiles: EventLookTile[];
   /** On the board: published through `event_outfit_posts`, and votable. */
   posted: boolean;
   /** Picks so far. Null for a suggestion — a look nobody can see cannot be picked. */
@@ -382,14 +402,14 @@ function Plate({
   label,
   large,
 }: {
-  tiles: { uri?: string }[];
+  tiles: EventLookTile[];
   label: string | null;
   large: boolean;
 }) {
   const theme = useTheme();
   const row = large ? PLATE_ROW_AX : PLATE_ROW;
 
-  const well = (uri: string | undefined, ground: string, absolute = false) => (
+  const well = (tile: EventLookTile | undefined, ground: string, absolute = false) => (
     <View
       style={{
         flex: 1,
@@ -399,11 +419,20 @@ function Plate({
         ...(absolute ? { position: 'absolute' as const, top: 0, right: 0, bottom: 0, left: 0 } : null),
       }}>
       <GarmentImage
-        uri={uri}
+        uri={tile?.uri}
         contentFit="cover"
         transition={140}
         style={{ width: '100%', height: '100%' }}
-        fallback={<View />}
+        /*
+         * UX #62 — this was `<View />`: a genuinely blank tile.
+         *
+         * A cell with no piece behind it at all still draws nothing, which is
+         * correct — a two-piece look has one empty well by design. A cell that
+         * HAS a piece and no photograph now says which piece, on that piece's
+         * own colour, so the board reads as looks rather than as a wall of
+         * sand rectangles.
+         */
+        fallback={tile ? <GarmentFallback label={tile.label} color={tile.color} /> : <View />}
       />
     </View>
   );
@@ -418,7 +447,7 @@ function Plate({
         flexShrink: 0,
       }}>
       <View style={{ flex: 2, minWidth: 0, backgroundColor: theme.sand, justifyContent: 'flex-end' }}>
-        {well(tiles[0]?.uri, theme.sand, true)}
+        {well(tiles[0], theme.sand, true)}
         {/* The look's own name, on the photograph. `colophon` already carries
             the tracked caps and the `muted` the contrast pass moved it to —
             the artifact's #8B8375 is not a token and would fail as type. */}
@@ -429,8 +458,8 @@ function Plate({
         ) : null}
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: PLATE_GAP }}>
-        {well(tiles[1]?.uri, theme.tray)}
-        {large ? null : well(tiles[2]?.uri, theme.sand)}
+        {well(tiles[1], theme.tray)}
+        {large ? null : well(tiles[2], theme.sand)}
       </View>
     </View>
   );

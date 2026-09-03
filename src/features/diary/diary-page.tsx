@@ -7,6 +7,7 @@ import { NoticeBand } from '@/components/ui/notice-band';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
 import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -77,6 +78,12 @@ export type DiaryPageProps = {
   undoneNotice?: string | null;
   loading: boolean;
   error: boolean;
+  /**
+   * The bounded contract's timeout — the skeleton outran its window and the
+   * read is still out. Drawn as an error because it owes the same retry, but
+   * never in the error's words: nothing here has failed yet.
+   */
+  timedOut?: boolean;
   retrying: boolean;
   onRetry: () => void;
   /** True only once the read has succeeded and returned nothing. */
@@ -141,7 +148,9 @@ export function DiaryPage(props: DiaryPageProps) {
       <ScrollView
         className="flex-1"
         contentContainerClassName="pb-16"
-        contentContainerStyle={props.showEmpty || props.error ? { flexGrow: 1 } : undefined}
+        contentContainerStyle={
+          props.showEmpty || props.error || props.timedOut ? { flexGrow: 1 } : undefined
+        }
         refreshControl={
           <RefreshControl
             refreshing={props.refreshing}
@@ -162,10 +171,14 @@ export function DiaryPage(props: DiaryPageProps) {
 
         {props.loading ? (
           <DiarySkeleton />
-        ) : props.error ? (
+        ) : props.error || props.timedOut ? (
           <ErrorState
-            title="Couldn’t read the diary."
-            body="Cinch couldn’t reach your record just now. Nothing you wore has changed — it is all still there."
+            {...(props.timedOut
+              ? BOUNDED_TIMEOUT_COPY
+              : {
+                  title: 'Couldn’t read the diary.',
+                  body: 'Cinch couldn’t reach your record just now. Nothing you wore has changed — it is all still there.',
+                })}
             onRetry={props.onRetry}
             retrying={props.retrying}
           />

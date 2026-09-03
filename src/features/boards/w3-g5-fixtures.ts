@@ -50,6 +50,20 @@ function plate(input: {
     itemIds: input.pieces.map((_, i) => `${input.id}-item-${i}`),
     // Four cells, always — the read path's own shape (`toKeptPlate`).
     imagePaths: [0, 1, 2, 3].map((i) => input.pieces[i] ?? null),
+    /*
+     * UX #62's pictureless cell, posed for the frame that has one.
+     *
+     * `SV_MISSING` deliberately carries a piece with no photograph, and that
+     * cell is exactly what the finding is about: it used to be a silhouette in
+     * `rule`, indistinguishable from every other pictureless cell in the
+     * lookbook. The fixture gives it a real word and a real colour so the
+     * captured frame shows the treatment the read path now produces.
+     */
+    cells: [0, 1, 2, 3].map((i) =>
+      i < input.pieces.length && input.pieces[i] == null
+        ? { label: 'Corduroy skirt', color: { hex: null, name: 'beige' } }
+        : { label: null, color: null },
+    ),
   };
 }
 

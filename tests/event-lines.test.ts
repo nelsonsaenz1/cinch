@@ -225,6 +225,8 @@ test('the spoken label reads the card in the order the card is drawn', () => {
 
 const DETAIL = readFileSync('src/app/event/[id]/index.tsx', 'utf8');
 const DETAIL_BODY_SRC = readFileSync('src/components/events/event-detail-body.tsx', 'utf8');
+/** The shared route-level state component the two non-poster branches delegate to. */
+const ROUTE_STATE = readFileSync('src/components/ui/route-state.tsx', 'utf8');
 
 /** Comments describe the intent; the code is what ships. */
 function code(source: string): string {
@@ -310,10 +312,30 @@ test('the page keeps its back affordance in every branch it can render', () => {
   // LP-08: a pushed screen always has a visible way back, including the two
   // failure branches and the not-found branch. The poster's own way back is
   // the band's button, which is why the loading branch renders the body rather
-  // than a bare skeleton; the two failure branches keep the `ScreenHeader`.
-  const headers = detailBody.match(/<ScreenHeader/g) ?? [];
-  assert.ok(headers.length >= 2, `only ${headers.length} failure branches carry a header`);
-  assert.match(detailBody, /loadingView\(\(\) => router\.back\(\)\)/, 'the loading branch has no way back');
+  // than a bare skeleton.
+  //
+  // The two non-poster branches carried a hand-rolled `ScreenHeader` until the
+  // 2026-09-02 bounded-loading pass; they now carry `RouteState`, which renders
+  // that same header and — unlike the old branches — will not compile without
+  // an `onBack`. The rule is unchanged and the guarantee is stronger, so the
+  // assertion moved from "a header is present" to "the component that cannot
+  // omit one is present", plus a check on `RouteState` itself so the indirection
+  // cannot quietly stop drawing a header.
+  const exits = detailBody.match(/<RouteState/g) ?? [];
+  assert.ok(exits.length >= 2, `only ${exits.length} non-poster branches carry a way back`);
+  const routeState = code(ROUTE_STATE);
+  assert.match(routeState, /<ScreenHeader/, 'RouteState stopped drawing a header');
+  assert.match(routeState, /onBack: \(\) => void;/, 'RouteState made its exit optional');
+
+  // The way back is a real one on a deep link too: `back()` when there is
+  // history, and a named replacement when there is not. The old branches called
+  // `router.back()` unconditionally, which on an invite deep link went nowhere.
+  assert.match(detailBody, /loadingView\(goBack\)/, 'the loading branch has no way back');
+  assert.match(
+    detailBody,
+    /const goBack = useCallback\(\(\) => \{\s*if \(router\.canGoBack\(\)\) router\.back\(\);\s*else router\.replace\(/,
+    'goBack dead-ends on a deep link',
+  );
   assert.match(poster, /onPress=\{view\.onBack\}/, 'the band lost its back button');
 });
 

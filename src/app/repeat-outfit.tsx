@@ -7,6 +7,7 @@ import { GarmentCell, stackLayout, STACK_ASPECT } from '@/components/today/garme
 import { platedCostPerWear } from '@/components/today/cost-per-wear';
 import { LAYOUT_ORDER, labelFor } from '@/components/today/plate';
 import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/error-state';
 import { Text } from '@/components/ui/text';
 import { countOutfits, tallyOf } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -20,7 +21,9 @@ import {
   weekdayName,
 } from '@/features/styling/repeat';
 import { useWornOutfits } from '@/features/styling/use-worn-outfits';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
 import type { FeatureVector, OutfitCandidate } from '@/lib/styling';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import { useTheme } from '@/theme/tokens';
 
 const ZERO_FEATURES: FeatureVector = {
@@ -59,6 +62,17 @@ export default function RepeatOutfitScreen() {
   }>();
 
   const wardrobe = useWardrobe();
+
+  /**
+   * The bound, and the branch that keeps a failure from being reported as an
+   * absence. See the `load.failed` arm below.
+   */
+  const load = useBoundedLoad({
+    loading: wardrobe.isLoading,
+    error: wardrobe.isError,
+    retrying: wardrobe.isRefetching,
+    onRetry: () => void wardrobe.refetch(),
+  });
   const wornOutfits = useWornOutfits();
   const wear = useWearOutfit();
 
@@ -215,13 +229,48 @@ export default function RepeatOutfitScreen() {
             <Button title="Show another" variant="secondary" onPress={() => router.replace('/')} />
           </View>
         </View>
-      ) : wardrobe.isLoading ? (
+      ) : load.state === 'skeleton' ? (
         <View className="mx-gutter mt-6">
           <Text variant="label">Loading your closet…</Text>
           {/* A way out while the read is in flight — this screen is reached
               by a notification tap, so there is no stack beneath it to swipe
               back to. */}
           <View className="mt-4">
+            <Button title="Back to Today" variant="secondary" onPress={() => router.replace('/')} />
+          </View>
+        </View>
+      ) : load.failed ? (
+        /*
+         * UX #38 / #59 — this branch did not exist.
+         *
+         * A failed closet read fell through to "This outfit isn’t in your
+         * closet any more", which is a claim about the DATA made from a
+         * connection problem: it tells somebody who tapped a notification that
+         * the look they were reminded of has been deleted, when nothing has
+         * been. The wait was also unbounded, so a read that never returned sat
+         * on "Loading your closet…" indefinitely.
+         *
+         * `ErrorState` refuses to describe the data, and the retry is the
+         * remedy. The way back stays where it already was.
+         */
+        <View className="mt-2">
+          <ErrorState
+            compact
+            {...(load.timedOut
+              ? BOUNDED_TIMEOUT_COPY
+              : {
+                  title: 'Couldn’t read your closet.',
+                  // No em dash anywhere in this file's CODE, per
+                  // `tests/w3-r1-shared-refusals.test.ts`: the refusal is a
+                  // placeholder dash standing in for a number it cannot print,
+                  // and the guard is a file-wide ban on the glyph. Two
+                  // sentences say the same thing and keep the guard exact.
+                  body: 'Cinch couldn’t reach your pieces just now. This look has not gone anywhere. It is the read that failed.',
+                })}
+            onRetry={load.retry}
+            retrying={load.retrying}
+          />
+          <View className="mx-gutter mt-2">
             <Button title="Back to Today" variant="secondary" onPress={() => router.replace('/')} />
           </View>
         </View>
