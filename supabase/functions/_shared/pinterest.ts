@@ -168,6 +168,9 @@ async function tokenRequest(form: Record<string, string>): Promise<TokenGrant> {
         'content-type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams(form).toString(),
+      // Bounded like every other provider call in _shared: a hung socket is
+      // `provider_down`, not a function that runs until the platform kills it.
+      signal: AbortSignal.timeout(PINTEREST_TIMEOUT_MS),
     });
   } catch {
     throw new PinterestError('provider_down');
@@ -241,11 +244,15 @@ export type Page<T> = { items: T[]; bookmark: string | null };
 /** Pinterest's page-size ceiling for these listings is generous; ask small. */
 const PAGE_SIZE = 25;
 
+/** Ceiling on any one Pinterest round trip — token exchange or a page read. */
+const PINTEREST_TIMEOUT_MS = 10_000;
+
 async function liveGet(path: string, accessToken: string): Promise<unknown> {
   let response: Response;
   try {
     response = await fetch(`${PINTEREST_API_BASE}${path}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(PINTEREST_TIMEOUT_MS),
     });
   } catch {
     throw new PinterestError('provider_down');

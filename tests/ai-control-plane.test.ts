@@ -48,7 +48,7 @@ test('no model choice is compiled into a call site', () => {
   const cases = [
     ['supabase/functions/transcribe-intake/asr.ts', 'DEFAULT_MODEL'],
     ['supabase/functions/parse-closet/index.ts', 'DEFAULT_MODEL'],
-    ['supabase/functions/packing-brief/index.ts', 'DEFAULT_MODEL'],
+    // packing-brief was deleted 2026-09-03: the memo is computed on the device.
   ] as const;
 
   for (const [file, allowed] of cases) {
@@ -73,7 +73,6 @@ test('every configured timeout is the one the call actually uses', () => {
   for (const file of [
     'supabase/functions/transcribe-intake/asr.ts',
     'supabase/functions/parse-closet/index.ts',
-    'supabase/functions/packing-brief/index.ts',
   ]) {
     const src = stripComments(read(file));
     assert.match(src, /settings\.timeoutMs/, `${file} does not use the configured timeout`);
@@ -85,7 +84,7 @@ test('every configured timeout is the one the call actually uses', () => {
 // 2 · The ledger tells the truth
 // ---------------------------------------------------------------------------
 
-test('the three workloads bill themselves', () => {
+test('the two remaining ledger workloads bill themselves', () => {
   const asr = stripComments(read('supabase/functions/transcribe-intake/asr.ts'));
   assert.match(asr, /workload: 'voice_transcription'/, 'ASR still writes no ledger row');
   assert.match(asr, /recordAiCall/);
@@ -93,9 +92,8 @@ test('the three workloads bill themselves', () => {
   const parse = stripComments(read('supabase/functions/parse-closet/index.ts'));
   assert.match(parse, /workload: 'closet_parsing'/);
   assert.ok(!/workload: 'tagging'/.test(parse), 'the parser still bills tagging');
-
-  const packing = stripComments(read('supabase/functions/packing-brief/index.ts'));
-  assert.match(packing, /WORKLOAD = 'packing_brief'/);
+  // `packing_brief` remains an enum member for the ledger's history; nothing
+  // writes it since the function was deleted (2026-09-03).
 });
 
 test('but the quota each one spends is unchanged', () => {
@@ -103,8 +101,8 @@ test('but the quota each one spends is unchanged', () => {
   // membership change. `stylist_chat` excludes free entirely; packing riding on
   // it IS the server half of the Pro boundary, and moving it would hand packing
   // to anyone with a Standard subscription.
-  const packing = stripComments(read('supabase/functions/packing-brief/index.ts'));
-  assert.match(packing, /QUOTA_KIND = 'stylist_chat'/, 'packing quietly changed who may pack');
+  // (Packing's server half went with the packing-brief function on
+  // 2026-09-03; its Pro lock is now use-packing-access.ts alone.)
 
   const parse = stripComments(read('supabase/functions/parse-closet/index.ts'));
   assert.match(parse, /enforceAiQuota\(admin, userId, 'tagging'\)/, 'the parser changed its allowance');
@@ -118,17 +116,15 @@ test('but the quota each one spends is unchanged', () => {
 });
 
 test('a retried call records the attempts it really made', () => {
-  const packing = stripComments(read('supabase/functions/packing-brief/index.ts'));
-  // The counter is incremented inside the loop, not derived from its bound —
-  // `attempts: 2` on a call that succeeded first time is as untrue as null.
-  assert.match(packing, /attemptsMade = attempt \+ 1/);
-  assert.match(packing, /attempts: attemptsMade/);
-
+  // The counter must be incremented inside the loop, not derived from its
+  // bound — `attempts: 2` on a call that succeeded first time is as untrue as
+  // null. The exhaustive form below asserts every ledger writer carries one.
   for (const file of [
     'supabase/functions/transcribe-intake/asr.ts',
     'supabase/functions/parse-closet/index.ts',
   ]) {
-    assert.match(stripComments(read(file)), /attempts: 1/, `${file} leaves attempts null`);
+    const src = stripComments(read(file));
+    if (/recordAiCall\(/.test(src)) assert.match(src, /attempts: /, `${file} records no attempt count`);
   }
 });
 
@@ -178,7 +174,6 @@ test('no OpenRouter caller is left writing a null attempt count', () => {
   const callers = [
     ...RETROFITTED,
     'supabase/functions/parse-closet/index.ts',
-    'supabase/functions/packing-brief/index.ts',
     'supabase/functions/transcribe-intake/asr.ts',
     'supabase/functions/garment-search/index.ts',
   ];

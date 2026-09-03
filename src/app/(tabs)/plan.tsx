@@ -586,8 +586,9 @@ export default function PlanScreen() {
    * paywall. Only travel does." So the tab is open again — the Week and
    * Events for everyone — and the boundary moved to where it belongs:
    *
-   *   · TRAVEL — Packing keeps `usePackingAccess`'s Pro lock, unchanged,
-   *     with `packing-brief` re-checking the plan server-side;
+   *   · TRAVEL — Packing keeps `usePackingAccess`'s Pro lock, unchanged
+   *     (client-side only since the `packing-brief` function was deleted
+   *     2026-09-03 — the memo is computed on the device);
    *   · EVENTS — free accounts get THREE, EVER, enforced by
    *     `enforce_event_join_cap()` in the database (migration
    *     20260826000000), not by any screen. The growth loop this file's

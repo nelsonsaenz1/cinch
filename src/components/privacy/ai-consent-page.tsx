@@ -32,8 +32,8 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * then what does not, in that order and at that ratio, because the first list
  * is the whole product and the second is three things. The lists themselves are
  * in `copy.ts` with the two corrections this repository forced on them: packing
- * is NOT in the works list, because `packing-brief` refuses without consent
- * exactly as the tagger does, and the stylist chat IS in the lost list, because
+ * is NOT in the works list — historically because `packing-brief` refused
+ * without consent; the memo is now on-device and the list is kept as drawn, and the stylist chat IS in the lost list, because
  * it stops and `WITHDRAW_CONSEQUENCE` has always said so.
  *
  * Cutouts are in the works list, and that is the correction worth having: they

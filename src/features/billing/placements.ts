@@ -93,9 +93,9 @@ export const Placement = {
    * free user simply walk through. The lock lives in the app (the
    * `packing_access` campaign is live as of 2026-08-31, but the lock must not
    * depend on it); the paywall is what we show them once they are stopped.
-   * The server backs this up independently: `packing-brief` claims the
-   * `stylist_chat` allowance, which free is excluded from, so even a patched
-   * client gets a 402 rather than a brief.
+   * Since 2026-09-03 nothing server-side backs this up — `packing-brief` was
+   * deleted and the memo is computed on the device — so the app-side lock is
+   * the whole lock.
    */
   PackingAccess: 'packing_access',
 

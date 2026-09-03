@@ -182,8 +182,9 @@ function Hero({
  *
  * Nothing in this redesign moves a default, a visibility or a boundary:
  *
- * · **Sharing is OFF by default.** No control on this page turns anybody's
- *   sharing on; the one state whose action is about the reader (S-1b) sends
+ * · **Sharing is ON by default (founder ruling 2026-09-03, migration
+ *   20260903010000) and off is one switch away.** No control on this page
+ *   moves anybody's switch; the one state whose action is about the reader (S-1b) sends
  *   them to their own switch, and the circle sheet only ever links to it.
  * · **Seven days, exactly as queried.** `useDailyLooks` decides the window;
  *   this file neither widens nor narrows it, and the ending says the number
@@ -723,7 +724,7 @@ export default function ExploreScreen() {
           <Hero
             glyph={<TwoPersonGlyph size={40} color={HERO_GLYPH_INK} />}
             title="Explore is just your people"
-            body="Add a friend you already know and you’ll see what they wore — only if you’re both friends, and only if they’ve turned sharing on."
+            body="Add a friend you already know and you’ll see what they wore — only if you’re both friends, and only while sharing is on for them."
             actionTitle="Find a friend"
             onAction={openSearch}
             // Oxblood, by founder order 2026-08-18. This is the only control

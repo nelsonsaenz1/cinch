@@ -198,12 +198,19 @@ test('S-1b carries the non-retroactive promise, not a week of history', () => {
   // line directly under the button that acts on it, which is where a person
   // reads it. Both halves are still required; they are simply required across
   // the two strings the state now ships, and the state must still ship both.
+  //
+  // THE RULE CHANGED 2026-09-03 (founder ruling, migration 20260903010000):
+  // sharing is ON by default and off is a choice. So the fact that explains
+  // an empty page is no longer "off for everyone" but "your friends turned it
+  // off" — and the non-retroactive promise is unchanged, because the boundary
+  // column still starts at the instant a switch is flipped on.
   const promise = `${NOBODY_SHARING.body} ${NOBODY_SHARING.note}`;
-  assert.match(promise, /from that moment|from the moment|before today/i);
-  assert.match(promise, /never anything you have already worn|nothing you wore before today/i);
+  assert.match(promise, /from that moment|from the moment|before today|before you turned it on/i);
+  assert.match(promise, /never anything you have already worn|nothing you wore before/i);
   assert.doesNotMatch(promise, /last seven days|past week|previous looks/i);
   // And the body still says the thing the empty page is actually caused by.
-  assert.match(NOBODY_SHARING.body, /off by default/i);
+  assert.match(NOBODY_SHARING.body, /turned sharing off/i);
+  assert.doesNotMatch(NOBODY_SHARING.body, /off by default/i);
 });
 
 // ---------------------------------------------------------------------------

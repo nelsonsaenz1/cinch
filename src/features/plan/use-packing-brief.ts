@@ -27,7 +27,10 @@ import { tripDays, vibeOf, type DayPartKey, type Trip } from './trip';
  *
  * A `useMemo`. It cannot fail, so there is no error state to render and no
  * retry to offer; it cannot be refused, so there is no consent branch; and it
- * costs nothing, so there is no allowance to spend. `null` means the inputs are
+ * costs nothing, so there is no allowance to spend. The `packing-brief` Edge
+ * Function was deleted 2026-09-03 (founder: finish it if needed — it was not;
+ * the memo is the feature). Packing's Pro lock is therefore CLIENT-ONLY
+ * (`use-packing-access.ts`): there is no longer a server call to refuse. `null` means the inputs are
  * not ready yet — no trip, or the capsule still building — which is the only
  * state left and is what K-04's fourth research line already draws.
  *
@@ -39,26 +42,6 @@ import { tripDays, vibeOf, type DayPartKey, type Trip } from './trip';
 
 /** Unchanged field for field from the old server response — see the header. */
 export type PackingBrief = PackingMemo;
-
-/**
- * Kept as a type only, for the dev fixture route that draws the old failure.
- *
- * The live path can no longer produce one of these: nothing here reaches a
- * network. It is retained rather than deleted so a fixture route that renders
- * the historical state still compiles, and it is scheduled for removal with the
- * Edge Function itself — see the packet notes.
- *
- * @deprecated The deterministic memo cannot fail.
- */
-export class PackingBriefError extends Error {
-  constructor(
-    message: string,
-    readonly kind: 'offline' | 'consent' | 'unavailable' | 'quota',
-  ) {
-    super(message);
-    this.name = 'PackingBriefError';
-  }
-}
 
 export function usePackingBrief({
   trip,

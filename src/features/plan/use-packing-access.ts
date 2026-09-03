@@ -28,9 +28,11 @@ import { usePlan } from '@/features/billing/use-plan';
  * `usePlan()` folds the 14-day trial into `pro`, so a trialing account has
  * packing and a lapsed one does not, with no extra rule written here.
  *
- * The server backs this up on its own: `packing-brief` claims the `stylist_chat`
- * allowance, which free is excluded from, so a patched client that skipped this
- * hook would still get a 402 instead of a brief.
+ * There is NO server behind this lock any more: `packing-brief` was deleted
+ * 2026-09-03 (the memo is computed on the device, `packing-memo.ts`), so a
+ * patched client that skipped this hook would get a memo. Accepted — the memo
+ * is arithmetic over the user's own closet, and the paid thing is the
+ * convenience, not a secret.
  *
  * ── THE BLANK PLAN TAB ───────────────────────────────────────────────────
  *
@@ -151,9 +153,8 @@ export function usePackingAccess(active: boolean): PackingAccess {
    * Standard subscription with packing in it. `usePlan()` folds the 14-day
    * trial into `pro`, so a trialing account still packs.
    *
-   * The server enforces the same boundary independently (`packing-brief`
-   * checks the plan before spending anything), so a patched client that got
-   * past this gets a 402 rather than a brief.
+   * No server enforces this boundary since 2026-09-03 (see the header) — this
+   * line is the lock.
    */
   const allowed = plan === 'pro';
 

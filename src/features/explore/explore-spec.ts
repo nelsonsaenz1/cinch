@@ -20,7 +20,7 @@
  *      anything. There is nothing to aggregate — `daily_social_reactions` has
  *      no count column and RLS shows a reactor only their own row — so a
  *      number here would be a number the app cannot get.
- *   2. **Sharing is off by default and nothing here changes that.** The one
+ *   2. **Sharing is on by default (since 2026-09-03) and nothing here changes anyone's switch.** The one
  *      state whose action is about the reader (S-1b) sends them to their own
  *      switch and says outright that turning it on is not retroactive.
  *   3. **A hidden piece is silently absent.** No caption, no ghost cell, no

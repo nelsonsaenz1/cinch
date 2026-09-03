@@ -19,8 +19,15 @@ export function useDeleteAccount() {
         method: 'POST',
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) {
+        // `functions.invoke` throws a bare "non-2xx status code" for any
+        // failure and hangs the real response off `context`. The function
+        // answers a part-way failure with `detail`, `failedBucket`,
+        // `objectsRemoved` and `resumable` — the facts a person deleting
+        // their account needs, and the ones the screen used to discard.
+        throw new Error(await describeDeleteFailure(error));
+      }
+      if (data?.error) throw new Error(describeDeleteBody(data));
       return data as { ok: boolean; objectsRemoved: number };
     },
 
@@ -36,4 +43,42 @@ export function useDeleteAccount() {
       qc.removeQueries();
     },
   });
+}
+
+type DeleteFailureBody = {
+  error?: string;
+  detail?: string;
+  failedBucket?: string;
+  objectsRemoved?: number;
+  resumable?: boolean;
+};
+
+/** The function's structured failure, as one sentence a person can act on. */
+function describeDeleteBody(body: DeleteFailureBody | null | undefined): string {
+  if (!body) return 'Deletion could not be completed.';
+  const removed =
+    typeof body.objectsRemoved === 'number' && body.objectsRemoved > 0
+      ? ` ${body.objectsRemoved} of your files were already removed.`
+      : '';
+  const where = body.failedBucket ? ` (stopped at ${body.failedBucket})` : '';
+  switch (body.detail) {
+    case 'delete_failed':
+      return `Some of your files could not be removed${where}.${removed}`;
+    case 'mark_failed':
+      return `Your account could not be marked for deletion.${removed}`;
+    default:
+      return `Deletion stopped part-way${where}.${removed}`;
+  }
+}
+
+async function describeDeleteFailure(error: unknown): Promise<string> {
+  const response = (error as { context?: unknown })?.context;
+  if (response instanceof Response) {
+    try {
+      return describeDeleteBody((await response.clone().json()) as DeleteFailureBody);
+    } catch {
+      // Not JSON — fall through to the generic sentence.
+    }
+  }
+  return 'Deletion could not be completed — Cinch could not reach the server.';
 }

@@ -66,8 +66,31 @@ function coreScore(items: Garment[], ctx: StyleContext, weights: StyleWeights): 
   return c.features.palette * 0.45 + c.features.proportion * 0.25 + c.features.pattern * 0.2 + c.features.formality * 0.1;
 }
 
+/**
+ * The best `n` by `key`, computing `key` ONCE per element.
+ *
+ * The comparator used to call `key` on both sides of every comparison —
+ * `coreScore`, a partial `scoreOutfit` — so a 270-item closet spent ~178k
+ * score calls where 10k would do, on every render of the Plan tab's
+ * twenty-one passes (2026-09-02 audit). Decorate, sort, undecorate.
+ */
 const topBy = <T,>(arr: T[], n: number, key: (t: T) => number): T[] =>
-  [...arr].sort((a, b) => key(b) - key(a)).slice(0, n);
+  arr
+    .map((t, index) => ({ t, index, k: key(t) }))
+    .sort((a, b) => b.k - a.k || a.index - b.index)
+    .slice(0, n)
+    .map(({ t }) => t);
+
+/**
+ * How many layered variants one shod core may carry into full scoring.
+ *
+ * Stage C used to emit every mid × outer combination for every one of the 64
+ * shod cores, uncapped — ~34k full scores at 200 garments and ~205k at 500,
+ * the shape behind the 2026-08-20 Plan-tab freeze. Each core now keeps its
+ * best few layerings by the same cheap partial score the earlier stages
+ * prune with, so the full scorer sees a bounded pool whatever the closet.
+ */
+const BEAM_LAYERS_PER_CORE = 6;
 
 export function generateOutfits(
   wardrobe: Garment[],
@@ -217,6 +240,7 @@ export function generateOutfits(
 
   const layered: Garment[][] = [];
   for (const base of rankedShod) {
+    const variants: Garment[][] = [];
     const hasDress = base.some((g) => g.slot === 'dress');
     // A core anchored by a knit already occupies the mid-layer slot. Adding
     // another would put two jumpers in one outfit and break the one-per-slot
@@ -228,18 +252,26 @@ export function generateOutfits(
 
     // Unlayered is only a valid option when the forecast permits it — and when
     // nothing that has to be worn is still in hand.
-    if (!wantsOuterwear && !mustLayerOuter && midSatisfied) layered.push(base);
+    if (!wantsOuterwear && !mustLayerOuter && midSatisfied) variants.push(base);
 
     if (allowsMidLayer && canLayerMid && !mustLayerOuter) {
-      for (const mid of mids) layered.push([...base, mid]);
+      for (const mid of mids) variants.push([...base, mid]);
     }
     if (allowsOuterwear) {
       for (const outer of outers) {
-        if (midSatisfied) layered.push([...base, outer]);
+        if (midSatisfied) variants.push([...base, outer]);
         if ((wantsMidLayer || mustLayerMid) && canLayerMid) {
-          for (const mid of mids) layered.push([...base, mid, outer]);
+          for (const mid of mids) variants.push([...base, mid, outer]);
         }
       }
+    }
+
+    // The unlayered core, when allowed, is always kept: it is the cheapest
+    // honest answer and the one every fallback below relies on.
+    if (variants.length <= BEAM_LAYERS_PER_CORE) {
+      layered.push(...variants);
+    } else {
+      layered.push(...topBy(variants, BEAM_LAYERS_PER_CORE, (c) => coreScore(c, ctx, weights)));
     }
   }
 

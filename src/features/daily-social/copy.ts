@@ -244,7 +244,7 @@ export const NO_CIRCLE = {
    * is the secondary list under it. It also promised the wrong thing about
    * arrival: adding someone back opens their closet, but it does not put a
    * single look on this page, because sharing worn outfits is a separate
-   * switch that is off by default for everyone. Someone who added a friend on
+   * switch that was off by default for everyone until 2026-09-03. Someone who added a friend on
    * the strength of the old sentence and then met an empty page had been told
    * something untrue.
    *
@@ -252,7 +252,7 @@ export const NO_CIRCLE = {
    * friendship, then that friend's own sharing switch.
    */
   title: 'Explore is just your people',
-  body: 'Add a friend you already know and you’ll see what they wore — only if you’re both friends, and only if they’ve turned sharing on.',
+  body: 'Add a friend you already know and you’ll see what they wore — only if you’re both friends, and only while sharing is on for them.',
   action: 'Find a friend',
 } as const;
 
@@ -285,7 +285,9 @@ export const NOBODY_SHARING = {
    * It still does NOT say "invite more people". More friends who are also not
    * sharing changes nothing about this page.
    */
-  body: 'Your circle is here, but sharing worn outfits is off by default for everyone. You can go first — only your mutual friends would see it, and only for seven days.',
+  // Sharing is ON by default since 2026-09-03 (founder ruling; migration
+  // 20260903010000), so this state now means every friend here turned it off.
+  body: 'Your circle is here, but each of your friends has turned sharing off. You can go first — only your mutual friends would see what you wore, and only for seven days.',
   /**
    * The non-retroactive promise, in the frame's own words and in the frame's
    * own place: under the action, quieter than the body, impossible to miss on
