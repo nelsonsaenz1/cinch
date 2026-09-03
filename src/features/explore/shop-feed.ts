@@ -407,6 +407,13 @@ export const NON_FASHION_CATEGORY_WORDS: readonly string[] = [
   'craft',
   'crafts',
   'pool',
+  'weapon',
+  'weapons',
+  'firearms',
+  'tactical',
+  'holster',
+  'holsters',
+  'concealed',
 ];
 
 /**
@@ -467,6 +474,18 @@ export const NON_APPAREL_TITLE_WORDS: readonly string[] = [
   'magnets',
   'pillows',
   'rugs',
+  // Weapons and weapon carry — a holster bag reached the shelf as a "Backpack" (2026-09-03).
+  'gun',
+  'pistol',
+  'firearm',
+  'holster',
+  'ammo',
+  'ammunition',
+  'rifle',
+  'knife',
+  'knives',
+  'taser',
+  'pepper',
 ];
 
 /** Fold accents so "Décor" and "Decor" are one word (verification, UX-9). */

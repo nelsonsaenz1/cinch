@@ -515,3 +515,14 @@ test('pet clothes are pet supplies, whatever the breadcrumb says', () => {
   assert.equal(categoryVerdict('House of Sunny'), 'unknown');
   assert.equal(categoryVerdict('Home & Away Collection'), 'fashion');
 });
+
+test('weapon carry is not a bag, whatever the category says', () => {
+  for (const title of ['Concealed Carry Holster Purse', 'Tactical Gun Holster Bag', 'Pistol Case Backpack']) {
+    assert.equal(
+      isConfidentFashion({ title, productClass: 'bag', category: 'Bags > Backpacks' }, 'bag'),
+      false,
+      title,
+    );
+  }
+  assert.equal(categoryVerdict('Sporting Goods > Tactical > Holsters'), 'non-fashion');
+});
