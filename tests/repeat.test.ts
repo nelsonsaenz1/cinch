@@ -68,6 +68,11 @@ test('possibleCores never diverges from countOutfits, across every atlas closet'
     [3, 2, 0, 2], // 12
     [3, 2, 1, 3], // 21
     [0, 0, 0, 0], // 0
+    // Shoeless closets — twelve of the twenty-five live ones. Shoes multiply,
+    // never gate (founder decision 2026-09-01), and the cores follow the count.
+    [2, 3, 0, 0], // 6
+    [3, 2, 1, 0], // 7
+    [0, 0, 2, 0], // 2
   ];
 
   for (const [tops, bottoms, dresses, shoes] of cases) {

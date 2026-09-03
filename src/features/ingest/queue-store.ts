@@ -15,9 +15,24 @@ export type JobStage =
   | 'preparing' // downscale + thumbnail
   | 'cutout' // on-device background removal
   | 'uploading'
+  /**
+   * The item row is being created or its upload recorded. Its own stage so
+   * that a refused INSERT reports where it died — for a month every server
+   * refusal was filed under `cutout`, the last stage that had been set.
+   */
+  | 'writing'
   | 'tagging'
   | 'done'
-  | 'failed';
+  | 'failed'
+  /**
+   * Parked for want of a slot. The closet (or the account's total) is at its
+   * plan ceiling; nothing about the photograph is wrong and nothing was
+   * tried against the server that could be retried. It waits — surviving a
+   * restart and the next sitting's sweep — until room is made or the plan
+   * changes, and `releaseHeldJobs` sends it back to `queued`. See
+   * batch-capacity.ts and ledger A28.
+   */
+  | 'held';
 
 export type UploadJob = {
   id: string;
@@ -175,7 +190,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       // `undefined + 1` is NaN — which compares false against every ceiling and
       // would restore the unbounded retry this field was added to stop.
       const job = { ...j, tagAttempts: j.tagAttempts ?? 0 };
-      if (job.stage === 'done' || job.stage === 'failed') return job;
+      if (job.stage === 'done' || job.stage === 'failed' || job.stage === 'held') return job;
       if (job.stage === 'tagging' && job.itemId) return { ...job, progress: 1 };
       return { ...job, stage: 'queued' as const, progress: 0 };
     });
@@ -234,6 +249,8 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   },
 
   clearSettled: () => {
+    // `held` is deliberately kept: those photographs were never given a
+    // chance and are still waiting for room, not residue from a past sitting.
     const jobs = get().jobs.filter((j) => j.stage !== 'done' && j.stage !== 'failed');
     set({ jobs });
     persist(jobs);
@@ -247,7 +264,25 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 }));
 
 export function selectActiveCount(jobs: UploadJob[]) {
-  return jobs.filter((j) => j.stage !== 'done' && j.stage !== 'failed').length;
+  // Held jobs are not moving and never will be until room exists — counting
+  // them as "still to process" would keep a batch reading as in flight forever.
+  return jobs.filter((j) => j.stage !== 'done' && j.stage !== 'failed' && j.stage !== 'held')
+    .length;
+}
+
+/** Photographs parked for want of a closet slot. */
+export function selectHeldJobs(jobs: UploadJob[]) {
+  return jobs.filter((j) => j.stage === 'held');
+}
+
+/**
+ * Queued or in-flight jobs whose item row does not exist yet — the ones no
+ * server count can see, and the number a batch pre-flight must subtract.
+ */
+export function selectPendingRowCount(jobs: UploadJob[]) {
+  return jobs.filter(
+    (j) => !j.itemId && j.stage !== 'done' && j.stage !== 'failed' && j.stage !== 'held',
+  ).length;
 }
 
 /** Everything that stopped short, in queue order. */
@@ -271,11 +306,13 @@ export const STAGE_LABEL: Record<JobStage, string> = {
   // On-device background removal — the same word the consent sheet uses for it.
   cutout: 'Cleaning…',
   uploading: 'Uploading…',
+  writing: 'Filing…',
   // "Working out what this garment is". "Tagging" is our word for it, not
   // anyone else's; this says what is happening.
   tagging: 'Categorising…',
   done: 'Added ✓',
   failed: 'Failed',
+  held: 'Waiting for room',
 };
 
 /**
@@ -290,6 +327,7 @@ export const STAGE_LABEL: Record<JobStage, string> = {
 export function selectPhaseLabel(jobs: UploadJob[]): string | null {
   const stages = new Set(jobs.map((j) => j.stage));
   if (stages.has('tagging')) return STAGE_LABEL.tagging;
+  if (stages.has('writing')) return STAGE_LABEL.writing;
   if (stages.has('uploading')) return STAGE_LABEL.uploading;
   if (stages.has('cutout')) return STAGE_LABEL.cutout;
   if (stages.has('preparing')) return STAGE_LABEL.preparing;

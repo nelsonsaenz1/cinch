@@ -4,6 +4,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { SectionHeader } from '@/components/ui/section-header';
+import { stableImageSource } from '@/features/closet/use-image-urls';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import {
@@ -71,7 +72,9 @@ function Well({ piece }: { piece: RailPiece }) {
       style={{ width: TILE_WIDTH, height: TILE_HEIGHT }}>
       {piece.imageUri ? (
         <Image
-          source={{ uri: piece.imageUri }}
+          // Keyed on the path, not the signed URL: a re-signed URL is the same
+          // bytes, and keying on it re-downloaded every tile each hour.
+          source={stableImageSource(piece.imageUri)}
           contentFit="cover"
           transition={180}
           cachePolicy="memory-disk"

@@ -71,9 +71,7 @@ export const SAVED_EVENTS = {
   filterApplied: 'saved_filter_applied',
   detailViewed: 'saved_detail_viewed',
   sourceUnavailableSeen: 'saved_source_unavailable_seen',
-  planStarted: 'saved_plan_started',
   planCreated: 'saved_plan_created',
-  planMissingAction: 'saved_plan_missing_action',
   stateShown: 'saved_state_shown',
   retryTapped: 'saved_retry_tapped',
 } as const;
@@ -281,23 +279,6 @@ export function sourceUnavailableSeenProps(sourceType: SavedLookSource): {
 // ---------------------------------------------------------------------------
 
 /**
- * The matcher ran and showed its answer.
- *
- * Both buckets, because the pair is the measurement: a screen that routinely
- * matches nothing is a screen that should not be offered, and one that matches
- * everything did not need its missing-piece machinery.
- */
-export function planStartedProps(input: { matched: number; missing: number }): {
-  matched_bucket: CountBucket;
-  missing_bucket: CountBucket;
-} {
-  return {
-    matched_bucket: countBucket(input.matched),
-    missing_bucket: countBucket(input.missing),
-  };
-}
-
-/**
  * A plan was created from a save. `had_missing` is the completion question —
  * whether people go ahead with a partial look or only with a complete one.
  */
@@ -311,12 +292,3 @@ export function planCreatedProps(input: { piecesUsed: number; hadMissing: boolea
   };
 }
 
-/**
- * What was done about one missing piece.
- *
- * Three values and no fourth. `skip` is a real outcome rather than an absence —
- * OS-08 draws it as a button beside the other two — so it is counted like one.
- */
-export function planMissingActionProps(action: MissingAction): { action: MissingAction } {
-  return { action };
-}

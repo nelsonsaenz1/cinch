@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
+import { stableImageSource } from '@/features/closet/use-image-urls';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import {
   filledTileLabel,
@@ -331,11 +332,13 @@ export function TenWell({
         }}>
         {filled && imageUri ? (
           <Animated.View
-            key={imageUri}
+            // Keyed on the path so a re-signed URL — same bytes, new token —
+            // does not remount and re-fade every tile on the page.
+            key={imageUri.split('?')[0]}
             entering={reduced ? undefined : FadeIn.duration(240)}
             style={{ width: '100%', height: '100%' }}>
             <Image
-              source={{ uri: imageUri }}
+              source={stableImageSource(imageUri)}
               contentFit="cover"
               style={{ width: '100%', height: '100%' }}
               accessibilityIgnoresInvertColors

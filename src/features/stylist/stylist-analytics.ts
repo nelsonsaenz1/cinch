@@ -26,7 +26,6 @@ export const STYLIST_EVENTS = {
   chatSent: 'chat_sent',
   chatReplyOk: 'chat_reply_ok',
   chatError: 'chat_error',
-  localFactAnswered: 'local_fact_answered',
   platesShown: 'plates_shown',
   plateTapped: 'plate_tapped',
   allowanceMarkShown: 'allowance_mark_shown',
@@ -71,7 +70,6 @@ export const chatReplyOkProps = (): StylistProps => ({});
 export const chatErrorProps = (cause: ChatErrorCause): StylistProps => ({ cause });
 
 /** THAT a question was answered on the device — which spends nothing. */
-export const localFactAnsweredProps = (): StylistProps => ({});
 
 export const platesShownProps = (count: PlateCount): StylistProps => ({ count });
 

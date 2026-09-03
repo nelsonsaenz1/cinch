@@ -94,3 +94,12 @@ test('the state observations are gated too, not only the opened beacons', () => 
     'closet_capacity_state fires unfocused',
   );
 });
+
+test("Explore's shelf reads wait for a visit too — they fire events from inside queryFn", () => {
+  // `explore_shop_feed_loaded` is emitted inside the react-query `queryFn`
+  // of use-shop-feed.ts / use-partner-feed.ts, so the only gate that can
+  // keep it from firing at launch is the query's own `enabled`.
+  const explore = read(TABS.explore);
+  assert.match(explore, /useShopFeed\([\s\S]*?visited && showWhereToBuy\.data === true/);
+  assert.match(explore, /usePartnerFeed\(visited && showWhereToBuy\.data === true\)/);
+});

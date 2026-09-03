@@ -1,6 +1,6 @@
 import type { OutfitCandidate } from '@/lib/styling';
 
-const FAVORITE_BONUS = 0.03;
+export const FAVORITE_BONUS = 0.03;
 
 function core(ids: readonly string[]): string {
   return [...ids].sort().join('.');

@@ -218,12 +218,21 @@ export default function RepeatOutfitScreen() {
       ) : wardrobe.isLoading ? (
         <View className="mx-gutter mt-6">
           <Text variant="label">Loading your closet…</Text>
+          {/* A way out while the read is in flight — this screen is reached
+              by a notification tap, so there is no stack beneath it to swipe
+              back to. */}
+          <View className="mt-4">
+            <Button title="Back to Today" variant="secondary" onPress={() => router.replace('/')} />
+          </View>
         </View>
       ) : (
         <View className="mx-gutter mt-6">
           <Text variant="body" className="text-muted">
             This outfit isn&rsquo;t in your closet any more.
           </Text>
+          <View className="mt-4">
+            <Button title="Back to Today" variant="secondary" onPress={() => router.replace('/')} />
+          </View>
         </View>
       )}
     </SafeAreaView>

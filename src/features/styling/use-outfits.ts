@@ -12,7 +12,6 @@ import {
 import { supabase } from '@/lib/supabase';
 
 import type { StyleProfile } from './queries';
-import { favorExactCores } from './favorite-ranking';
 import {
   acceptEnhancedName,
   compatibleNameOptions,
@@ -25,6 +24,8 @@ import { useLifestyle } from '@/features/profile/use-lifestyle';
 import { enhancementStatus } from './enhancement-status';
 import { shouldEnhanceWithAi } from './should-enhance';
 import { useFavoriteOutfits } from './use-favorite-outfits';
+import { applyReactionMemory } from './reaction-ranking';
+import { useOutfitReactions } from './use-outfit-reactions';
 
 /** How many candidates go up for re-ranking. */
 const SHORTLIST = 12;
@@ -118,6 +119,8 @@ export function useOutfits({
   enabled?: boolean;
 }) {
   const favorites = useFavoriteOutfits();
+  // The remembered thumbs — read once, applied at ranking time (A9).
+  const reactions = useOutfitReactions();
   /**
    * The lifestyle profile's one sentence, appended to the taste summary the
    * re-ranker reads — the same line, built the same way, as the stylist chat
@@ -143,11 +146,24 @@ export function useOutfits({
       count: SHORTLIST,
       diversity: 0.45,
     });
-    return favorExactCores(
+    // Reactions and favourites in ONE sort — see reaction-ranking.ts for why
+    // composing two re-sorts silently discards one of them.
+    return applyReactionMemory(
       generated,
+      reactions.data ?? [],
+      wardrobe,
+      context.now,
       (favorites.data ?? []).map((outfit) => outfit.itemIds),
     );
-  }, [enabled, wardrobe, context, profile.weights, profile.affinities, favorites.data]);
+  }, [
+    enabled,
+    wardrobe,
+    context,
+    profile.weights,
+    profile.affinities,
+    favorites.data,
+    reactions.data,
+  ]);
 
   const base = useMemo(
     () => fromEngine(shortlist.slice(0, count), wardrobe, context),

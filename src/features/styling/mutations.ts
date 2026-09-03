@@ -209,6 +209,11 @@ export function useReactToOutfit() {
     },
 
     onSuccess: (next, vars) => {
+      // Either way the remembered reactions changed — the ranking-time reader
+      // (use-outfit-reactions.ts, ledger A9) must see the new row, or the
+      // absence of the retracted one, on the next generation.
+      void qc.invalidateQueries({ queryKey: ['outfit-reactions'] });
+
       // A retraction is SILENT, and deliberately so — the same rule
       // `useSetDailyReaction` states: "a retraction measured as an event would
       // be a record of a person changing their mind". There is also nothing to

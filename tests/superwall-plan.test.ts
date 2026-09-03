@@ -117,10 +117,50 @@ test('an unrecognised event type changes nothing', () => {
 // Recency
 // ---------------------------------------------------------------------------
 
-test('an event ending no later than what is stored is stale', () => {
+test('a grant ending no later than what is stored is stale', () => {
   assert.equal(isStale('2026-01-01T00:00:00Z', '2026-02-01T00:00:00Z'), true);
-  assert.equal(isStale('2026-02-01T00:00:00Z', '2026-02-01T00:00:00Z'), true, 'a tie is stale');
+  assert.equal(
+    isStale('2026-02-01T00:00:00Z', '2026-02-01T00:00:00Z', false, 'standard'),
+    true,
+    'a tied grant against a paid row is a replay',
+  );
   assert.equal(isStale('2026-03-01T00:00:00Z', '2026-02-01T00:00:00Z'), false);
+});
+
+test('the comparison is by instant — PostgREST spells the same moment differently', () => {
+  // Superwall/Apple: `2026-02-01T00:00:00.000Z`; PostgREST: `2026-02-01T00:00:00+00:00`.
+  // As strings the first sorts AFTER the second, and every tie read as
+  // "later" — the tie branch never ran in production (verification).
+  assert.equal(isStale('2026-02-01T00:00:00.000Z', '2026-02-01T00:00:00+00:00', true), false);
+  assert.equal(isStale('2026-02-01T00:00:00.000Z', '2026-02-01T00:00:00+00:00', false, 'standard', 'standard'), true);
+  assert.equal(isStale('2026-01-31T23:59:59.000Z', '2026-02-01T00:00:00+00:00', true), true);
+});
+
+test('a paid plan CHANGE at a tie applies; the same plan at a tie is a replay', () => {
+  const T = '2026-02-01T00:00:00Z';
+  assert.equal(isStale(T, T, false, 'standard', 'pro'), false, 'standard → pro mid-period');
+  assert.equal(isStale(T, T, false, 'pro', 'standard'), false, 'pro → standard mid-period');
+  assert.equal(isStale(T, T, false, 'standard', 'standard'), true, 'the same renewal again');
+});
+
+test('a grant at a tie against a FREE row is a reversal, and applies', () => {
+  // REFUND writes plan=free at the period end; REFUND_REVERSED arrives with
+  // the same date. Dropping it as a replay would leave the customer free
+  // after Apple reversed the refund (caught in verification).
+  assert.equal(isStale('2026-02-01T00:00:00Z', '2026-02-01T00:00:00Z', false, 'free'), false);
+  // With no plan known (legacy caller), a tie stays a replay — the safe side.
+  assert.equal(isStale('2026-02-01T00:00:00Z', '2026-02-01T00:00:00Z'), true);
+});
+
+test('a revocation at a tie APPLIES — it is the end of the period the grant stored', () => {
+  // The rule used to be "a tie is stale" for every event. An `expiration`
+  // carries exactly the `expirationAt` the renewal wrote, so under that rule
+  // every expiry was dropped and a lapsed subscription kept its plan forever
+  // (2026-09-02 audit). Strictly earlier is still stale: the expiration of a
+  // period a later renewal already replaced must not downgrade anyone.
+  assert.equal(isStale('2026-02-01T00:00:00Z', '2026-02-01T00:00:00Z', true), false);
+  assert.equal(isStale('2026-01-01T00:00:00Z', '2026-02-01T00:00:00Z', true), true);
+  assert.equal(isStale('2026-03-01T00:00:00Z', '2026-02-01T00:00:00Z', true), false);
 });
 
 test('an event with no end date is never stale', () => {
@@ -302,4 +342,39 @@ test('a queue of nothing but unmapped products settles to nothing, not to free',
     },
   ]);
   assert.equal(settled, null);
+});
+
+test('reconcile: a renewal and then the expiration of that same period settles to free', () => {
+  const T = '2026-02-01T00:00:00Z';
+  assert.deepEqual(
+    reconcile([
+      { type: 'renewal', productId: 'cinch.standard.monthly', periodEnd: T },
+      { type: 'expiration', productId: 'cinch.standard.monthly', periodEnd: T },
+    ]),
+    { plan: 'free', periodEnd: T, unmapped: [] },
+  );
+  // The other way round is a REVERSAL by the tie rule: a grant at the same
+  // date against a row a revocation set to free re-grants (see isStale).
+  // Superwall's queue is svix-deduplicated, so a genuine replay of the same
+  // renewal cannot reach reconcile twice; the sequence below can only mean
+  // the period was revoked and then reinstated.
+  assert.deepEqual(
+    reconcile([
+      { type: 'expiration', productId: 'cinch.standard.monthly', periodEnd: T },
+      { type: 'renewal', productId: 'cinch.standard.monthly', periodEnd: T },
+    ]),
+    { plan: 'standard', periodEnd: T, unmapped: [] },
+  );
+});
+
+test('reconcile: refund then refund-reversed at the same date settles to paid', () => {
+  const T = '2026-02-01T00:00:00Z';
+  assert.deepEqual(
+    reconcile([
+      { type: 'initial_purchase', productId: 'cinch.standard.monthly', periodEnd: T },
+      { type: 'expiration', productId: 'cinch.standard.monthly', periodEnd: T },
+      { type: 'uncancellation', productId: 'cinch.standard.monthly', periodEnd: T },
+    ]),
+    { plan: 'standard', periodEnd: T, unmapped: [] },
+  );
 });

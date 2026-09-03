@@ -6,12 +6,18 @@ import { CURRENT_CONSENT_VERSION } from '@/features/auth/use-consent';
 import { backgroundRemover, type Swatch } from '@/lib/bg-removal';
 import { nearestColorName } from '@/lib/color';
 import { prepareForUpload, prepareThumbnail } from '@/lib/image';
-import { recordImportFailure } from '@/features/billing/import-failure-grace';
 import { track } from '@/lib/posthog';
 import { queryClient } from '@/lib/query-client';
 import { supabase, getUserId } from '@/lib/supabase';
+import { withDeadline } from '@/features/closet/session';
 
 import { deleteLocalPhoto, getLocalPhoto, saveLocalPhoto } from './local-photos';
+import {
+  CONSENT_WITHDRAWN_MESSAGE,
+  analyticsFailureCode,
+  analyticsFailureReason,
+  isCapacityRefusal,
+} from './import-failure-classify';
 import { deriveMatchEligible } from './match-eligibility';
 import { useQueueStore, type UploadJob } from './queue-store';
 
@@ -60,6 +66,17 @@ function invalidateAfterItemSettled(): void {
  */
 
 const MAX_CONCURRENCY = 3;
+/**
+ * How long a session read may take before the queue gives up on it.
+ *
+ * `getUserId()` reads claims off the auth client, and `closet/session.ts`
+ * documents that read pending forever under some Hermes refresh states. An
+ * unbounded await here is not a slow import — it is a latch: `running` stays
+ * incremented, `draining` stays true, and no drain can ever start again for
+ * the life of the process. Bounded, the job fails like any other and the
+ * next drain is possible.
+ */
+const USER_ID_DEADLINE_MS = 15_000;
 const MAX_ATTEMPTS = 3;
 /**
  * How many times one garment may be sent to `tag-item` before the job gives up
@@ -79,17 +96,6 @@ const MAX_TAG_ATTEMPTS = 3;
 const TAG_RETRY_DELAY_MS = 1200;
 const BUCKET = 'garments';
 
-/**
- * The one consent-refusal sentence, written to be TRUE for both people who
- * can receive it. `ai_consent_required` covers a user who turned tagging off
- * AND a user whose recorded consent predates a policy-version bump (their
- * version is non-null but below current — they never opted out, the text
- * changed under them). "Turned off for your account" was a lie to the second
- * group; "needs your OK in Settings" is a fact and an invitation for both,
- * without an async profile read inside sync classification.
- */
-const CONSENT_WITHDRAWN_MESSAGE =
-  'Saved, but not tagged — AI tagging needs your OK in Settings.';
 
 /**
  * What a stopped garment is called ON SCREEN.
@@ -130,96 +136,42 @@ export function userFacingFailure(job: Pick<UploadJob, 'error'> | undefined): st
     return 'Cinch couldn’t read that photo.';
   }
 
-  return 'That upload didn’t finish.';
-}
-
-/**
- * The same failure, as a bounded value for `clothes_import_failed`.
- *
- * `job.error` is free text: it holds the Edge Function's sentence, a Supabase
- * error message, or whatever a thrown `Error` carried, and any of those can
- * embed a path, an id or a server detail. It is written for the banner and it
- * is not something to hand an analytics vendor — see the privacy note at the
- * top of `lib/posthog.tsx`, which exists to refuse exactly this.
- *
- * So the message is READ here and never SENT. The classification is by the
- * same means `userFacingFailure` above already uses — the messages being
- * matched are this file's own constants from `classify()` — and everything
- * unrecognised lands on 'unknown' rather than leaking. 'unknown' rising is
- * itself the signal that a new failure mode needs a name here.
- *
- * Nine values, and that is the whole vocabulary:
- *   consent_missing · unverified_session · quota_exhausted · item_missing ·
- *   bad_request · photo_unreadable · row_write_failed · not_signed_in · unknown
- */
-function analyticsFailureReason(error: string | undefined): string {
-  const raw = error ?? '';
-  if (!raw) return 'unknown';
-
-  // Account-level refusals from `classify()`, in its own order.
-  if (raw === CONSENT_WITHDRAWN_MESSAGE || raw.includes('ai_consent_required')) {
-    return 'consent_missing';
+  // The server refused a slot. Not a transfer problem and not something a
+  // retry changes — the queue parks these as `held` rather than `failed`, so
+  // this sentence is only reached for a refusal that arrived some other way.
+  if (isCapacityRefusal(raw)) {
+    return 'Your closet is full, so this one is waiting for room.';
   }
-  if (raw.includes('couldn’t verify your account')) return 'unverified_session';
-  if (raw.includes('tagging allowance')) return 'quota_exhausted';
-  if (raw.includes('find this garment')) return 'item_missing';
-  if (raw.includes('read this request')) return 'bad_request';
 
-  // Local pipeline failures, thrown rather than returned.
-  if (/decode|unsupported|corrupt|read the image|prepare/i.test(raw)) return 'photo_unreadable';
-  if (/Could not create item|Could not record upload/i.test(raw)) return 'row_write_failed';
-  if (raw.includes('Not signed in')) return 'not_signed_in';
-
-  return 'unknown';
-}
-
-/**
- * The database's own word for WHY a row write failed, as a bounded property.
- *
- * `row_write_failed` spent 2026-09-01 as a black box: twenty failures from one
- * user, and the event carried only the classification, so a day went to
- * theorising about runtimes when the Postgres error had been in `job.error`
- * the whole time (CMO ledger A15). The four `Could not create item` /
- * `Could not record upload` throw sites now embed the SQLSTATE in brackets —
- * `[23505]`, `[PGRST301]`, `[no_code]` — and this extracts exactly that token
- * and nothing else.
- *
- * SQLSTATE and PostgREST codes are a fixed vocabulary, which is what makes
- * this sendable where the message itself is not: the privacy line in
- * `lib/posthog.tsx` refuses free text, and a code is not free text. Returned
- * only for the row-write classification so no other failure's message can
- * smuggle a bracketed token into analytics.
- */
-function analyticsFailureCode(error: string | undefined): string | undefined {
-  const raw = error ?? '';
-  if (!/Could not create item|Could not record upload/i.test(raw)) return undefined;
-  const match = /\[([0-9A-Za-z_]{1,12})\]/.exec(raw);
-  return match ? match[1] : 'no_code';
+  return 'That upload didn’t finish.';
 }
 
 /**
  * The one door every TERMINAL import failure leaves through.
  *
  * Emits `clothes_import_failed` with the bounded reason and (for row writes)
- * the Postgres code, and opens the ten-minute grace window during which
- * `add_garment_over_limit` will not present (`import-failure-grace.ts` — a
- * paywall two minutes after a failed import is ledger item A16). Routing both
- * through one helper is what keeps them in lockstep: a failure that counts is
- * a failure that suppresses, with no site able to do one and forget the other.
+ * the Postgres code. It used to also open a ten-minute window suppressing the
+ * garment-limit paywall (ledger A16); that was reverted 2026-09-03 once the
+ * production streams showed every such paywall had been REQUESTED by a tap on
+ * "See plans", and that the failures it suppressed the answer to were the
+ * closet cap itself (A28). The classification lives in
+ * `import-failure-classify.ts` so it can be tested without this module.
  */
 function trackImportFailed(props: {
   stage: string;
   error: string | undefined;
   retryable: boolean;
   attempts?: number;
+  /** For a capacity stop: how many photographs were parked by this one refusal. */
+  held?: number;
 }): void {
-  recordImportFailure();
   track('clothes_import_failed', {
     stage: props.stage,
     reason: analyticsFailureReason(props.error),
     code: analyticsFailureCode(props.error),
     retryable: props.retryable,
     attempts: props.attempts,
+    held: props.held,
   });
 }
 
@@ -735,6 +687,7 @@ async function processLocalJob(job: UploadJob, userId: string): Promise<void> {
 
   let itemId = job.itemId;
   if (!itemId) {
+    update(job.id, { stage: 'writing' });
     const { data, error } = await supabase
       .from('items')
       .insert({
@@ -766,7 +719,7 @@ async function processLocalJob(job: UploadJob, userId: string): Promise<void> {
 async function processJob(job: UploadJob): Promise<void> {
   const { update } = useQueueStore.getState();
 
-  const userId = await getUserId();
+  const userId = await withDeadline(getUserId(), USER_ID_DEADLINE_MS, 'Signing in').catch(() => null);
   if (!userId) throw new Error('Not signed in.');
 
   // The declined-consent path never uploads and never tags — see the promise
@@ -793,6 +746,9 @@ async function processJob(job: UploadJob): Promise<void> {
   //    Reused on retry so a partially-completed job never duplicates the item.
   let itemId = job.itemId;
   if (!itemId) {
+    // Its own stage, so a refused INSERT reports where it died rather than
+    // the last stage that happened to be set (for a month that was `cutout`).
+    update(job.id, { stage: 'writing' });
     const { data, error } = await supabase
       .from('items')
       .insert({ user_id: userId, status: 'pending_upload' })
@@ -832,6 +788,7 @@ async function processJob(job: UploadJob): Promise<void> {
     );
   }
 
+  update(job.id, { stage: 'writing', progress: 1 });
   const { error: updateError } = await supabase
     .from('items')
     .update({
@@ -875,6 +832,68 @@ async function processJob(job: UploadJob): Promise<void> {
 }
 
 /**
+ * Park a refused job and every job still waiting its turn.
+ *
+ * Only jobs WITHOUT an item row are parked: a job that already holds an
+ * `itemId` has its slot — the trigger counted it — and what it still owes
+ * (an upload, a tag) does not need room. Returns how many were parked,
+ * counting the refused job itself.
+ */
+/** When the server last refused a slot — see `releaseHeldJobs`. */
+let lastCapacityRefusalAt = 0;
+
+/** Epoch ms of the most recent capacity refusal, 0 if none this process. */
+export function capacityRefusedAt(): number {
+  return lastCapacityRefusalAt;
+}
+
+function holdQueuedJobs(refusedId: string, message: string): number {
+  lastCapacityRefusalAt = Date.now();
+  const { jobs, update } = useQueueStore.getState();
+  let held = 0;
+  for (const job of jobs) {
+    const isRefused = job.id === refusedId;
+    if (!isRefused && (job.stage !== 'queued' || job.itemId)) continue;
+    update(job.id, {
+      stage: 'held',
+      error: message,
+      retryable: false,
+      progress: 0,
+    });
+    held += 1;
+  }
+  return held;
+}
+
+/**
+ * Send parked photographs back to the queue, now that there is room.
+ *
+ * `room` is how many slots the caller has just confirmed — never more than
+ * that are released, oldest first, so a closet with one free slot does not
+ * launch twenty inserts to find nineteen refusals. Returns the number released;
+ * the caller drains when it is above zero.
+ */
+export function releaseHeldJobs(room: number): number {
+  const { jobs, update } = useQueueStore.getState();
+  const allowed = Math.max(0, Math.trunc(room));
+  let released = 0;
+  for (const job of jobs) {
+    if (released >= allowed) break;
+    if (job.stage !== 'held') continue;
+    update(job.id, {
+      stage: 'queued',
+      attempts: 0,
+      tagAttempts: 0,
+      error: undefined,
+      retryable: undefined,
+      progress: 0,
+    });
+    released += 1;
+  }
+  return released;
+}
+
+/**
  * Pulls queued jobs until none remain, never exceeding MAX_CONCURRENCY.
  * Safe to call repeatedly; re-entrant calls are ignored.
  */
@@ -906,6 +925,25 @@ export async function drainQueue(): Promise<void> {
         .catch((err: unknown) => {
           const message = err instanceof Error ? err.message : String(err);
           const attempts = next.attempts + 1;
+
+          // THE SERVER REFUSED A SLOT. Deterministic — the same INSERT gets
+          // the same answer until room is made — so retrying is 2N identical
+          // refusals, each paid for with a full Vision pass, and every other
+          // photograph still queued is about to meet the same trigger. Park
+          // this one and all of them as `held`, in one move, with one event
+          // that says how many. Ledger A28: 46 events in 44 seconds was this
+          // branch missing.
+          if (isCapacityRefusal(message)) {
+            const held = holdQueuedJobs(next.id, message);
+            // The client thought there was room and the server disagreed:
+            // whatever count the client holds is wrong, so refresh it before
+            // anyone decides to release these again. Without this a stale
+            // count would release, be refused, and release once more.
+            void queryClient.invalidateQueries({ queryKey: ['closet-count'] });
+            trackImportFailed({ stage: 'writing', error: message, retryable: false, held });
+            return;
+          }
+
           const exhausted = attempts >= MAX_ATTEMPTS;
           // Read BEFORE the update below, because that update overwrites it:
           // the store still holds the stage the job actually died at, which is
@@ -1064,7 +1102,7 @@ export async function sweepPendingTags(): Promise<void> {
   sweeping = true;
 
   try {
-    const userId = await getUserId();
+    const userId = await withDeadline(getUserId(), USER_ID_DEADLINE_MS, 'Signing in').catch(() => null);
     if (!userId) return;
 
     if (!(await hasAiConsent(userId))) {
@@ -1205,7 +1243,7 @@ export async function startBackfill(): Promise<{ enqueued: number }> {
   backfilling = true;
 
   try {
-    const userId = await getUserId();
+    const userId = await withDeadline(getUserId(), USER_ID_DEADLINE_MS, 'Signing in').catch(() => null);
     if (!userId) return { enqueued: 0 };
     if (!(await hasAiConsent(userId))) return { enqueued: 0 };
 
@@ -1417,7 +1455,7 @@ export async function retryCutout(jobId: string): Promise<boolean> {
     return false;
   }
 
-  const userId = await getUserId();
+  const userId = await withDeadline(getUserId(), USER_ID_DEADLINE_MS, 'Signing in').catch(() => null);
   // A local-mode job has no uploads by design (A-04), so its recovery is the
   // colours alone — which is all its cutout was ever for.
   if (userId && !job.local) {

@@ -7,6 +7,7 @@ import {
   APPLE_ROOT_CA_G3_B64,
   SUPERWALL_FORWARD_URL,
   ascVerdict,
+  ASC_REVOKING,
 } from '../_shared/asc-plan.ts';
 import { isStale } from '../_shared/superwall-plan.ts';
 
@@ -297,14 +298,22 @@ export default {
 
       const { data: current, error: readError } = await admin
         .from('subscriptions')
-        .select('current_period_end')
+        .select('plan, current_period_end')
         .eq('user_id', token)
         .maybeSingle();
       if (readError) {
         console.error('Could not read subscription:', readError.message);
         return { outcome: 'write_failed', plan: verdict.plan, status: 500 };
       }
-      if (isStale(expiresAt, current?.current_period_end)) {
+      if (
+        isStale(
+          expiresAt,
+          current?.current_period_end,
+          ASC_REVOKING.has(type),
+          current?.plan,
+          verdict.plan,
+        )
+      ) {
         return { outcome: 'stale', plan: verdict.plan, status: 200 };
       }
 
@@ -327,31 +336,61 @@ export default {
       return { outcome: 'applied', plan: verdict.plan, status: 200 };
     };
 
+    // CLAIM BEFORE DECIDING — the same order superwall-webhook keeps. The
+    // ledger row used to be written AFTER the plan, so a plan that landed
+    // followed by a transient ledger error came back as a 500, Apple
+    // redelivered, and the redelivery was judged afresh against whatever the
+    // row held by then — which, after an intervening expiration, meant a
+    // renewal re-granting at a tie against a free row (2026-09-02 audit,
+    // verification pass three). Now the first delivery inserts a
+    // `received` row and only that delivery decides; a redelivery conflicts
+    // and is answered `duplicate`. A retry after a genuine `write_failed` is
+    // let through: that row never held a decision.
+    const ledgerRow = {
+      notification_uuid: uuid,
+      notification_type: type,
+      subtype: note.subtype ?? null,
+      environment,
+      product_id: txn.productId ?? null,
+      original_transaction_id: txn.originalTransactionId ?? null,
+      app_account_token: token,
+      expires_at: expiresAt,
+      signed_date: note.signedDate ? new Date(note.signedDate).toISOString() : null,
+    };
+    const { data: claimed, error: claimError } = await admin
+      .from('asc_notifications')
+      .upsert({ ...ledgerRow, outcome: 'received', plan: null }, {
+        onConflict: 'notification_uuid',
+        ignoreDuplicates: true,
+      })
+      .select('notification_uuid');
+    if (claimError) {
+      console.error(`ASC ledger claim failed: ${claimError.message}`);
+      return Response.json({ error: 'Ledger unavailable.' }, { status: 500 });
+    }
+    if (!claimed?.length) {
+      const { data: prior } = await admin
+        .from('asc_notifications')
+        .select('outcome')
+        .eq('notification_uuid', uuid)
+        .maybeSingle();
+      if (prior?.outcome !== 'write_failed') {
+        console.log(`asc-notifications ${type} uuid=${uuid} duplicate (${prior?.outcome ?? 'unknown'})`);
+        return Response.json({ ok: true, applied: false, reason: 'duplicate' });
+      }
+    }
+
     const result = await outcomeOf();
 
-    // Idempotency: the first delivery inserts; a redelivery conflicts and
-    // reports duplicate. On a 500 outcome the row still records the attempt —
-    // `outcome` is updated on conflict so a retry that finally lands overwrites
-    // `write_failed` with `applied` rather than being shrugged off.
-    const { error: ledgerError } = await admin.from('asc_notifications').upsert(
-      {
-        notification_uuid: uuid,
-        notification_type: type,
-        subtype: note.subtype ?? null,
-        environment,
-        product_id: txn.productId ?? null,
-        original_transaction_id: txn.originalTransactionId ?? null,
-        app_account_token: token,
-        expires_at: expiresAt,
-        signed_date: note.signedDate ? new Date(note.signedDate).toISOString() : null,
-        outcome: result.outcome,
-        plan: result.plan ?? null,
-      },
-      { onConflict: 'notification_uuid' },
-    );
+    const { error: ledgerError } = await admin
+      .from('asc_notifications')
+      .update({ outcome: result.outcome, plan: result.plan ?? null })
+      .eq('notification_uuid', uuid);
     if (ledgerError) {
-      console.error(`ASC ledger write failed: ${ledgerError.message}`);
-      return Response.json({ error: 'Ledger unavailable.' }, { status: 500 });
+      // The decision is already applied; the ledger just failed to say so.
+      // Logged, not 500'd — a 500 here is exactly the redelivery this
+      // reordering exists to make harmless, so it costs nothing either way.
+      console.error(`ASC ledger outcome write failed: ${ledgerError.message}`);
     }
 
     console.log(

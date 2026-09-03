@@ -42,8 +42,6 @@ export const TODAY_EVENTS = {
    * deleted, and still draws in the dev fixtures — whatever asks the day's
    * context next reports through these.
    */
-  contextOpened: 'context_opened',
-  contextSet: 'context_set',
   outfitsSource: 'outfits_source',
   weatherState: 'weather_state',
   wearStarted: 'wear_started',
@@ -97,12 +95,7 @@ export const todayOpenedProps = (): TodayProps => ({});
 
 export const plateViewedProps = (index: PlateIndex): TodayProps => ({ index });
 
-export const contextOpenedProps = (facet: ContextFacet): TodayProps => ({ facet });
 
-export const contextSetProps = (facet: ContextFacet, choice: ContextChoice): TodayProps => ({
-  facet,
-  choice,
-});
 
 export const outfitsSourceProps = (source: OutfitsSource): TodayProps => ({ source });
 

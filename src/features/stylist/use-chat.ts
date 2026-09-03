@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   STYLIST_EVENTS,
+  chatErrorProps,
   chatReplyOkProps,
 } from './stylist-analytics';
 import {
@@ -623,6 +624,22 @@ export function useChat({
         // simply works.
         const disabled =
           !consent && !denial && !unavailable && !held && (await isWorkloadDisabled(err));
+
+        // THAT a turn failed, and which of the four bounded causes — declared
+        // in the union since redesign 16 and never emitted until the
+        // 2026-09-02 audit, so every failed ask read as silence.
+        track(
+          STYLIST_EVENTS.chatError,
+          chatErrorProps(
+            consent
+              ? 'consent'
+              : denial?.kind === 'plan_excluded'
+                ? 'plan_excluded'
+                : denial?.kind === 'quota_exceeded'
+                  ? 'quota'
+                  : 'transport',
+          ),
+        );
 
         // A refusal that carried the allowance fact updates the mark, so the
         // screen that says no also says how many are left. Both the exhausted

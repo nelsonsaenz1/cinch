@@ -51,9 +51,16 @@ export function coreKey(ids: readonly string[]): string {
 /**
  * Every distinct core the current wardrobe could build.
  *
- * Built the same way `countOutfits` computes its arithmetic — tops × bottoms ×
- * shoes, plus dresses × shoes — so `possibleCores(w).length` and
- * `countOutfits(tallyOf(w))` never diverge. Tested directly.
+ * Built the same way `countOutfits` computes its arithmetic —
+ * (tops × bottoms + dresses) × max(shoes, 1) — so `possibleCores(w).length`
+ * and `countOutfits(tallyOf(w))` never diverge. Tested directly.
+ *
+ * SHOES MULTIPLY, NEVER GATE. `countOutfits` stopped requiring footwear on
+ * 2026-09-01 (founder decision, commit 150a7a5) and this function did not
+ * follow: twelve of the twenty-five live closets hold no shoes, and for
+ * every one of them The Repeat counted zero possible cores, so its
+ * "you've worn them all" state could never be reached. A shoeless closet
+ * now builds unshod cores — the same cores the generator offers it.
  */
 export function possibleCores(wardrobe: readonly Garment[]): string[][] {
   const by = (kind: CountedKind) => wardrobe.filter((g) => kindOfSlot(g.slot) === kind);
@@ -61,15 +68,17 @@ export function possibleCores(wardrobe: readonly Garment[]): string[][] {
   const bottoms = by('bottoms');
   const dresses = by('dresses');
   const shoes = by('shoes');
+  // One "no shoe" so the loops below run once; `null` adds no id.
+  const footwear: (Garment | null)[] = shoes.length > 0 ? shoes : [null];
 
   const cores: string[][] = [];
   for (const t of tops) {
     for (const b of bottoms) {
-      for (const s of shoes) cores.push([t.id, b.id, s.id].sort());
+      for (const s of footwear) cores.push(s ? [t.id, b.id, s.id].sort() : [t.id, b.id].sort());
     }
   }
   for (const d of dresses) {
-    for (const s of shoes) cores.push([d.id, s.id].sort());
+    for (const s of footwear) cores.push(s ? [d.id, s.id].sort() : [d.id]);
   }
   return cores;
 }

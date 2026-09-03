@@ -437,9 +437,11 @@ test('reduced motion drops the settle and keeps the tree', () => {
   // setting on, it simply arrives without the tween.
   assert.match(PARTS_RAW, /useReducedMotion\(\)/);
   assert.match(PARTS_RAW, /entering=\{reduced \? undefined : FadeIn/);
-  // Keyed on the URI so it plays when the cutout first resolves and never again
-  // on a re-render — the shipped behaviour, reused rather than rebuilt.
-  assert.match(PARTS_RAW, /key=\{imageUri\}/);
+  // Keyed on the image's PATH so it plays when the cutout first resolves and
+  // never again — not on a re-render, and not on the hourly re-sign of the
+  // URL either. Keying on the whole URI replayed the fade (and remounted the
+  // tile) every time the signed token rotated (2026-09-02 audit).
+  assert.match(PARTS_RAW, /key=\{imageUri\.split\('\?'\)\[0\]\}/);
   // Nothing else on this page translates, scales or staggers.
   assert.ok(!/withRepeat|translateY|translateX/.test(PARTS_RAW));
 });

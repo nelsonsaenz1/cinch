@@ -54,6 +54,8 @@ import {
   CELEBRATION_SECONDARY,
   ERROR_BACK,
   ERROR_EYEBROW,
+  ROOM_EYEBROW,
+  waitingForRoomBody,
   FILING_FOOT,
   OFFLINE_BODY,
   OFFLINE_EYEBROW,
@@ -83,12 +85,21 @@ import { useWardrobe } from '@/features/styling/queries';
 import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
 import { bypassesCameraGate, captureEntryFrom } from '@/features/ingest/capture-entry';
 import { cutoutFailures } from '@/features/ingest/cutout-failure';
+import { admitBatch } from '@/features/ingest/batch-capacity';
 import {
   useQueueStore,
   selectActiveCount,
   selectFailedJobs,
+  selectHeldJobs,
+  selectPendingRowCount,
 } from '@/features/ingest/queue-store';
-import { drainQueue, retryFailedJobs, userFacingFailure } from '@/features/ingest/upload-queue';
+import {
+  capacityRefusedAt,
+  drainQueue,
+  releaseHeldJobs,
+  retryFailedJobs,
+  userFacingFailure,
+} from '@/features/ingest/upload-queue';
 import { haptics } from '@/lib/haptics';
 import { canvasAlpha, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -368,10 +379,26 @@ function CaptureScreen() {
    * user who stores a piece and comes back is resumed with the photograph
    * they already took rather than sent to shoot the same coat twice.
    */
-  type HeldCapture = { assets: CapturedAsset[]; local: boolean };
+  type HeldCapture = {
+    assets: CapturedAsset[];
+    local: boolean;
+    /** Which ceiling refused them — they have different remedies (W-02). */
+    wall: 'active' | 'total';
+    used: number;
+    limit: number;
+  };
+  /** A `Modal`'s slide-out, with a little to spare, before Superwall may present. */
+  const SHEET_DISMISS_MS = 400;
   const [heldCapture, setHeldCapture] = useState<HeldCapture | null>(null);
   const [closetFullVisible, setClosetFullVisible] = useState(false);
   const [gatePresenting, setGatePresenting] = useState(false);
+  /**
+   * Bumped whenever the hold should be re-settled against a fresh capacity
+   * read — on focus, after a paywall grant, after a decline. Declared up here,
+   * above every callback that bumps it: a setter referenced above its own
+   * declaration is the TDZ shape the boot gate caught on 2026-08-31.
+   */
+  const [resumeTick, setResumeTick] = useState(0);
 
   // The stage's live session is torn down while a photo is held behind W-02, so
   // readiness must not survive the hold. A shutter tap in the instant the view
@@ -485,17 +512,32 @@ function CaptureScreen() {
    * point: the only thing worth avoiding is the paid upload and tagging
    * call, never the shot itself.
    */
+  //
+  // A COUNT, NOT A BOOLEAN — ledger A28. `capacity.full` answers "room for
+  // one more?", and a batch of 27 asked it once: 10 landed, 17 met the
+  // trigger three times each. `admitBatch` compares the batch against the
+  // room (less the photographs already queued that have no row yet, which no
+  // server count can see), commits what fits and holds the rest behind the
+  // sheet — the same sheet, now with real numbers.
   const settleCapture = useCallback(
     (assets: CapturedAsset[], local: boolean) => {
       if (assets.length === 0) return;
-      if (capacity.full) {
-        setHeldCapture({ assets, local });
-        setClosetFullVisible(true);
-        return;
-      }
-      commit(assets, { local });
+      const verdict = admitBatch(assets.length, {
+        ...capacity,
+        pendingRows: selectPendingRowCount(useQueueStore.getState().jobs),
+      });
+      if (verdict.accept > 0) commit(assets.slice(0, verdict.accept), { local });
+      if (verdict.kind === 'all') return;
+      setHeldCapture({
+        assets: assets.slice(verdict.accept),
+        local,
+        wall: verdict.wall,
+        used: verdict.used,
+        limit: verdict.limit,
+      });
+      setClosetFullVisible(true);
     },
-    [capacity.full, commit],
+    [capacity, commit],
   );
 
   /**
@@ -690,20 +732,50 @@ function CaptureScreen() {
    * back to shoot again: "resume with that photograph" is the whole point of
    * holding it in the first place.
    */
+  //
+  // THE SHEET COMES DOWN BEFORE SUPERWALL GOES UP. `ClosetFullSheet` is a
+  // React Native `Modal`, and iOS refuses to present a second view controller
+  // over one that is already modal — Superwall's sheet never appeared, no
+  // `usePlacement` callback fired, and the eight-second `no_response`
+  // watchdog was the only thing that did. So: hide, wait out the dismissal
+  // animation, then present. A decline brings the sheet back so "Make room"
+  // and "Not now" are still on offer.
+  //
+  // On a grant the held photographs are NOT committed blindly. The webhook
+  // that raises the plan may not have landed, and a non-gated paywall grants
+  // on dismissal too — so the room is re-read and `resumeHeld` commits what
+  // fits, exactly as it does after a swap.
+  const presentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (presentTimer.current) clearTimeout(presentTimer.current);
+    },
+    [],
+  );
   const seePlansForHeldCapture = useCallback(() => {
+    if (presentTimer.current) return;
     setGatePresenting(true);
-    void gate
-      .present(Placement.AddGarmentOverLimit, async () => {
-        await Promise.all([
-          qc.invalidateQueries({ queryKey: ['subscription'] }),
-          qc.invalidateQueries({ queryKey: ['closet-count'] }),
-        ]);
-        if (heldCapture) commit(heldCapture.assets, { local: heldCapture.local });
-        setHeldCapture(null);
-        setClosetFullVisible(false);
-      })
-      .finally(() => setGatePresenting(false));
-  }, [gate, qc, commit, heldCapture]);
+    setClosetFullVisible(false);
+    presentTimer.current = setTimeout(() => {
+      presentTimer.current = null;
+      void gate
+        .present(Placement.AddGarmentOverLimit, async () => {
+          await Promise.all([
+            qc.invalidateQueries({ queryKey: ['subscription'] }),
+            qc.invalidateQueries({ queryKey: ['closet-count'] }),
+          ]);
+        })
+        .finally(() => {
+          // Whatever happened — granted, declined, or no usable sheet at
+          // all — the hold is re-settled against a fresh room, which
+          // brings the sheet back when nothing changed. 'unavailable' is
+          // the contract's "leave the caller's own copy on screen", and
+          // the sheet IS that copy.
+          setGatePresenting(false);
+          setResumeTick((t) => t + 1);
+        });
+    }, SHEET_DISMISS_MS);
+  }, [gate, qc]);
 
   /**
    * W-02's "Make room for it" — the real, working swap flow, not a token
@@ -719,10 +791,17 @@ function CaptureScreen() {
    */
   const makeRoomForHeldCapture = useCallback(() => {
     setClosetFullVisible(false);
+    // At the TOTAL ceiling storing a piece does not help — the stored piece
+    // is the problem — so the only remedies are deleting or upgrading, and
+    // the door goes to Storage rather than to a swap that cannot land.
+    if (heldCapture?.wall === 'total' || (!heldCapture && capacity.storageFull)) {
+      router.push('/storage');
+      return;
+    }
     const tally = tallyOf(wardrobe.data ?? []);
     const best = rankGaps(tally)[0]?.kind ?? 'tops';
     router.push(`/wall-swap?add=${best}`);
-  }, [wardrobe.data, router]);
+  }, [wardrobe.data, router, heldCapture, capacity.storageFull]);
 
   /**
    * The resume, on the far side of a swap.
@@ -736,18 +815,107 @@ function CaptureScreen() {
    * genuinely has room, and simply re-opens the sheet otherwise rather than
    * attempting a commit the server would refuse anyway.
    */
+  //
+  // `resumeHeld` is the one place a held photograph goes back to the queue,
+  // and it admits by COUNT like `settleCapture`: the queue's own parked jobs
+  // first (they were picked earlier), then the photographs held in this
+  // component, and only as many as the room just confirmed. Whatever still
+  // does not fit stays held, and the sheet says so.
   useFocusEffect(
     useCallback(() => {
-      if (!heldCapture || capacity.loading) return;
-      if (!capacity.full) {
-        commit(heldCapture.assets, { local: heldCapture.local });
-        setHeldCapture(null);
-        setClosetFullVisible(false);
-      } else {
-        setClosetFullVisible(true);
-      }
-    }, [heldCapture, capacity.loading, capacity.full, commit]),
+      setResumeTick((t) => t + 1);
+    }, [setResumeTick]),
   );
+  const heldCount = selectHeldJobs(jobs).length;
+  // When the client's picture of the room last changed. Stamped in its own
+  // effect so the resume effect can compare it with the server's last refusal.
+  const capacityChangedAt = useRef(0);
+  useEffect(() => {
+    capacityChangedAt.current = Date.now();
+  }, [capacity.used, capacity.limit, capacity.stored, capacity.storedLimit, capacity.loading]);
+  useEffect(() => {
+    if (resumeTick === 0 || capacity.loading || gatePresenting) return;
+    if (!heldCapture && heldCount === 0) return;
+
+    const snapshot = useQueueStore.getState().jobs;
+    const pending = selectPendingRowCount(snapshot);
+    const parked = selectHeldJobs(snapshot).length;
+
+    // THE SERVER'S LAST WORD OUTRANKS THE CLIENT'S ARITHMETIC. When the
+    // client's plan reads higher than the server's (the StoreKit fold, a
+    // trial the server has ended), `admitBatch` sees room the trigger will
+    // refuse, and every return to this screen would spend a Vision pass
+    // finding that out again. So parked photographs are released only once
+    // the client's own picture of the room has CHANGED since the refusal —
+    // a count that moved, a plan that moved — never on the same picture.
+    const refusedAt = capacityRefusedAt();
+    const capacityMoved = capacityChangedAt.current > refusedAt;
+
+    const queueVerdict = admitBatch(parked, { ...capacity, pendingRows: pending });
+    let released = 0;
+    if (queueVerdict.accept > 0 && capacityMoved) {
+      released = releaseHeldJobs(queueVerdict.accept);
+      if (released > 0) void drainQueue();
+    }
+
+    if (!heldCapture) return;
+    if (!capacityMoved && refusedAt > 0) {
+      // Same picture the server already refused: keep the hold, say so.
+      setClosetFullVisible(true);
+      return;
+    }
+    const verdict = admitBatch(heldCapture.assets.length, {
+      ...capacity,
+      pendingRows: pending + released,
+    });
+    if (verdict.accept > 0) {
+      commit(heldCapture.assets.slice(0, verdict.accept), { local: heldCapture.local });
+    }
+    // The hold is component state and this effect is the one place it is
+    // settled against a FRESH capacity read — the same reason it is an effect
+    // rather than a callback: the room is only known after the count query
+    // has answered, which is a render later than the tap that asked.
+    if (verdict.kind === 'all') {
+      setHeldCapture(null);
+      setClosetFullVisible(false);
+    } else {
+      // IDENTITY-STABLE. `heldCapture` is a dependency of this effect, so a
+      // fresh object here on a verdict that changed nothing would re-run
+      // the effect against the same room, forever (caught in verification,
+      // pass two). The hold is rewritten only when photographs actually
+      // left it; otherwise only the sheet's visibility moves.
+      if (verdict.accept > 0) {
+        setHeldCapture({
+          assets: heldCapture.assets.slice(verdict.accept),
+          local: heldCapture.local,
+          wall: verdict.wall,
+          used: verdict.used,
+          limit: verdict.limit,
+        });
+      }
+      setClosetFullVisible(true);
+    }
+    // `capacity` is a fresh object every render; its fields are the deps.
+    //
+    // `heldCount` is read but deliberately NOT a dependency. A release that
+    // the server then refuses parks the jobs again, which changes
+    // `heldCount`; re-running on that change would release them again
+    // against the same stale room — a livelock of Vision passes and refused
+    // inserts (caught in verification). The refusal invalidates the count
+    // instead, so this re-runs only when the room genuinely moves, or when
+    // a person acts (focus, See plans, Make room).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    resumeTick,
+    capacity.loading,
+    capacity.used,
+    capacity.limit,
+    capacity.stored,
+    capacity.storedLimit,
+    gatePresenting,
+    heldCapture,
+    commit,
+  ]);
 
   const onAcceptConsent = async () => {
     await grantConsent.mutateAsync();
@@ -812,7 +980,9 @@ function CaptureScreen() {
   // CP-05 — the pieces that were filed but arrived without a cutout.
   const cutoutLost = cutoutFailures(jobs);
   const active = selectActiveCount(jobs); // queued + in-flight, i.e. still to process
-  const allDone = total > 0 && active === 0;
+  // Parked photographs are unfinished business, not a finished batch: a
+  // batch refused whole must not read "Zero filed" under a settled masthead.
+  const allDone = total > 0 && active === 0 && heldCount === 0;
   //
   // CP-03: THE BAR IS GONE, AND IT IS NOT COMING BACK.
   //
@@ -1065,6 +1235,27 @@ function CaptureScreen() {
                   onPrimary={() => (canRetry ? void retryFailed() : clearFailed())}
                   secondary={canRetry ? ERROR_BACK : null}
                   onSecondary={() => router.replace('/(tabs)/closet')}
+                />
+              </View>
+            ) : null}
+
+            {/* Ledger A28 — photographs the server refused a slot for. Parked,
+                not failed: the count says how many wait, the actions are the
+                two real remedies, and nothing here retries a refusal. */}
+            {heldCount > 0 ? (
+              <View className="pb-3.5">
+                <AmberPlate
+                  eyebrow={ROOM_EYEBROW}
+                  body={waitingForRoomBody(
+                    heldCount,
+                    capacity.storageFull ? capacity.storedLimit : capacity.limit,
+                    capacity.storageFull ? 'total' : 'active',
+                  )}
+                  primary="See plans"
+                  busy={gatePresenting}
+                  onPrimary={seePlansForHeldCapture}
+                  secondary={capacity.storageFull ? 'Open Storage' : 'Make room'}
+                  onSecondary={makeRoomForHeldCapture}
                 />
               </View>
             ) : null}
@@ -1470,8 +1661,16 @@ function CaptureScreen() {
       */}
       <ClosetFullSheet
         visible={closetFullVisible}
-        eyebrow={heldCapture && heldCapture.assets.length > 1 ? `${heldCapture.assets.length} photographed · not added yet` : 'Photographed · not added yet'}
-        title={`Your closet is full at ${capacity.limit}.`}
+        eyebrow={
+          heldCapture && heldCapture.assets.length > 1
+            ? `${heldCapture.assets.length} photographed · waiting for room`
+            : 'Photographed · not added yet'
+        }
+        title={
+          heldCapture?.wall === 'total'
+            ? `Your account holds ${heldCapture.limit} pieces — the most it can.`
+            : `Your closet is full at ${heldCapture?.limit ?? capacity.limit}.`
+        }
         body={(() => {
           const tally = tallyOf(wardrobe.data ?? []);
           const today = countOutfits(tally);
@@ -1480,7 +1679,7 @@ function CaptureScreen() {
         })()}
         onSeePlans={seePlansForHeldCapture}
         seePlansBusy={gatePresenting}
-        secondaryLabel="Make room for it"
+        secondaryLabel={heldCapture?.wall === 'total' ? 'Open Storage' : 'Make room for it'}
         onSecondary={makeRoomForHeldCapture}
         tertiaryLabel="Not now"
         onDismiss={() => {

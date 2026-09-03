@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityCenterEmptyGlyph } from '@/components/activity-center';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/error-state';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SectionHeader } from '@/components/ui/section-header';
 import { ListSkeleton } from '@/components/ui/skeleton';
@@ -120,6 +121,13 @@ export default function ReactionDetailScreen() {
 
       {loading ? (
         <ListSkeleton count={3} label="Loading your activity…" />
+      ) : event.isError ? (
+        // A failed READ is not a revoked event. Rendering the revoked state
+        // here asserted "no longer available" over a connection problem
+        // (2026-09-02 audit); this says only that the read failed, and offers it again.
+        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+          <ErrorState onRetry={() => void event.refetch()} retrying={event.isRefetching} />
+        </View>
       ) : revoked ? (
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20 }}>
           <View className="flex-1 items-center pt-2">

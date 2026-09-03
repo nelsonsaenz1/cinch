@@ -62,12 +62,15 @@ export function useGapFeed(): GapFeedModel {
   const closet = useCloset();
   const capacity = useCapacity();
 
-  const items = closet.data ?? [];
+  // Memoised: a bare `?? []` is a fresh array identity every render, which
+  // would recompute the tally, the ranking and the id map on any unrelated
+  // state change.
+  const items = useMemo(() => closet.data ?? [], [closet.data]);
   const { resolve } = useSignedUrls(
     items.flatMap((i) => [i.listingPath, i.platePath, i.cutoutPath, i.thumbPath]),
   );
 
-  const garments = wardrobe.data ?? [];
+  const garments = useMemo(() => wardrobe.data ?? [], [wardrobe.data]);
   const tally = useMemo(() => tallyOf(garments), [garments]);
   const ranked = useMemo(() => rankGaps(tally), [tally]);
   const dominant = useMemo(() => dominantGaps(ranked), [ranked]);

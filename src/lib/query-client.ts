@@ -1,7 +1,9 @@
 import Constants from 'expo-constants';
 import Storage from 'expo-sqlite/kv-store';
 
-import { QueryClient, type Query } from '@tanstack/react-query';
+import { AppState } from 'react-native';
+
+import { focusManager, QueryClient, type Query } from '@tanstack/react-query';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 
 /**
@@ -27,6 +29,20 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
   },
+});
+
+/**
+ * Foregrounding IS focus, as far as React Query is concerned.
+ *
+ * On the web the library listens to `visibilitychange` on its own; in React
+ * Native nobody tells it, so `refetchOnWindowFocus` — even where a query
+ * opts back in — never fired, and three docblocks describing a plan that
+ * "refetches on focus" described a thing that could not happen (2026-09-02
+ * audit). The global default above stays `false`; this only makes the
+ * per-query opt-in (the subscription read, use-plan.ts) real.
+ */
+AppState.addEventListener('change', (status) => {
+  focusManager.setFocused(status === 'active');
 });
 
 export const persister = createSyncStoragePersister({

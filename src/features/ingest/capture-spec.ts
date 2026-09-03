@@ -420,6 +420,8 @@ export type FilingRow = {
   /** The word on the right of the row. */
   status: string;
   tone: RowTone;
+  /** Parked for want of a closet slot — waiting, but not "to go" (A28). */
+  parked?: boolean;
 };
 
 /**
@@ -440,6 +442,13 @@ export const ROW_STATUS: Record<RowTone, string> = {
 
 /** Frame 17's row word. Every piece is held, so the plate says why once. */
 export const ROW_STATUS_HELD = 'Held';
+
+/**
+ * The word for a piece parked for want of a closet slot (ledger A28). It
+ * takes the waiting tone — nothing is wrong with the photograph — and the
+ * plate above the rows says once why it waits and what to do about it.
+ */
+export const ROW_STATUS_WAITING_FOR_ROOM = 'Waiting for room';
 
 /**
  * A queue, as the rows the frames draw.
@@ -473,8 +482,14 @@ export function filingRows(jobs: readonly RowSource[], opts?: { held?: boolean }
       // `upload-queue-list.tsx` has always held: a garment has no truthful
       // name until the tagger has said what it is.
       label: job.label?.trim() ? job.label.trim() : 'Photograph',
-      status: opts?.held && tone !== 'filed' ? ROW_STATUS_HELD : ROW_STATUS[tone],
+      status:
+        opts?.held && tone !== 'filed'
+          ? ROW_STATUS_HELD
+          : job.stage === 'held'
+            ? ROW_STATUS_WAITING_FOR_ROOM
+            : ROW_STATUS[tone],
       tone,
+      ...(job.stage === 'held' ? { parked: true } : {}),
     };
   });
 }
@@ -484,7 +499,7 @@ function toneFor(job: RowSource): RowTone {
   // piece that really was filed. See `cutoutFailures` in cutout-failure.ts.
   if (job.cutoutFailed === true && job.itemId) return 'trouble';
   if (job.stage === 'done') return 'filed';
-  if (job.stage === 'queued' || job.stage === 'failed') return 'waiting';
+  if (job.stage === 'queued' || job.stage === 'failed' || job.stage === 'held') return 'waiting';
   return 'filing';
 }
 
@@ -498,7 +513,10 @@ function toneFor(job: RowSource): RowTone {
 export function filingSubline(rows: readonly FilingRow[]): string | null {
   const filed = rows.filter((r) => r.tone === 'filed').length;
   const trouble = rows.filter((r) => r.tone === 'trouble').length;
-  const togo = rows.filter((r) => r.tone === 'filing' || r.tone === 'waiting').length;
+  const parked = rows.filter((r) => r.parked).length;
+  const togo = rows.filter(
+    (r) => !r.parked && (r.tone === 'filing' || r.tone === 'waiting'),
+  ).length;
 
   const parts: string[] = [];
   if (filed > 0) parts.push(`${spell(filed, 'upper')} filed`);
@@ -510,7 +528,34 @@ export function filingSubline(rows: readonly FilingRow[]): string | null {
     );
   }
   if (togo > 0) parts.push(`${spell(togo)} to go`);
+  if (parked > 0) parts.push(`${spell(parked)} waiting for room`);
   return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+// ---------------------------------------------------------------------------
+// The room plate — photographs parked for want of a slot (ledger A28)
+// ---------------------------------------------------------------------------
+
+export const ROOM_EYEBROW = 'Closet full';
+
+/**
+ * What the plate above the rows says about parked photographs: the count,
+ * the ceiling, and the fact that nothing was lost. No price, no plan name —
+ * "See plans" opens the placement that says those.
+ */
+export function waitingForRoomBody(
+  held: number,
+  limit: number,
+  wall: 'active' | 'total' = 'active',
+): string {
+  const n = Math.max(0, Math.trunc(held));
+  const noun = n === 1 ? 'photograph is' : 'photographs are';
+  // The two ceilings have different remedies, and telling someone to make
+  // room when making room will not help is the dead end the pair exists to
+  // remove (use-capacity.ts).
+  return wall === 'total'
+    ? `${spell(n, 'upper')} ${noun} waiting for room — your account holds ${limit} pieces, the most it can. Nothing is deleted; delete a stored piece or see plans and they file themselves.`
+    : `${spell(n, 'upper')} ${noun} waiting for room — your closet is full at ${limit}. Nothing is deleted; make room or see plans and they file themselves.`;
 }
 
 // ---------------------------------------------------------------------------

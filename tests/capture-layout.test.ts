@@ -405,3 +405,15 @@ test('the capture surfaces reach no native module of their own', () => {
     assert.doesNotMatch(src, /requireNativeModule|NativeModules|expo-camera/);
   }
 });
+
+test('parked photographs are "waiting for room", never "to go"', () => {
+  const rows = filingRows([
+    job({ id: 'a', stage: 'done', itemId: 'i1' }),
+    job({ id: 'b', stage: 'held' }),
+    job({ id: 'c', stage: 'held' }),
+    job({ id: 'd', stage: 'queued' }),
+  ]);
+  assert.equal(rows[1]!.status, 'Waiting for room');
+  assert.equal(rows[1]!.tone, 'waiting');
+  assert.equal(filingSubline(rows), 'One filed · one to go · two waiting for room');
+});

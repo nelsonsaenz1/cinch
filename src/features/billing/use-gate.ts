@@ -6,9 +6,8 @@ import { useCallback, useId, useMemo } from 'react';
 import { track } from '@/lib/posthog';
 
 import { contextLineFor, type ContextLineOpts } from './context-lines';
-import { withinImportFailureGrace } from './import-failure-grace';
 import { usePlan } from './use-plan';
-import { Placement, type PlacementName } from './placements';
+import type { PlacementName } from './placements';
 import { recordPaywallOrigin } from './paywall-origin';
 import { PAYWALLS_ENABLED } from './superwall';
 
@@ -472,20 +471,6 @@ function useSuperwallGate(): Gate {
       // two settlements on one modal; the honest answer for the newcomer is that
       // it did not get through.
       if (inFlight) return 'unavailable';
-
-      // No ask on the heels of a failure. For ten minutes after a terminal
-      // import failure, the garment-limit placement holds its tongue — a
-      // paywall two minutes after the app dropped someone's photos is a
-      // request for money in reply to a defect (import-failure-grace.ts has
-      // the full account). The server's refusal is untouched; `unavailable`
-      // leaves the caller's own limit copy on screen, the outcome every call
-      // site already handles. `paywall_eligible` records the suppression so
-      // the presented count falling is legible as the guard working rather
-      // than the placement going dark.
-      if (placement === Placement.AddGarmentOverLimit && withinImportFailureGrace()) {
-        track('paywall_eligible', { placement, eligible: false, reason: 'import_failure_grace' });
-        return 'unavailable';
-      }
 
       let resolveOutcome!: (outcome: GateOutcome) => void;
       const outcome = new Promise<GateOutcome>((resolve) => {

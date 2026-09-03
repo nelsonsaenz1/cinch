@@ -76,16 +76,31 @@ export default function CeilingScreen() {
     [selection, selectedQty, ceiling],
   );
 
+  // A failed resolve used to throw out of this callback with nothing on
+  // screen changing — the button un-busied and the reader was left on a
+  // page with no way forward and no way back (2026-09-02 audit).
+  const [resolveFailed, setResolveFailed] = useState(false);
   const confirm = useCallback(async () => {
     if (!sessionId) return;
     setResolving(true);
+    setResolveFailed(false);
     try {
       await resolveIntakeCeiling(sessionId, confirmed, Array.from(selection));
       router.replace('/reveal');
+    } catch {
+      setResolveFailed(true);
     } finally {
       setResolving(false);
     }
   }, [sessionId, confirmed, selection, router]);
+
+  /**
+   * The named way out of both phases. Neither had one: a reader who arrived
+   * here from the review could only go forward, and a reader whose resolve
+   * failed could not go anywhere at all. Back returns to the review, whose
+   * drafts are unchanged — nothing here is committed until the resolve lands.
+   */
+  const exit = { label: 'Back', onPress: () => router.back(), hint: 'Returns to your review. Nothing is saved yet.' };
 
   if (!sessionId) return <ErrorState title="No walkthrough to resolve" />;
   if (drafts.isPending) return <Skeleton />;
@@ -109,7 +124,7 @@ export default function CeilingScreen() {
     return (
       <View className="flex-1 bg-canvas">
         <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-          <WalkthroughChrome />
+          <WalkthroughChrome exit={exit} />
           <View className="flex-1 px-gutter">
             <Text variant="eyebrow">{copy.eyebrow}</Text>
             <View style={{ marginTop: 6, marginBottom: 12 }}>
@@ -189,7 +204,7 @@ export default function CeilingScreen() {
   return (
     <View className="flex-1 bg-canvas">
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-        <WalkthroughChrome state={`${selectedQty} of ${ceiling}`} />
+        <WalkthroughChrome exit={exit} state={`${selectedQty} of ${ceiling}`} />
         <View className="px-gutter" style={{ marginBottom: 14 }}>
           <Text variant="display" trim accessibilityRole="header">
             Keep {ceiling} for now.
@@ -224,8 +239,15 @@ export default function CeilingScreen() {
               {selectedQty} of {ceiling}
             </Text>
           </View>
+          {resolveFailed ? (
+            <View style={{ marginBottom: 10 }} accessibilityRole="alert">
+              <Text variant="caption" className="text-muted">
+                That didn’t save — nothing moved. Try again, or go back to your review.
+              </Text>
+            </View>
+          ) : null}
           <Button
-            title={resolving ? 'Saving…' : `Keep these ${ceiling}`}
+            title={resolving ? 'Saving…' : resolveFailed ? 'Try again' : `Keep these ${ceiling}`}
             onPress={() => void confirm()}
             disabled={resolving || selectedQty !== ceiling}
             haptic

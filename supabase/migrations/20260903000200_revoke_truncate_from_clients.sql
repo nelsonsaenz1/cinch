@@ -1,0 +1,24 @@
+-- ---------------------------------------------------------------------------
+-- No client role may TRUNCATE, TRIGGER or REFERENCES a public table —
+-- full-app audit 2026-09-02
+--
+-- Found while verifying 20260903000100: `authenticated` still held
+-- TRUNCATE, TRIGGER and REFERENCES on nineteen public tables — `items`,
+-- `profiles`, `outfits`, `follows`, the quota ledger — the residue of the
+-- platform's default `GRANT ALL`. Row level security governs SELECT, INSERT,
+-- UPDATE and DELETE; it does NOT govern TRUNCATE, which empties a table
+-- regardless of policy. PostgREST exposes no truncate endpoint, so the hole
+-- needs a SECURITY INVOKER function that truncates to be reachable today —
+-- none exists — but a privilege that only a future mistake can exercise is a
+-- privilege to remove now, not then. TRIGGER and REFERENCES are DDL-time
+-- rights a client never needs.
+--
+-- Every table in `public`, not the nineteen by name, so a table created
+-- later with the same default grants is covered by re-running this, and the
+-- pgTAP grant matrix (supabase/tests/20_grant_matrix.sql) fails CI if any
+-- comes back.
+--
+-- DOWN (reversible — nothing in the app ever used these):
+--   grant truncate, trigger, references on all tables in schema public to authenticated;
+-- ---------------------------------------------------------------------------
+revoke truncate, trigger, references on all tables in schema public from anon, authenticated;

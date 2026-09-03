@@ -96,9 +96,54 @@ export function verdictFor(type: string, productId: string | null | undefined): 
 export function isStale(
   eventPeriodEnd: string | null,
   storedPeriodEnd: string | null | undefined,
+  /**
+   * Whether the event takes the plan AWAY. A revocation describes the END of
+   * the period the last grant stored, so it carries that grant's exact
+   * `expirationAt` — a tie is the normal case, not a replay, and must apply.
+   * A grant at a tie is a replay (the same renewal from a second source, or
+   * a late duplicate after the period already expired) and must not
+   * re-grant. Found by the 2026-09-02 audit: with a single `<=` rule every
+   * expiration was dropped as stale and a lapsed subscription kept its plan
+   * for good.
+   */
+  revoking = false,
+  /**
+   * The plan currently stored. A GRANT at a tie is a replay only when the
+   * stored row is already paid; against a row a revocation just set to
+   * 'free' at that same date it is the REVERSAL of that revocation
+   * (`REFUND_REVERSED`, `uncancellation`) and must apply — otherwise a
+   * refund that Apple then reversed would leave the customer free for good.
+   */
+  storedPlan: Plan | null | undefined = undefined,
+  /**
+   * The plan the event grants. At a tie against a paid row, the SAME plan is
+   * a replay and a DIFFERENT paid plan is a change — `product_change`,
+   * Apple's `DID_CHANGE_RENEWAL_PREF/UPGRADE`, `OFFER_REDEEMED` — which
+   * keeps the period end and must apply.
+   */
+  eventPlan: Plan | null | undefined = undefined,
 ): boolean {
   if (!eventPeriodEnd || !storedPeriodEnd) return false;
-  return eventPeriodEnd <= storedPeriodEnd;
+  // Compare INSTANTS, not strings. Superwall and Apple write
+  // `…T00:00:00.000Z`; PostgREST returns `…T00:00:00+00:00`, and as strings
+  // `'.'` and `'Z'` sort after `'+'`, so the same moment read as "later" and
+  // the tie branch below was unreachable in production (verification).
+  const event = Date.parse(eventPeriodEnd);
+  const stored = Date.parse(storedPeriodEnd);
+  if (Number.isNaN(event) || Number.isNaN(stored)) {
+    // Unparseable on either side: fall back to the string order with the same
+    // tie rule, never to the old "a tie is always stale".
+    if (eventPeriodEnd === storedPeriodEnd) return revoking ? false : storedPlan !== 'free';
+    return eventPeriodEnd < storedPeriodEnd;
+  }
+  if (event < stored) return true;
+  if (event > stored) return false;
+  // A tie.
+  if (revoking) return false;
+  if (storedPlan === 'free') return false;
+  // A caller that does not know the plans is on the safe side: a replay.
+  if (storedPlan == null || eventPlan == null) return true;
+  return eventPlan === storedPlan;
 }
 
 /** Superwall's prefix for an anonymous, pre-`identify()` user id. */
@@ -157,7 +202,9 @@ export function reconcile(
       best = { plan: verdict.plan, periodEnd: event.periodEnd };
       continue;
     }
-    if (!isStale(event.periodEnd, best.periodEnd)) {
+    if (
+      !isStale(event.periodEnd, best.periodEnd, REVOKING.has(event.type), best.plan, verdict.plan)
+    ) {
       best = { plan: verdict.plan, periodEnd: event.periodEnd };
     }
   }

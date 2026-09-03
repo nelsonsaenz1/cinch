@@ -108,5 +108,23 @@ export function usePlanOutfit() {
       track('outfit_planned');
       void qc.invalidateQueries({ queryKey: ['planned-week'] });
     },
+    onError: (error) => {
+      // The counterweight. Bounded: a reason from a fixed vocabulary, never
+      // the server's message.
+      track('outfit_plan_failed', { reason: planFailureReason(error) });
+    },
   });
+}
+
+/**
+ * Why a plan write failed, from a closed list — the only shape an analytics
+ * property may take here. Everything unrecognised is `unknown`, and `unknown`
+ * rising is the signal that a new cause needs a name.
+ */
+export function planFailureReason(error: unknown): 'limit' | 'transport' | 'not_signed_in' | 'unknown' {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  if (/limit_reached|_limit\b/i.test(message)) return 'limit';
+  if (/not signed in|no session|jwt/i.test(message)) return 'not_signed_in';
+  if (/network|timed? ?out|did not respond|fetch/i.test(message)) return 'transport';
+  return 'unknown';
 }

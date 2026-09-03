@@ -80,8 +80,6 @@ export const EVENT_OCCASIONS = [
   { key: 'formal', label: 'Black tie', phrase: 'It’s black tie.', formality: 5, occasion: 'formal' },
 ] as const;
 
-type OccasionOption = (typeof OCCASIONS)[number] | (typeof EVENT_OCCASIONS)[number];
-
 /**
  * Dress or separates — the question the owner hears people ask themselves
  * first, before anything about colour or occasion.

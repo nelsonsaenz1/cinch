@@ -229,13 +229,24 @@ export default function ExploreScreen() {
   // Gated on C-03, the person's own "Show where to buy" switch: off means
   // this section is absent the way every other shop surface is. The wardrobe
   // read is the page's own; the browse bodies carry only fixed enum slots.
+  //
+  // Gated on FOCUS, like every other read that only this tab consumes:
+  // NativeTabs mounts this screen at launch, and before this gate the two
+  // shelf reads fired their Edge Function calls — and their
+  // `explore_shop_feed_loaded` events — for every entitled person at sign-in,
+  // Explore visited or not (2026-09-02 audit; the same trap
+  // `use-tab-visited.ts` was written for).
+  const visited = useTabVisited();
   const showWhereToBuy = useShowWhereToBuy();
   const wardrobeForFeed = useWardrobe();
-  const shopFeed = useShopFeed(wardrobeForFeed.data ?? [], showWhereToBuy.data === true);
+  const shopFeed = useShopFeed(
+    wardrobeForFeed.data ?? [],
+    visited && showWhereToBuy.data === true,
+  );
   // The partner shelf rides the same C-03 gate and needs no closet at all —
   // it is the joined programmes' own stock (founder order 2026-09-02), served
   // by a parameterless read; see use-partner-feed.ts.
-  const partnerFeed = usePartnerFeed(showWhereToBuy.data === true);
+  const partnerFeed = usePartnerFeed(visited && showWhereToBuy.data === true);
 
   // Variant A plus the device-local mute, both at the read edge — before the
   // day grouping and the signed-URL work, so a hidden row simply never exists
@@ -347,7 +358,6 @@ export default function ExploreScreen() {
   // a state nobody was ever in. No id of any kind goes with these (§5.6).
   // Gated on FOCUS as well: NativeTabs mounts this screen at launch, and
   // "opened" must mean somebody arrived (see use-tab-visited.ts).
-  const visited = useTabVisited();
   const dailyReported = useRef<DailySocialState | null>(null);
   useEffect(() => {
     if (!visited || !showsDaily || dailyLoading) return;

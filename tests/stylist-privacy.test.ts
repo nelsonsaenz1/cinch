@@ -26,7 +26,6 @@ import {
   chatReplyOkProps,
   chatSentProps,
   doorTappedProps,
-  localFactAnsweredProps,
   openedProps,
   plateTappedProps,
   platesShownProps,
@@ -54,7 +53,6 @@ const EVERY_PAYLOAD: [string, StylistProps][] = [
   ...CHAT_ERROR_CAUSES.map(
     (c) => [STYLIST_EVENTS.chatError, chatErrorProps(c)] as [string, StylistProps],
   ),
-  [STYLIST_EVENTS.localFactAnswered, localFactAnsweredProps()],
   ...PLATE_COUNTS.map(
     (c) => [STYLIST_EVENTS.platesShown, platesShownProps(c)] as [string, StylistProps],
   ),
@@ -69,7 +67,7 @@ const EVERY_PAYLOAD: [string, StylistProps][] = [
 // ---------------------------------------------------------------------------
 
 test('ten events, no more', () => {
-  assert.equal(Object.keys(STYLIST_EVENTS).length, 10);
+  assert.equal(Object.keys(STYLIST_EVENTS).length, 9);
   assert.deepEqual(new Set(Object.values(STYLIST_EVENTS)), new Set([
     'stylist_opened',
     'door_tapped',
@@ -77,7 +75,6 @@ test('ten events, no more', () => {
     'chat_sent',
     'chat_reply_ok',
     'chat_error',
-    'local_fact_answered',
     'plates_shown',
     'plate_tapped',
     'allowance_mark_shown',
@@ -160,7 +157,6 @@ test('no payload carries a uuid, a path or a url', () => {
 test('sending and replying report only THAT they happened', () => {
   assert.deepEqual(chatSentProps(), {});
   assert.deepEqual(chatReplyOkProps(), {});
-  assert.deepEqual(localFactAnsweredProps(), {});
   assert.deepEqual(openedProps(), {});
   assert.deepEqual(plateTappedProps(), {});
 });

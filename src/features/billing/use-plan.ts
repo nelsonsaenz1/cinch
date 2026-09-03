@@ -84,6 +84,16 @@ export interface PlanState {
  * Deliberately NOT the authority on anything. The server re-derives the plan on
  * every AI call from its own read; this hook only decides what to draw.
  */
+/**
+ * How long past `current_period_end` a paid row is still honoured.
+ *
+ * Renewal notifications trail the moment of renewal, and Apple's billing
+ * retry keeps entitlement alive while a card is retried. Three days is
+ * generous for both and short enough that a missed expiration cannot become
+ * a free year. Mirrors the server's `effective_plan`.
+ */
+const PAID_LAPSE_SLACK_MS = 3 * 24 * 60 * 60 * 1000;
+
 export function usePlan(): PlanState {
   const session = useSession();
   const userId = session.userId;
@@ -98,8 +108,12 @@ export function usePlan(): PlanState {
     enabled: Boolean(userId),
     // The plan changes on purchase, on trial expiry, and essentially never
     // otherwise. Refetching on focus catches the purchase that happened in the
-    // App Store sheet; the stale time keeps it from being chatty.
+    // App Store sheet and the trial that ended while the app was in the
+    // background; the stale time keeps it from being chatty. This is a
+    // per-query opt-in — the client default is off, and query-client.ts
+    // wires `focusManager` to AppState so it actually fires.
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('subscriptions')
@@ -124,13 +138,29 @@ export function usePlan(): PlanState {
       // `trial_ends_at` stays an ISO string so the value survives dehydration
       // into SQLite unchanged — a Date would come back as a string anyway.
       const trialEnds = data?.trial_ends_at ?? null;
+      const periodEnd = data?.current_period_end ?? null;
+      const now = Date.now();
+      const rowPlan = (data?.plan as Plan | undefined) ?? 'free';
+      // A paid row whose period has ended is not a paid row. The webhooks
+      // normally write the downgrade, but a missed revocation must not read
+      // as a subscription forever — `effective_plan` applies the same slack
+      // server-side (migration 20260903000000), so the two agree.
+      const paidLapsed =
+        rowPlan !== 'free' &&
+        periodEnd !== null &&
+        new Date(periodEnd).getTime() + PAID_LAPSE_SLACK_MS < now;
       return {
-        plan: (data?.plan as Plan | undefined) ?? 'free',
+        // The ROW's plan, unfolded; `paidLapsed` rides beside it so the fold
+        // below can mirror `effective_plan` exactly (a lapsed paid row is
+        // free, and the trial lifts only a row that IS free — never a lapsed
+        // paid one; migration 20260903000300).
+        plan: rowPlan,
+        paidLapsed,
         trialEndsAt: trialEnds,
-        trialing: trialEnds !== null && new Date(trialEnds).getTime() > Date.now(),
+        trialing: trialEnds !== null && new Date(trialEnds).getTime() > now,
         // Stays an ISO string (or null) for the same dehydration reason
         // `trialEndsAt` does, above.
-        currentPeriodEnd: data?.current_period_end ?? null,
+        currentPeriodEnd: periodEnd,
       };
     },
   });
@@ -138,7 +168,15 @@ export function usePlan(): PlanState {
   const trialEndsAt = data?.trialEndsAt ? new Date(data.trialEndsAt) : null;
   const currentPeriodEnd = data?.currentPeriodEnd ? new Date(data.currentPeriodEnd) : null;
   const trialing = data?.trialing ?? false;
-  const plan: Plan = foldPlan(trialing ? 'pro' : (data?.plan ?? 'free'), sdkPlan);
+  // A PAID ROW WINS; the trial lifts only a free one. The server's
+  // `effective_plan` has said so since 2026-09-01 (migration 20260901000000),
+  // and until this line agreed a legacy-trial account that bought Standard
+  // drew Pro ceilings the trigger would then refuse.
+  const rowPlan: Plan = data?.plan ?? 'free';
+  const paidLapsed = data?.paidLapsed ?? false;
+  const serverPlan: Plan =
+    rowPlan !== 'free' ? (paidLapsed ? 'free' : rowPlan) : trialing ? 'pro' : 'free';
+  const plan: Plan = foldPlan(serverPlan, sdkPlan);
 
   return {
     plan,

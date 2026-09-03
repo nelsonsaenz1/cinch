@@ -262,10 +262,15 @@ export type AppEvent =
   | 'outfit_worn'
   /** An outfit placed on a day in the weekly plan. */
   | 'outfit_planned'
-  /** The stylist answered a question successfully. */
-  | 'stylist_question_answered'
-  /** A guided stylist questionnaire tapped through to the end. */
-  | 'stylist_questionnaire_completed'
+  /**
+   * The plan write was refused or failed — the counterweight to
+   * `outfit_planned`, without which the Plan tab could only ever report
+   * success. `reason` is bounded by `planFailureReason` (plan/mutations.ts):
+   * limit | transport | not_signed_in | unknown.
+   */
+  | 'outfit_plan_failed'
+  /** The Plan tab, on first FOCUS of a launch (see use-tab-visited.ts). */
+  | 'plan_opened'
   /**
    * The lifestyle questionnaire saved. `stage` is the closed LIFE_STAGES key
    * (or 'none'), `occasions` is a COUNT with a ceiling of six — never the
@@ -474,11 +479,9 @@ export type AppEvent =
    * `present-promo.ts` every time it runs its qualification checks, before any
    * sheet exists, with `placement`, `eligible`, and a bounded `reason` saying
    * which check decided it (a frequency cap, an existing entitlement, a
-   * cooldown — never free text). `use-gate.ts` is the second emitter: it fires
-   * this with `eligible: false, reason: 'import_failure_grace'` when the
-   * garment-limit placement is suppressed inside the ten-minute window after a
-   * failed import (`import-failure-grace.ts`), for the same denominator
-   * reason.
+   * cooldown — never free text). Historical rows carry
+   * `reason: 'import_failure_grace'` from the ten-minute suppression that
+   * shipped 09-01 and was reverted 09-03 (ledger A16) — none fire now.
    *
    * THE DENOMINATOR THE FUNNEL HAS ALWAYS LACKED. `paywall_presented` counts
    * sheets that appeared; nothing counted the moments one was considered.
@@ -551,15 +554,20 @@ export type AppEvent =
    * importing, never that the app dropped what they imported.
    *
    * `stage` is the `JobStage` it died at (`preparing`, `cutout`, `uploading`,
-   * `tagging`); `reason` is a bounded classification produced by
-   * `analyticsFailureReason` in `upload-queue.ts`, never `job.error` itself,
-   * which is free text written for a human-readable banner. `retryable` says
-   * whether the queue will offer another go, which separates "we lost it" from
-   * "we paused on it". For `reason: 'row_write_failed'` — and only that
-   * classification — `code` carries the Postgres/PostgREST error code
-   * (`23505`, `PGRST301`, `no_code`): a fixed vocabulary, not free text, added
-   * after 2026-09-01 spent a day theorising about a defect whose SQLSTATE the
-   * client had discarded (CMO ledger A15).
+   * `writing`, `tagging`); `reason` is a bounded classification produced by
+   * `analyticsFailureReason` in `import-failure-classify.ts`, never
+   * `job.error` itself, which is free text written for a human-readable
+   * banner. `retryable` says whether the queue will offer another go, which
+   * separates "we lost it" from "we paused on it". For the row-write
+   * classifications — `row_write_failed`, `closet_limit_reached`,
+   * `storage_limit_reached` — `code` carries the Postgres/PostgREST error
+   * code (`23514`, `PGRST301`, `no_code`, `net_error`): a fixed vocabulary,
+   * not free text, added after 2026-09-01 spent a day theorising about a
+   * defect whose SQLSTATE the client had discarded (CMO ledger A15).
+   *
+   * A refused closet slot fires ONCE per batch, not once per photograph:
+   * `held` carries how many photographs that single refusal parked (ledger
+   * A28 — the 46-events-in-44-seconds shape this replaces).
    *
    * TERMINAL ONLY. The drain loop re-queues a job that has attempts left, and
    * that transition writes no event: an import that fails twice and then
@@ -817,10 +825,7 @@ export type AppEvent =
   | 'saved_detail_viewed'
   /** An unavailable source was SEEN — in the grid or on the detail. */
   | 'saved_source_unavailable_seen'
-  | 'saved_plan_started'
   | 'saved_plan_created'
-  /** `find_similar` | `add_manual` | `skip` — skipping is an outcome, not an absence. */
-  | 'saved_plan_missing_action'
   /** `loading` | `offline` | `error`: how often this screen shows no list at all. */
   | 'saved_state_shown'
   | 'saved_retry_tapped'
@@ -843,16 +848,6 @@ export type AppEvent =
   | 'today_opened'
   /** Which of the three plates is on screen — a position, never a count. */
   | 'plate_viewed'
-  /** A context chip was opened. Says which chip, never what it currently says. */
-  | 'context_opened'
-  /**
-   * A context option was chosen, as an enum from the fixed list.
-   *
-   * An occasion the reader typed has no member in that list and is reported as
-   * `other`, which is the only reason `other` exists: free text must never
-   * travel, not even once, not even short.
-   */
-  | 'context_set'
   /** Which engine produced the set being read: the device, or the enhancement. */
   | 'outfits_source'
   /**
@@ -1012,8 +1007,6 @@ export type AppEvent =
    * message.
    */
   | 'chat_error'
-  /** THAT a question was answered on the device, which spends no allowance. */
-  | 'local_fact_answered'
   /** How many plates the reply drew — a property of the reply, not the closet. */
   | 'plates_shown'
   /** THAT a plate was opened. Never which garment. */

@@ -135,8 +135,18 @@ export function generateOutfits(
   // "build around this shirt", and letting knits anchor their own cores would
   // produce looks the pinned garment is absent from; a pinned knit means "layer
   // this over something", which is Stage C's job, not a core.
+  //
+  // …AND ALWAYS WHEN THERE IS NOTHING ELSE. A closet whose every top is a
+  // knit — five jumpers and three pairs of trousers, ten pieces, thirty
+  // counted outfits — generated NOTHING above 24.6 °C, and the screen's
+  // fallback then told its owner to add shoes she already had. A hot day
+  // offering a jumper is a worse outfit; a hot day offering no outfit from a
+  // closet the app just counted is a lie. So the weather gate narrows knit
+  // cores only while shirts exist to anchor cores instead.
   const knitsMayAnchor =
-    allowsMidLayer && !pinnedSlots.has('base_top') && !pinnedSlots.has('mid_layer');
+    (allowsMidLayer || tops.length === 0) &&
+    !pinnedSlots.has('base_top') &&
+    !pinnedSlots.has('mid_layer');
   const coreTops = knitsMayAnchor ? [...tops, ...midsAsTops] : tops;
 
   /**

@@ -18,8 +18,6 @@ import {
   closetFloorShownProps,
   revealDoorShownProps,
   contextChoiceOf,
-  contextOpenedProps,
-  contextSetProps,
   favoriteSetProps,
   noViableCombinationProps,
   outfitsSourceProps,
@@ -41,14 +39,6 @@ const EVERY_PAYLOAD: [string, TodayProps][] = [
   [TODAY_EVENTS.opened, todayOpenedProps()],
   ...([1, 2, 3] as const).map(
     (i) => [TODAY_EVENTS.plateViewed, plateViewedProps(i)] as [string, TodayProps],
-  ),
-  ...(['weather', 'occasion', 'feel'] as const).map(
-    (f) => [TODAY_EVENTS.contextOpened, contextOpenedProps(f)] as [string, TodayProps],
-  ),
-  ...(['weather', 'occasion', 'feel'] as const).flatMap((f) =>
-    CONTEXT_CHOICES.map(
-      (c) => [TODAY_EVENTS.contextSet, contextSetProps(f, c)] as [string, TodayProps],
-    ),
   ),
   ...(['local', 'enhanced'] as const).map(
     (s) => [TODAY_EVENTS.outfitsSource, outfitsSourceProps(s)] as [string, TodayProps],
@@ -82,15 +72,13 @@ test('thirteen events, no more and no fewer', () => {
   // Reveal (the proof moment was the Ten's finish line and nothing else's,
   // and the capture/import paths bypassed it for every account after 08-21).
   // Carries nothing, once per account, the floor's own discipline.
-  assert.equal(Object.keys(TODAY_EVENTS).length, 14);
+  assert.equal(Object.keys(TODAY_EVENTS).length, 12);
 });
 
 test('the thirteen are the thirteen that were agreed', () => {
   assert.deepEqual(new Set(Object.values(TODAY_EVENTS)), new Set([
     'today_opened',
     'plate_viewed',
-    'context_opened',
-    'context_set',
     'outfits_source',
     'weather_state',
     'wear_started',

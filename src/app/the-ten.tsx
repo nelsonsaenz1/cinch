@@ -305,7 +305,9 @@ export default function TheTenScreen() {
     if (!job) return;
     if (job.stage === 'tagging' || job.stage === 'done' || job.tagAttempts > 0) {
       dispatchReplace({ type: 'processing-committed' });
-    } else if (job.stage === 'failed') {
+    } else if (job.stage === 'failed' || job.stage === 'held') {
+      // `held` is the server refusing a slot (ledger A28). For the Ten's
+      // replacement it is a failure like any other — the swap did not land.
       dispatchReplace({ type: 'processing-failed' });
     }
   }, [jobs, replace]);

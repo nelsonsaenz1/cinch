@@ -20,7 +20,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(15);
+select plan(17);
 
 -- ---------------------------------------------------------------------------
 -- 1. No anonymous DML anywhere in public. Not on the 13 tables that used to
@@ -240,6 +240,37 @@ select is(
 );
 
 reset role;
+
+-- ---------------------------------------------------------------------------
+-- 16. No client role holds a privilege RLS does not govern. TRUNCATE empties
+--     a table regardless of policy; TRIGGER and REFERENCES are DDL-time
+--     rights. Nineteen tables carried all three from the platform default
+--     until 20260903000200 (2026-09-02 audit).
+-- ---------------------------------------------------------------------------
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where table_schema = 'public'
+      and grantee in ('anon', 'authenticated')
+      and privilege_type in ('TRUNCATE', 'TRIGGER', 'REFERENCES')),
+  0,
+  'no client role may TRUNCATE, TRIGGER or REFERENCES any public table'
+);
+
+-- ---------------------------------------------------------------------------
+-- 17. The quota ledger is read-only to clients. Every write goes through
+--     claim_ai_quota and the service role (20260903000100).
+-- ---------------------------------------------------------------------------
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where table_schema = 'public'
+      and table_name in ('ai_calls', 'ai_usage_counters')
+      and grantee in ('anon', 'authenticated')
+      and privilege_type in ('INSERT', 'UPDATE', 'DELETE')),
+  0,
+  'clients hold no DML on ai_calls or ai_usage_counters'
+);
 
 select * from finish();
 rollback;

@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
-import { ALIAS_PREFIX, isStale, verdictFor } from '../_shared/superwall-plan.ts';
+import { ALIAS_PREFIX, isStale, REVOKING, verdictFor } from '../_shared/superwall-plan.ts';
 
 /**
  * superwall-webhook — the one path by which `subscriptions.plan` ever changes.
@@ -297,10 +297,12 @@ export default {
     // than the one already stored is stale and dropped.
     //
     // Revocations with no `expirationAt` are applied unconditionally —
-    // `subscription_paused` has no end date and must not be ignorable.
+    // `subscription_paused` has no end date and must not be ignorable — and a
+    // revocation at a TIE applies too: an `expiration` carries the very
+    // period end the renewal stored (see `isStale`).
     const { data: current, error: readError } = await admin
       .from('subscriptions')
-      .select('current_period_end')
+      .select('plan, current_period_end')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -311,7 +313,7 @@ export default {
       return Response.json({ error: 'Read failed.' }, { status: 500 });
     }
 
-    if (isStale(periodEnd, current?.current_period_end)) {
+    if (isStale(periodEnd, current?.current_period_end, REVOKING.has(type), current?.plan, plan)) {
       await note('stale');
       return Response.json({ ok: true, applied: false, reason: 'stale_event' });
     }

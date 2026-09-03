@@ -84,8 +84,13 @@ const SCALE_PATTERNS: [RegExp, PatternScale][] = [
 
 const SOLID = /^(solid|plain|none|null)?$/i;
 
+/** Whether a tagged pattern means "no pattern at all". */
+export function isSolidPattern(pattern: string | null): boolean {
+  return !pattern || SOLID.test(pattern.trim());
+}
+
 export function inferPatternScale(pattern: string | null, text: string): PatternScale {
-  if (!pattern || SOLID.test(pattern.trim())) return 'none';
+  if (isSolidPattern(pattern)) return 'none';
   const haystack = `${pattern} ${text}`;
   for (const [re, scale] of SCALE_PATTERNS) if (re.test(haystack)) return scale;
   // Stripes and checks read mid-scale by default; florals read large.
@@ -116,8 +121,17 @@ export function toGarment(item: ItemRow): Garment {
     : [];
 
   const fit = (extended.fit as Fit | null) ?? inferFit(text);
+  // A solid garment has no pattern scale, whatever the tagger wrote in the
+  // column: four live rows carry `pattern='solid', pattern_scale='small'`,
+  // and read at face value they scored as a small print — and the outfit
+  // card said "solid as the focal point" (2026-09-02 audit). The pattern
+  // decides whether a scale can exist; the column only says which.
+  // Only an EXPLICIT solid overrides the column; a null pattern keeps
+  // whatever scale was stored, as before.
   const patternScale =
-    (extended.pattern_scale as PatternScale | null) ?? inferPatternScale(item.pattern, text);
+    item.pattern && isSolidPattern(item.pattern)
+      ? 'none'
+      : ((extended.pattern_scale as PatternScale | null) ?? inferPatternScale(item.pattern, text));
 
   return {
     id: item.id,

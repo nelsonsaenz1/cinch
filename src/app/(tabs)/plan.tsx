@@ -38,6 +38,8 @@ import { STALL_DEADLINE_MS, useStalled } from '@/features/plan/use-stalled';
 import { weekProgressLine, weekSubtitle } from '@/features/plan/week-lines';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { dateKey } from '@/lib/date';
+import { track } from '@/lib/posthog';
+import { useTabVisited } from '@/lib/use-tab-visited';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
 import { concentric, MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
 
@@ -376,6 +378,18 @@ export default function PlanScreen() {
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
   const { context, coords } = useStyleContext();
+
+  // The one page event this tab has. Gated on first FOCUS like every other
+  // tab (use-tab-visited.ts): NativeTabs mounts this screen at launch, and
+  // "opened" must mean somebody arrived. Plan was the only tab with no page
+  // event at all — the funnel could not say whether anyone ever came here.
+  const visited = useTabVisited();
+  const openedRef = useRef(false);
+  useEffect(() => {
+    if (!visited || openedRef.current) return;
+    openedRef.current = true;
+    track('plan_opened');
+  }, [visited]);
 
   // Memoised: a bare `?? []` is a new array identity every render, which
   // re-plans the whole week on any unrelated state change.

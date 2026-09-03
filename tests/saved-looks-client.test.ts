@@ -37,8 +37,6 @@ import {
   filterAppliedProps,
   listViewedProps,
   planCreatedProps,
-  planMissingActionProps,
-  planStartedProps,
   retryTappedProps,
   saveCreatedProps,
   saveRemovedProps,
@@ -74,14 +72,12 @@ const HANDOFF_EVENTS = [
   'saved.filter_applied',
   'saved.detail_viewed',
   'saved.source_unavailable_seen',
-  'saved.plan_started',
   'saved.plan_created',
-  'saved.plan_missing_action',
   'saved.state_shown',
   'saved.retry_tapped',
 ] as const;
 
-test('the map names exactly the handoff’s fifteen events, one to one', () => {
+test('the map names exactly the handoff’s thirteen events, one to one', () => {
   const emitted = new Set(Object.values(SAVED_EVENTS));
   const expected = new Set(HANDOFF_EVENTS.map((name) => name.replace('.', '_')));
   assert.deepEqual([...emitted].sort(), [...expected].sort());
@@ -148,9 +144,7 @@ test('every builder emits bounded, non-identifying properties — run, not descr
     ['filterApplied', filterAppliedProps(false)],
     ['detailViewed', detailViewedProps({ availability: 'unavailable', hasNote: true })],
     ['sourceUnavailableSeen', sourceUnavailableSeenProps('own_outfit')],
-    ['planStarted', planStartedProps({ matched: 2, missing: 2 })],
     ['planCreated', planCreatedProps({ piecesUsed: 2, hadMissing: true })],
-    ['planMissingAction', planMissingActionProps('find_similar')],
     ['stateShown', stateShownProps('offline')],
     ['retryTapped', retryTappedProps()],
   ];
@@ -172,7 +166,6 @@ test('no builder sends a raw count — every number is one of four bands', () =>
     listViewedProps({ saveCount: 14, hasCollections: true }),
     collectionCreatedProps(3),
     collectionDeletedProps(6),
-    planStartedProps({ matched: 2, missing: 2 }),
     planCreatedProps({ piecesUsed: 2, hadMissing: false }),
   ];
 
