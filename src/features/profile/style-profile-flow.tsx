@@ -104,24 +104,39 @@ function StageOption({
 const STEPS = ['stage', 'occasions', 'goals', 'adventure'] as const;
 type Step = (typeof STEPS)[number];
 
+/**
+ * The step indicator's OWN reserved zone (2026-09-02 audit, P1 #40).
+ *
+ * The gap below used to be the headline's job — every prompt below carried
+ * `trim className="mt-8"`. That does not hold: `trim` puts `TRIMS.title`'s
+ * cap-height correction (a NEGATIVE `marginTop`, computed in `text.tsx`) in
+ * the Text's `style` array, and this app's NativeWind setup resolves an
+ * inline `style` value ahead of a class for the same property — so the
+ * headline's own `marginTop` came from the trim, not from `mt-8`, and the
+ * bars sat only a few points above the prompt on every one of the four steps.
+ * Reserving the gap here instead, on the element ABOVE the headline, means it
+ * stays open regardless of what trim does to the text below it.
+ */
 function QuestionProgress({ step }: { step: Step }) {
   const current = STEPS.indexOf(step) + 1;
   return (
-    <View
-      accessible
-      accessibilityRole="progressbar"
-      accessibilityLabel={`Question ${current} of ${STEPS.length}`}
-      accessibilityValue={{ min: 1, max: STEPS.length, now: current }}
-      className="flex-row gap-2">
-      {STEPS.map((item, index) => (
-        <View
-          key={item}
-          className={[
-            'h-1 flex-1 rounded-full',
-            index < current ? 'bg-accent' : 'bg-sand',
-          ].join(' ')}
-        />
-      ))}
+    <View className="pb-8">
+      <View
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel={`Question ${current} of ${STEPS.length}`}
+        accessibilityValue={{ min: 1, max: STEPS.length, now: current }}
+        className="flex-row gap-2">
+        {STEPS.map((item, index) => (
+          <View
+            key={item}
+            className={[
+              'h-1 flex-1 rounded-full',
+              index < current ? 'bg-accent' : 'bg-sand',
+            ].join(' ')}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -253,7 +268,7 @@ export function StyleProfileFlow({
 
         {step === 'stage' ? (
           <>
-            <Text variant="title" trim className="mt-8">
+            <Text variant="title" trim>
               Where is life right now?
             </Text>
             <Text variant="body" className="mt-2 text-muted">
@@ -274,7 +289,7 @@ export function StyleProfileFlow({
           </>
         ) : step === 'occasions' ? (
           <>
-            <Text variant="title" trim className="mt-8">
+            <Text variant="title" trim>
               What do you dress for?
             </Text>
             <Text variant="body" className="mt-2 text-muted">
@@ -305,7 +320,7 @@ export function StyleProfileFlow({
           </>
         ) : step === 'goals' ? (
           <>
-            <Text variant="title" trim className="mt-8">
+            <Text variant="title" trim>
               What should getting dressed do for you?
             </Text>
             <Text variant="body" className="mt-2 text-muted">
@@ -332,7 +347,7 @@ export function StyleProfileFlow({
           </>
         ) : (
           <>
-            <Text variant="title" trim className="mt-8">
+            <Text variant="title" trim>
               How far should Cinch push your style?
             </Text>
             <Text variant="body" className="mt-2 text-muted">

@@ -513,7 +513,8 @@ export default function SignInScreen() {
                 lineHeight: 18,
                 color: 'rgba(243,240,233,0.5)',
               }}>
-              Plan an outfit for what’s ahead. Borrow the rest.
+              You don’t have to photograph your whole closet. Ten pieces is a
+              wardrobe.
             </RNText>
           </Animated.View>
         ) : (
