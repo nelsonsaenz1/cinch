@@ -79,6 +79,7 @@ export default function DevMembershipScreen() {
         <SectionHeader title="MB-06 · renewal known" className="mb-2.5 mt-8" />
         <Card padding="lg">
           <MembershipThanksView
+            verified
             loading={false}
             planKnown
             planName={`Cinch ${PLANS.pro.name}`}
@@ -95,6 +96,7 @@ export default function DevMembershipScreen() {
         />
         <Card padding="lg">
           <MembershipThanksView
+            verified
             loading={false}
             planKnown
             planName={`Cinch ${PLANS.pro.name}`}
@@ -108,11 +110,32 @@ export default function DevMembershipScreen() {
         <SectionHeader title="MB-06 · confirming plan with the App Store" className="mb-2.5 mt-8" />
         <Card padding="lg">
           <MembershipThanksView
+            verified
             loading
             planKnown={false}
             planName=""
             renewsOn={null}
             returnLabel="Back to your closet"
+            onBack={() => {}}
+            onManage={() => {}}
+          />
+        </Card>
+
+        {/* The state nobody had looked at: MB-06 opened from a deep link or a
+            restored navigation state, with no purchase behind it. It used to
+            say "You're in." and "Your purchase went through" here. */}
+        <SectionHeader
+          title="MB-06 · reached without a purchase — reconciliation only"
+          className="mb-2.5 mt-8"
+        />
+        <Card padding="lg">
+          <MembershipThanksView
+            verified={false}
+            loading={false}
+            planKnown={false}
+            planName=""
+            renewsOn={null}
+            returnLabel="Continue"
             onBack={() => {}}
             onManage={() => {}}
           />

@@ -63,6 +63,46 @@ export function upgradeDelta(from: Plan): readonly DeltaRow[] {
   ];
 }
 
+/**
+ * The same table between ANY two tiers — what a free account is shown when it
+ * asks what a membership is for.
+ *
+ * ── WHY IT IS NOT `upgradeDelta` WITH A SECOND ARGUMENT ───────────────────
+ *
+ * Because MB-09 is a settled surface with a settled table, and widening the
+ * function it renders would have changed that page as a side effect of fixing
+ * a different one. `upgradeDelta` still returns exactly the three rows the
+ * atlas draws for a Standard member, and `tests/upgrade-delta.test.ts` still
+ * pins all three.
+ *
+ * This one carries five, because the reader is different. Somebody already
+ * paying is comparing ceilings they have felt; somebody on free has never seen
+ * the stylist or a daily outfit at all, and a comparison that omitted them
+ * would be describing a membership by its storage. Every value is read out of
+ * `PLANS` — the same table `item_limit_for_plan()`, `item_total_limit_for_plan()`
+ * and the server's own `plans.ts` mirror — and not one is typed here.
+ *
+ * Rows where nothing changes are dropped rather than drawn as a pair of
+ * identical values: "Packing memos · Not included → Not included" is a row
+ * that costs a line and says nothing.
+ */
+export function planDelta(from: Plan, to: Plan): readonly DeltaRow[] {
+  const a = PLANS[from];
+  const b = PLANS[to];
+  // Correction 18: packing is Pro-only, gated by `use-packing-access.ts`.
+  // Derived from the tier rather than stored on `PlanCopy`, because a field
+  // nothing else reads is a second place for the rule to drift.
+  const packing = (plan: Plan) => (plan === 'pro' ? 'Included' : 'Not included');
+
+  return [
+    { label: 'Active pieces', from: n(a.items), to: n(b.items) },
+    { label: 'Stored pieces', from: n(a.storedItems), to: n(b.storedItems) },
+    { label: 'Outfits', from: a.outfits, to: b.outfits },
+    { label: 'Stylist', from: a.stylist, to: b.stylist },
+    { label: 'Packing memos', from: packing(from), to: packing(to) },
+  ].filter((row) => row.from !== row.to);
+}
+
 /** The reassurance under the table. Nothing is lost by moving up. */
 export const UPGRADE_KEEPS_LINE = 'Everything you already have stays exactly as it is.';
 

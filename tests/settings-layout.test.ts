@@ -162,7 +162,22 @@ test('the plan door still derives from membership-row, byte for byte', () => {
     loading: false,
     unconfirmed: false,
   });
-  assert.equal(free.visible, false, 'free is the absence of a plate, never an upsell');
+  // CHANGED 2026-09-02, and this line is the founder's finding #21 in one
+  // assertion. It read `free.visible === false` — "free is the absence of a
+  // plate, never an upsell" — which was right while `/membership` met a free
+  // account with "There is no membership on this account to manage". It does
+  // not any more; it draws what the account holds, what each tier adds, and
+  // one door. Hiding the row left that page reachable only from `/friends` and
+  // a deep link, so a free account looking for its plan in Settings found
+  // nothing at all.
+  //
+  // The RULE the old assertion carried — that the row never becomes an upsell
+  // — is unchanged, and the sweep at the end of this test still holds it: the
+  // row names the tier and its active ceiling, and carries no price, no
+  // renewal intent and no upgrade word.
+  assert.equal(free.visible, true);
+  assert.equal(free.chevron, true);
+  assert.match(free.label, /^Cinch /);
 
   const paid = membershipRowFor({
     plan: 'standard',

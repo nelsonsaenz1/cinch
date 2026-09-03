@@ -337,7 +337,11 @@ function useSuperwallGate(): Gate {
         // thanks screen; a silent skip (already entitled, holdout) also
         // settles 'granted' but never sets `purchase`, and takes the caller
         // straight back to `onGranted` with no interruption, same as today.
-        recordPaywallOrigin({ placement: target.placement, route: target.route });
+        recordPaywallOrigin({
+          placement: target.placement,
+          route: target.route,
+          result: target.purchase,
+        });
         // The one client-side moment that knows both the money and the door it
         // came through — the webhook reconciles the revenue but never learns
         // the placement. `result` is the SDK's own bounded pair.

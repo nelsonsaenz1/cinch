@@ -2,12 +2,11 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
-import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
-import type { Plan } from '@/features/billing/plans';
+import { PLANS, type Plan } from '@/features/billing/plans';
 import {
-  canUpgrade,
+  planDelta,
   upgradeDelta,
   UPGRADE_CTA,
   UPGRADE_DECLINE,
@@ -17,7 +16,6 @@ import {
 } from '@/features/billing/upgrade-delta';
 import {
   BACK_TO_MEMBERSHIP,
-  deltaSpoken,
   MASTHEAD_CHECKING,
   TRY_AGAIN,
   UPGRADE_DECLINED,
@@ -29,28 +27,48 @@ import {
   UPGRADE_REFUSED_TITLE,
   upgradeRefusedBody,
 } from '@/features/membership/manage-membership-spec';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import {
+  COMPARISON_KICKER,
+  NOTHING_STARTED,
+  PLANS_CTA,
+  trialEndsBody,
+  trialEndsTitle,
+  upgradeSurface,
+} from '@/features/membership/membership-surface';
 
 import {
+  DeltaTable,
   Masthead,
-  MembershipKicker,
   MembershipNotice,
-  MembershipPlate,
   TintedAction,
 } from './membership-parts';
 
 /**
- * MB-09 / redesign 30 — Standard → Pro. Only the difference.
+ * MB-09 / redesign 30 — the difference between what you have and what you could.
+ *
+ * ── FOUR ANSWERS, NOT TWO ─────────────────────────────────────────────────
+ *
+ * `upgradeSurface()` decides which, off the same resolver MB-08 uses. The page
+ * shipped with one refusal string covering everything that was not a Standard
+ * member, so a FREE account — the person this app most wants to convert — was
+ * told "This account is already on Pro", and so was anyone on a legacy trial,
+ * whose free row `usePlan()` folds up to `pro`. That sentence is now shown
+ * only to the one account it is true of; free and trialing accounts get the
+ * comparison and the same gate, because what they have is not an upgrade, it
+ * is a first purchase.
  *
  * ── WHERE THE PRICES ARE ──────────────────────────────────────────────────
  *
  * Not here, and the redesign does not move them here. This app has no StoreKit
  * module and cannot make a live read; every price Cinch has ever shown came
- * from Superwall rendering its own document. So this page states the three
- * entitlement deltas it CAN source — straight off `upgradeDelta()`, which is
- * untouched — and the CTA opens placement `membership_upgrade` → campaign
- * 101571 → paywall 254200, which carries all four products and renders both
- * terms in the reader's own currency.
+ * from Superwall rendering its own document. So this page states the
+ * entitlement deltas it CAN source — straight off `upgradeDelta()` and
+ * `planDelta()`, which read `PLANS` and nothing else — and the CTA opens
+ * placement `membership_upgrade` → campaign 101571 → paywall 254200, which
+ * carries all four products and renders both terms in the reader's own
+ * currency. The campaign's audience is "no active Pro entitlement", which a
+ * free or trialing account satisfies, so the door needs no new placement and
+ * no dashboard change.
  *
  * Nothing about a price, a period, a per-month figure, a saving, a renewal or
  * a trial appears in this file, and `tests/upgrade-delta.test.ts` and
@@ -75,7 +93,13 @@ import {
 export type UpgradeBodyProps = {
   onBack: () => void;
   loading: boolean;
+  /** The read failed. Same waiting state as `loading` — see `upgradeSurface`. */
+  unconfirmed: boolean;
   plan: Plan;
+  /** A live subscription, as against access. `usePlan().paid`, unmodified. */
+  paid: boolean;
+  trialing: boolean;
+  trialEndsAt: Date | null;
   /** The vendor sheet is being summoned. Both controls lock. */
   opening: boolean;
   /** The paywall never arrived. Distinct from a decline, which needs no apology. */
@@ -87,8 +111,17 @@ export type UpgradeBodyProps = {
 };
 
 export function UpgradeBody(props: UpgradeBodyProps) {
-  const theme = useTheme();
-  const { loading, plan, opening, unavailable, declined } = props;
+  const { plan, opening, unavailable, declined } = props;
+
+  const surface = upgradeSurface({
+    plan,
+    paid: props.paid,
+    trialing: props.trialing,
+    trialEndsAt: props.trialEndsAt,
+    currentPeriodEnd: null,
+    loading: props.loading,
+    unconfirmed: props.unconfirmed,
+  });
   const rows = upgradeDelta(plan);
 
   return (
@@ -103,13 +136,13 @@ export function UpgradeBody(props: UpgradeBodyProps) {
       <ScrollView
         className="flex-1"
         contentContainerClassName="grow px-gutter pb-10 pt-6">
-        {loading ? (
+        {surface.kind === 'reading' ? (
           <Masthead eyebrow={UPGRADE_EYEBROW} title={MASTHEAD_CHECKING} quiet />
-        ) : !canUpgrade(plan) ? (
-          // Reachable only as a typed deep link — the row that leads here is
-          // drawn only for a member who can actually make the move. It says
-          // what is true and offers a way back, rather than opening a placement
-          // that could not apply to this account.
+        ) : surface.kind === 'at-top' ? (
+          // A PAYING PRO MEMBER, and nobody else. Reachable only as a typed
+          // deep link — the row that leads here is drawn only for a member who
+          // can actually make the move. It says what is true and offers a way
+          // back, rather than opening a placement that could not apply.
           <>
             <Masthead eyebrow={UPGRADE_EYEBROW} title={UPGRADE_REFUSED_TITLE} />
             <Text variant="body" className="mt-4 text-muted">
@@ -121,6 +154,78 @@ export function UpgradeBody(props: UpgradeBodyProps) {
               className="mt-5"
             />
           </>
+        ) : surface.kind === 'plans' ? (
+          // FREE, OR ON A SERVER-GRANTED TRIAL. There is no upgrade here and
+          // there never was one to refuse: there is a first purchase. Same
+          // comparison MB-08 draws, same gate, same placement — this route is
+          // simply the one Profile and a deep link land on.
+          <>
+            <Masthead
+              eyebrow={UPGRADE_EYEBROW}
+              title={
+                surface.trialEndsAt ? trialEndsTitle(surface.trialEndsAt) : UPGRADE_HEADLINE
+              }
+            />
+
+            {surface.kind === 'plans' && surface.trialEndsAt ? (
+              <Text variant="body" className="mt-4 text-muted">
+                {trialEndsBody()}
+              </Text>
+            ) : null}
+
+            {(['standard', 'pro'] as const)
+              .filter((tier) => tier !== surface.plan)
+              .map((tier) => (
+                <DeltaTable
+                  key={tier}
+                  kicker={`${COMPARISON_KICKER} · ${PLANS[tier].name.toUpperCase()}`}
+                  rows={planDelta(surface.plan, tier)}
+                  toName={PLANS[tier].name}
+                  className="mt-6"
+                />
+              ))}
+
+            <Text variant="note" className="mt-4">
+              {UPGRADE_KEEPS_LINE}
+            </Text>
+
+            {declined ? (
+              <MembershipNotice
+                tone="blush"
+                announce
+                title={NOTHING_STARTED.title}
+                body={NOTHING_STARTED.body}
+                className="mt-5"
+              />
+            ) : null}
+
+            {unavailable ? (
+              <MembershipNotice
+                tone="blush"
+                announce
+                title={UPGRADE_UNAVAILABLE_LINE}
+                action={TRY_AGAIN}
+                onAction={props.onOpen}
+                className="mt-5"
+              />
+            ) : null}
+
+            <View className="mt-auto pt-8">
+              <Button
+                title={opening ? UPGRADE_OPENING : PLANS_CTA}
+                variant="primary"
+                loading={opening}
+                accessibilityHint="Opens the App Store terms"
+                onPress={props.onOpen}
+              />
+              <TintedAction
+                label={BACK_TO_MEMBERSHIP}
+                onPress={props.onDecline}
+                busy={opening}
+                className="mt-2.5"
+              />
+            </View>
+          </>
         ) : (
           <>
             <Masthead eyebrow={UPGRADE_EYEBROW} title={UPGRADE_HEADLINE} />
@@ -129,43 +234,12 @@ export function UpgradeBody(props: UpgradeBodyProps) {
                 argument the page makes and the only one it is allowed to
                 make. Three rows, each with the current figure and the new
                 one, so nothing has to be remembered from another screen. */}
-            <MembershipPlate tone="blush" className="mt-6">
-              <View className="px-4 pb-1 pt-4">
-                <MembershipKicker title={UPGRADE_DELTA_KICKER} />
-              </View>
-              {rows.map((row, i) => (
-                <View key={row.label}>
-                  {i > 0 ? <Rule tone="hairline" /> : null}
-                  <View
-                    // One composed node. The arrow is read as the words it
-                    // means, never as a symbol, and the label and its pair wrap
-                    // independently at larger type — the settled row's own rule.
-                    accessibilityRole="text"
-                    accessibilityLabel={deltaSpoken(row)}
-                    style={{ minHeight: MIN_TAP_TARGET }}
-                    className="flex-row flex-wrap items-center justify-between gap-x-3 px-4 py-3">
-                    <Text variant="body">{row.label}</Text>
-                    <View className="flex-none flex-row items-center gap-2">
-                      <Text variant="body" style={{ color: theme.muted }}>
-                        {row.from}
-                      </Text>
-                      {/* Drawn, and hidden from VoiceOver: the composed label
-                          above already says "Now … On Pro, …". */}
-                      <Text
-                        variant="body"
-                        accessibilityElementsHidden
-                        importantForAccessibility="no"
-                        style={{ color: theme.muted }}>
-                        →
-                      </Text>
-                      <Text variant="body" style={{ color: theme.accent }}>
-                        {row.to}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </MembershipPlate>
+            <DeltaTable
+              kicker={UPGRADE_DELTA_KICKER}
+              rows={rows}
+              toName={PLANS.pro.name}
+              className="mt-6"
+            />
 
             <Text variant="note" className="mt-4">
               {UPGRADE_KEEPS_LINE}

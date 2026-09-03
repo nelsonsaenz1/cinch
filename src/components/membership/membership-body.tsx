@@ -1,6 +1,7 @@
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/ui/button';
 import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SettingsRow } from '@/components/ui/settings-row';
@@ -10,8 +11,8 @@ import {
   cancellationConsequence,
   UPGRADE_ROW_LABEL,
 } from '@/features/billing/manage-membership';
-import type { Plan, PlanCopy } from '@/features/billing/plans';
-import { canUpgrade } from '@/features/billing/upgrade-delta';
+import { PLANS, type Plan, type PlanCopy } from '@/features/billing/plans';
+import { planDelta, UPGRADE_UNAVAILABLE_LINE } from '@/features/billing/upgrade-delta';
 import {
   BACK_TO_SETTINGS,
   CANCEL_ROW_MARK,
@@ -25,7 +26,6 @@ import {
   MASTHEAD_UNREAD,
   MEMBERSHIP_EYEBROW,
   mastheadTier,
-  NO_MEMBERSHIP_LINE,
   PRO_IS_LARGEST,
   RESTORE_PENDING_NOTE,
   RESTORE_ROW_LABEL,
@@ -35,13 +35,24 @@ import {
   TRY_AGAIN,
   UNCONFIRMED_BODY,
   UNCONFIRMED_TITLE,
+  UPGRADE_OPENING,
   UPGRADE_ROW_SUBLABEL,
   type RestoreEnding,
 } from '@/features/membership/manage-membership-spec';
+import {
+  COMPARISON_KICKER,
+  freeLead,
+  membershipSurface,
+  NOTHING_STARTED,
+  PLANS_CTA,
+  trialEndsBody,
+  trialEndsTitle,
+} from '@/features/membership/membership-surface';
 
 import {
   CapacityRowsSkeleton,
   CapacityRowView,
+  DeltaTable,
   Masthead,
   MembershipKicker,
   MembershipNotice,
@@ -50,20 +61,29 @@ import {
 } from './membership-parts';
 
 /**
- * MB-08 / redesign 30 — managing what you already pay for, as one pure
- * component.
+ * MB-08 / redesign 30 — the membership page, as one pure component.
  *
  * Every read, mutation and router call stays in `app/membership.tsx`; this is
  * the drawing, so the `dev-mm-*` fixtures can pose all of it. Same split as
  * `SettingsBody` / `app/settings.tsx` in redesign 29.
  *
- * ── STILL A MANAGEMENT PAGE ───────────────────────────────────────────────
+ * ── FIVE STATES, ONE RESOLVER ─────────────────────────────────────────────
  *
- * The redesign gives it colour and it does not give it a sales voice. There is
- * no price, no term, no retention attempt, no "are you sure", and exactly ONE
- * upsell row — "Move to Pro", only for a member who has somewhere to move.
- * A Pro member's page has no upgrade row at all, and says so once rather than
- * drawing a control that can never act.
+ * `membershipSurface()` decides which; this file draws what it returns and
+ * asks no question of its own. It used to branch on `plan !== 'free'`, which
+ * put a legacy-trial account (a free row the fold lifts to `pro`) on the
+ * manage page while MB-09 told the same account it was already on Pro, and
+ * put a genuinely free account on a one-sentence dead end. Both bugs were the
+ * same bug: two pages inventing the same boolean. See `membership-surface.ts`.
+ *
+ * ── STILL NOT A SALES PAGE ────────────────────────────────────────────────
+ *
+ * There is no price, no term, no retention attempt and no "are you sure"
+ * anywhere in the file. A paying member gets exactly ONE upsell row — "Move to
+ * Pro", only where there is somewhere to move — and a free or trialing account
+ * gets exactly ONE door, which is the paywall the rest of the app already
+ * opens through `useGate`. A refusal is never dressed as an offer, and an
+ * offer is never drawn as a refusal.
  *
  * ── WHAT IS DRAWN, AND FROM WHAT ──────────────────────────────────────────
  *
@@ -91,6 +111,12 @@ export type MembershipBodyProps = {
   plan: Plan;
   copy: PlanCopy;
   trialing: boolean;
+  /**
+   * A live subscription, as against access. `usePlan().paid` and nothing
+   * re-derived here — see `membership-surface.ts` for why `plan !== 'free'`
+   * is not the same question.
+   */
+  paid: boolean;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
 
@@ -99,7 +125,17 @@ export type MembershipBodyProps = {
   stored: number | null;
 
   // ── Changing it ─────────────────────────────────────────────────────────
+  /** MB-09's row — a paying member below Pro, and nobody else. */
   onUpgrade: () => void;
+  /**
+   * The first-purchase door, through `useGate` and the `membership_upgrade`
+   * placement. The three outcome props under it are what keep it from being a
+   * dead control when the paywall never arrives.
+   */
+  onSeePlans: () => void;
+  opening: boolean;
+  unavailable: boolean;
+  declined: boolean;
   onCancelBilling: () => void;
   /** False in a keyless build — the row is absent, not disabled. */
   restoreAvailable: boolean;
@@ -108,29 +144,101 @@ export type MembershipBodyProps = {
   /** The ending of the last restore, drawn in place. Null before any attempt. */
   restoreEnding: RestoreEnding | null;
 
-  /** The way back from the free refusal, which is a different act from `onBack`. */
+  /** A second way back, drawn under the states that are not the manage page. */
   onBackToSettings: () => void;
 };
 
 export function MembershipBody(props: MembershipBodyProps) {
   const {
-    loading,
-    unconfirmed,
     plan,
     copy,
-    trialing,
-    trialEndsAt,
-    currentPeriodEnd,
     used,
     stored,
     restoreAvailable,
     restoring,
     restoreEnding,
+    opening,
+    unavailable,
+    declined,
   } = props;
 
-  const manageable = plan !== 'free';
+  // THE ONE DECISION. Every branch below reads this and nothing else — no page
+  // may ask `plan !== 'free'` again and get its own answer.
+  const surface = membershipSurface({
+    plan,
+    paid: props.paid,
+    trialing: props.trialing,
+    trialEndsAt: props.trialEndsAt,
+    currentPeriodEnd: props.currentPeriodEnd,
+    loading: props.loading,
+    unconfirmed: props.unconfirmed,
+  });
+
   const rows = capacityRows({ copy, used, stored });
   const advice = capacityAdvice({ copy, used, stored });
+
+  /** The counts plate, which every settled state draws — free included. */
+  const capacityPlate = (
+    <MembershipPlate className="mt-6">
+      <View className="px-4 py-4">
+        <MembershipKicker title={CAPACITY_KICKER} />
+        <View className="mt-3.5">
+          {rows.length > 0 ? (
+            rows.map((row, i) => <CapacityRowView key={row.label} row={row} first={i === 0} />)
+          ) : (
+            <CapacityRowsSkeleton />
+          )}
+        </View>
+      </View>
+    </MembershipPlate>
+  );
+
+  /**
+   * The door, and both of its endings.
+   *
+   * One primary action per zone, and it is the only oxblood control the page
+   * has ever carried. `declined` confirms and stops — there is no second ask
+   * anywhere on this screen — and `unavailable` says the terms could not be
+   * loaded rather than leaving a button that appears to do nothing.
+   */
+  const planDoor = (
+    <>
+      {declined ? (
+        <MembershipNotice
+          tone="blush"
+          announce
+          title={NOTHING_STARTED.title}
+          body={NOTHING_STARTED.body}
+          className="mt-5"
+        />
+      ) : null}
+      {unavailable ? (
+        <MembershipNotice
+          tone="blush"
+          announce
+          title={UPGRADE_UNAVAILABLE_LINE}
+          action={TRY_AGAIN}
+          onAction={props.onSeePlans}
+          className="mt-5"
+        />
+      ) : null}
+      <View className="mt-6">
+        <Button
+          title={opening ? UPGRADE_OPENING : PLANS_CTA}
+          variant="primary"
+          loading={opening}
+          accessibilityHint="Opens the App Store terms"
+          onPress={props.onSeePlans}
+        />
+        <TintedAction
+          label={BACK_TO_SETTINGS}
+          onPress={props.onBackToSettings}
+          busy={opening}
+          className="mt-2.5"
+        />
+      </View>
+    </>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
@@ -145,7 +253,7 @@ export function MembershipBody(props: MembershipBodyProps) {
         {/* THE READ IN FLIGHT. The masthead keeps its shape and says
             "Checking…" in the plate position, so nothing jumps when the answer
             lands and no tier is guessed on the way. */}
-        {loading ? (
+        {surface.kind === 'reading' ? (
           <>
             <Masthead eyebrow={MEMBERSHIP_EYEBROW} title={MASTHEAD_CHECKING} quiet />
             <MembershipPlate className="mt-6">
@@ -154,7 +262,7 @@ export function MembershipBody(props: MembershipBodyProps) {
               </View>
             </MembershipPlate>
           </>
-        ) : unconfirmed ? (
+        ) : surface.kind === 'unconfirmed' ? (
           // THE READ FAILED. Not "free" — telling a paying member they have no
           // membership is the worst available lie on this page. No alarm
           // colour either: the server checks entitlements independently, so
@@ -170,46 +278,110 @@ export function MembershipBody(props: MembershipBodyProps) {
               className="mt-6"
             />
           </>
-        ) : !manageable ? (
-          // A CONFIRMED FREE ACCOUNT, reached by a typed deep link — the app
-          // itself never routes here from Profile's row. One sentence and a way
-          // back. No upsell is placed on a refusal.
+        ) : surface.comparison ? (
+          // A CONFIRMED FREE ACCOUNT, or one riding out a server-granted
+          // trial. Neither has a subscription to manage, and neither is a dead
+          // end: the page names what they have now, what a membership adds,
+          // and opens exactly one door — the same gate and the same placement
+          // every other first purchase in the app goes through.
           <>
-            <Masthead eyebrow={MEMBERSHIP_EYEBROW} title={MASTHEAD_UNREAD} />
-            <Text variant="body" className="mt-4 text-muted">
-              {NO_MEMBERSHIP_LINE}
-            </Text>
-            <TintedAction
-              label={BACK_TO_SETTINGS}
-              onPress={props.onBackToSettings}
-              className="mt-5"
+            <Masthead
+              eyebrow={MEMBERSHIP_EYEBROW}
+              title={mastheadTier(copy)}
+              mark={termMark({
+                trialing: surface.kind === 'trialing',
+                trialEndsAt: surface.trialEndsAt,
+                currentPeriodEnd: null,
+              })}
             />
+
+            {/* The one-line consequence. A trial gets the date the SERVER
+                wrote and what happens after it; a free account gets the two
+                ceilings it is living inside. Neither is an offer. */}
+            {surface.kind === 'trialing' ? (
+              <MembershipNotice
+                title={trialEndsTitle(surface.trialEndsAt)}
+                body={trialEndsBody()}
+                className="mt-5"
+              />
+            ) : (
+              <Text variant="body" className="mt-4 text-muted">
+                {freeLead()}
+              </Text>
+            )}
+
+            {capacityPlate}
+
+            {/* WHAT A MEMBERSHIP ADDS — one plate per paid tier, every figure
+                out of `PLANS`, no price anywhere. The terms are rendered from
+                the store on the paywall the button below opens. */}
+            {(['standard', 'pro'] as const)
+              .filter((tier) => tier !== plan)
+              .map((tier) => (
+                <DeltaTable
+                  key={tier}
+                  kicker={`${COMPARISON_KICKER} · ${PLANS[tier].name.toUpperCase()}`}
+                  rows={planDelta(plan, tier)}
+                  toName={PLANS[tier].name}
+                  className="mt-3"
+                />
+              ))}
+
+            {/* Only where Superwall is configured — a restore that cannot
+                reach StoreKit is a dead end wearing a chevron. It belongs on
+                this page as much as on the paid one: a membership bought on
+                another device is exactly what an account reading as free may
+                be missing. */}
+            {restoreAvailable ? (
+              <MembershipPlate className="mt-3">
+                <SettingsRow
+                  label={RESTORE_ROW_LABEL}
+                  sublabel={restoring ? RESTORE_ROW_PENDING : RESTORE_ROW_SUBLABEL}
+                  loading={restoring}
+                  affordance="none"
+                  onPress={props.onRestore}
+                />
+              </MembershipPlate>
+            ) : null}
+
+            {restoreAvailable && restoring ? (
+              <Text variant="note" className="mt-3">
+                {RESTORE_PENDING_NOTE}
+              </Text>
+            ) : restoreAvailable && restoreEnding ? (
+              <MembershipNotice
+                tone="blush"
+                announce
+                title={restoreEnding.title}
+                body={restoreEnding.body}
+                action={restoreEnding.action}
+                onAction={restoreEnding.action ? props.onRestore : undefined}
+                className="mt-3"
+              />
+            ) : null}
+
+            {planDoor}
           </>
         ) : (
           <>
             <Masthead
               eyebrow={MEMBERSHIP_EYEBROW}
               title={mastheadTier(copy)}
-              mark={termMark({ trialing, trialEndsAt, currentPeriodEnd })}
+              // `trialing: false` on purpose. This branch is a PAID account,
+              // and a paid row that still carries an old `trial_ends_at` is
+              // paying — the term that governs it is the billing period, not
+              // the grant it happens to have outlived.
+              mark={termMark({
+                trialing: false,
+                trialEndsAt: null,
+                currentPeriodEnd: surface.currentPeriodEnd,
+              })}
             />
 
             {/* WHAT YOU HAVE. The plate is drawn whether or not the counts
                 have landed; only the numbers wait. Omitting the whole plate
                 would reflow the page under the reader when they arrive. */}
-            <MembershipPlate className="mt-6">
-              <View className="px-4 py-4">
-                <MembershipKicker title={CAPACITY_KICKER} />
-                <View className="mt-3.5">
-                  {rows.length > 0 ? (
-                    rows.map((row, i) => (
-                      <CapacityRowView key={row.label} row={row} first={i === 0} />
-                    ))
-                  ) : (
-                    <CapacityRowsSkeleton />
-                  )}
-                </View>
-              </View>
-            </MembershipPlate>
+            {capacityPlate}
 
             {/* Near a ceiling, and only then. Two ceilings with two different
                 remedies — see `capacityAdvice`. */}
@@ -226,7 +398,7 @@ export function MembershipBody(props: MembershipBodyProps) {
                   and no term in it: the sub-line is the entitlement fact that
                   makes the move legible, and the terms are rendered from the
                   store two surfaces on. */}
-              {canUpgrade(plan) ? (
+              {surface.upgradable ? (
                 <SettingsRow
                   label={UPGRADE_ROW_LABEL}
                   sublabel={UPGRADE_ROW_SUBLABEL}
@@ -234,7 +406,7 @@ export function MembershipBody(props: MembershipBodyProps) {
                 />
               ) : null}
 
-              {canUpgrade(plan) ? <Rule tone="hairline" /> : null}
+              {surface.upgradable ? <Rule tone="hairline" /> : null}
 
               <SettingsRow
                 label={CANCEL_ROW_LABEL}
@@ -286,10 +458,11 @@ export function MembershipBody(props: MembershipBodyProps) {
             ) : null}
 
             {/* Pro's absence, stated once — not a disabled control.
-                A TRIALING account is folded to `pro` by `usePlan()` and has no
-                upgrade row either, but it is not a Pro member and must not be
-                told it has bought the largest membership. */}
-            {plan === 'pro' && !trialing ? (
+                Only a PAID Pro member reaches this line. A trialing account is
+                folded to `pro` by `usePlan()` and has no upgrade row either,
+                but it has not bought the largest membership and is drawn by
+                the comparison branch above instead. */}
+            {surface.plan === 'pro' ? (
               <MembershipNotice
                 title={PRO_IS_LARGEST.title}
                 body={PRO_IS_LARGEST.body}
@@ -306,7 +479,7 @@ export function MembershipBody(props: MembershipBodyProps) {
             <Text
               variant="note"
               className="mt-5"
-              accessibilityLabel={cancellationConsequence(currentPeriodEnd)}>
+              accessibilityLabel={cancellationConsequence(surface.currentPeriodEnd)}>
               {endingNote()}
             </Text>
           </>

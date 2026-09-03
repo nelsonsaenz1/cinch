@@ -21,6 +21,19 @@ export type PaywallOrigin = {
   placement: PlacementName;
   /** The route `present()` was called from — what "back" means here. */
   route: string;
+  /**
+   * WHAT ACTUALLY HAPPENED, as Superwall reported it.
+   *
+   * This is the field that makes the record EVIDENCE rather than a routing
+   * convenience. MB-06 is a real path in the route tree, so it can be reached
+   * by a typed deep link or a restored navigation state — and it opened
+   * saying "Your purchase went through" on any of them, which is a receipt
+   * printed from a URL. `membership-thanks.tsx` now draws the success state
+   * only where this record exists, and `settle()` writes it in exactly one
+   * place: a `purchased` or `restored` result off `onDismiss`, never a silent
+   * skip.
+   */
+  result: 'purchased' | 'restored';
 };
 
 let origin: PaywallOrigin | null = null;

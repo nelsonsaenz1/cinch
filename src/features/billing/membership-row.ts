@@ -11,13 +11,24 @@
  *   trialing   `trial_ends_at` in the future → "Trial through <date>"
  *   failed     the read errored → "Membership can't be confirmed" + Retry
  *
- * ── WHY THERE IS NO FREE ROW (correction 30) ──────────────────────────────
+ * ── THE FREE ROW, AND WHY IT CAME BACK (2026-09-02) ───────────────────────
  *
- * The frozen contract describes no Free membership object, so there is nothing
- * for the row to be about. `usePlan()` resolves a missing subscription row to
- * `free` deliberately — least privilege for anything deciding what to draw —
- * and a row that printed "Free" would be presenting that safety default as a
- * confirmed fact about the account. `visible: false` is the whole answer.
+ * Correction 30 hid it, and the reasoning was sound for the page that existed
+ * then: there was no Free membership object for a row to be about, and
+ * `/membership` met a free account with "There is no membership on this
+ * account to manage" and a way back. A row leading to that was a row leading
+ * nowhere.
+ *
+ * `/membership` is no longer that page. A free account now sees what it holds,
+ * what each paid tier adds, and one door through the gate — so Settings hiding
+ * the only entrance to it left the page reachable from `/friends` and a deep
+ * link and from nowhere a person would look.
+ *
+ * The original objection does not survive the move either. It was that
+ * printing "Free" presents `usePlan()`'s least-privilege default as a
+ * confirmed fact — but this branch is reached only AFTER `loading` and
+ * `unconfirmed` have been ruled out, which is exactly what makes it confirmed.
+ * The two states that genuinely have not read anything still name no tier.
  *
  * ── WHY READING IS ITS OWN STATE ──────────────────────────────────────────
  *
@@ -59,7 +70,16 @@ export type MembershipRowInput = {
 
 export type MembershipRow = {
   readonly state: MembershipReadState;
-  /** False only for a settled, confirmed free account. */
+  /**
+   * Kept, and now always true for a signed-in account.
+   *
+   * It was the free account's absence, and that absence is the defect — see
+   * the note at the top of this file. The field stays because the row it
+   * governs is drawn by a component that has to be able to draw nothing, and
+   * because removing a prop from a settled plate is a wider change than this
+   * one is: a future state with genuinely nothing to say still has a way to
+   * say so.
+   */
   readonly visible: boolean;
   /** "Membership" while reading or failed; "Cinch Standard" once known. */
   readonly label: string;
@@ -119,7 +139,19 @@ export function membershipRowFor(input: MembershipRowInput): MembershipRow {
   }
 
   if (input.plan === 'free') {
-    return { state: 'confirmed', visible: false, label: '', value: '', ...blank };
+    // A CONFIRMED free account. The tier and its active ceiling, both read
+    // rather than assumed, and a chevron into the page that says what a
+    // membership would add. No price, no offer and no badge on the row — the
+    // selling is the paywall's job, two surfaces on.
+    const copy = PLANS.free;
+    return {
+      state: 'confirmed',
+      visible: true,
+      label: `Cinch ${copy.name}`,
+      value: activeCeilingPhrase(copy),
+      chevron: true,
+      retry: false,
+    };
   }
 
   const copy = PLANS[input.plan];

@@ -8,7 +8,11 @@ import { MuFrame } from './mm-frames';
  * only for a member who can actually make the move, so this state exists only
  * for a typed URL. Refused truthfully with a way back, rather than opening a
  * placement that could not apply to this account.
+ *
+ * `paid` is what makes this the refusal. A trialing account also folds to
+ * `pro` and used to meet this same sentence — "This account is already on
+ * Pro" — while owning nothing at all; it now gets the comparison instead.
  */
 export default function DevMm21UpgradeRefusal() {
-  return <MuFrame plan="pro" />;
+  return <MuFrame plan="pro" paid />;
 }

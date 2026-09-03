@@ -35,6 +35,25 @@ export interface PlanState {
    */
   readonly trialSource: 'legacy_promotional' | null;
   /**
+   * The account is PAYING — a live subscription row, or StoreKit's own answer.
+   *
+   * `plan` alone cannot say this, and that is the whole reason this field
+   * exists. A legacy trial folds a `free` row up to `pro` (see `trialSource`),
+   * so `plan === 'pro'` is true both for someone who bought Pro and for
+   * someone riding out a grant that expires on a known date. The two owe the
+   * reader completely different sentences — one has a subscription to manage
+   * and cancel, the other has a trial ending and a decision to make — and
+   * every surface that got this wrong drew one of them the other's page.
+   *
+   * A lapsed paid row is NOT paid (same slack as `effective_plan`), and the
+   * SDK's `ACTIVE` entitlement is, even while the webhook that writes the row
+   * is still in flight — the same "never down, only up" rule `foldPlan` uses.
+   *
+   * `membership-surface.ts` is the one consumer that turns this into a state;
+   * nothing should re-derive it from `plan` and `trialing` at a call site.
+   */
+  readonly paid: boolean;
+  /**
    * When the current billing period renews — MB-06's Renews row.
    *
    * NULL UNTIL THE WEBHOOK FILLS IT (`supabase/functions/superwall-webhook`),
@@ -177,12 +196,18 @@ export function usePlan(): PlanState {
   const serverPlan: Plan =
     rowPlan !== 'free' ? (paidLapsed ? 'free' : rowPlan) : trialing ? 'pro' : 'free';
   const plan: Plan = foldPlan(serverPlan, sdkPlan);
+  // MONEY, not access. The row has to be a live paid row (not a lapsed one),
+  // or StoreKit has to hold an active entitlement on this device. A trial
+  // lifting a free row to `pro` contributes nothing here, which is the
+  // distinction the whole field exists for.
+  const paid = (rowPlan !== 'free' && !paidLapsed) || sdkPlan !== null;
 
   return {
     plan,
     copy: PLANS[plan],
     trialing,
     trialEndsAt,
+    paid,
     // Unconditional on `trialing` because there is only one kind of server
     // trial left — see the field's own note. When (if) StoreKit intro offers
     // ever write trials of their own, this is the line that learns to tell

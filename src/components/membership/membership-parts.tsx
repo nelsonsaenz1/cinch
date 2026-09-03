@@ -8,9 +8,10 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { PressableSurface } from '@/components/ui/pressable-surface';
+import { Rule } from '@/components/ui/rule';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import type { CapacityRow } from '@/features/membership/manage-membership-spec';
+import { deltaSpoken, type CapacityRow } from '@/features/membership/manage-membership-spec';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
 /**
@@ -260,6 +261,74 @@ export function CapacityRowsSkeleton() {
         </View>
       ))}
     </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The delta table
+// ---------------------------------------------------------------------------
+
+/**
+ * `label · now → then`, on a blush plate.
+ *
+ * Lifted out of `upgrade-body` unchanged when the free comparison needed the
+ * same table: one plate per paid tier, drawn from `planDelta`, against MB-09's
+ * one plate drawn from `upgradeDelta`. A second copy of this markup is a
+ * second place for the arrow to stop being read as words.
+ *
+ * Each row is ONE composed VoiceOver node. A row split into three stops makes
+ * a screen-reader user assemble the comparison themselves out of fragments
+ * that arrive in whatever order the layout happened to place them.
+ */
+export function DeltaTable({
+  kicker,
+  rows,
+  toName,
+  className = '',
+}: {
+  kicker: string;
+  rows: readonly { label: string; from: string; to: string }[];
+  /** The tier the right column is, for the spoken sentence. */
+  toName: string;
+  className?: string;
+}) {
+  const theme = useTheme();
+
+  return (
+    <MembershipPlate tone="blush" className={className}>
+      <View className="px-4 pb-1 pt-4">
+        <MembershipKicker title={kicker} />
+      </View>
+      {rows.map((row, i) => (
+        <View key={row.label}>
+          {i > 0 ? <Rule tone="hairline" /> : null}
+          <View
+            accessibilityRole="text"
+            accessibilityLabel={deltaSpoken(row, toName)}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="flex-row flex-wrap items-center justify-between gap-x-3 px-4 py-3">
+            <Text variant="body">{row.label}</Text>
+            <View className="flex-none flex-row items-center gap-2">
+              <Text variant="body" style={{ color: theme.muted }}>
+                {row.from}
+              </Text>
+              {/* Drawn, and hidden from VoiceOver: the composed label above
+                  already says "Now … On Pro, …". */}
+              <Text
+                variant="body"
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+                style={{ color: theme.muted }}>
+                →
+              </Text>
+              <Text variant="body" style={{ color: theme.accent }}>
+                {row.to}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ))}
+    </MembershipPlate>
   );
 }
 

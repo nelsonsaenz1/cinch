@@ -4,6 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
+import {
+  THANKS_UNVERIFIED_BODY,
+  THANKS_UNVERIFIED_TITLE,
+} from '@/features/membership/membership-surface';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -18,8 +22,28 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * uses to hand a paying user to the App Store; there is no in-app screen
  * that manages a subscription, so this does not invent one. No confetti,
  * per the contract's own last line.
+ *
+ * ── THE HEADLINE IS A CLAIM ABOUT MONEY ───────────────────────────────────
+ *
+ * "You're in." and "Your purchase went through" are only drawn where a real
+ * purchase or restore was recorded for the presentation that pushed this
+ * screen (`verified`). Everything else — a deep link, a restored navigation
+ * state — gets a neutral reconciliation of what the subscription read says.
+ * The plan card below is a READ either way, so it is honest in both states;
+ * only the sentences above and below it were ever the claim.
  */
 export type MembershipThanksViewProps = {
+  /**
+   * A real purchase or restore was recorded for this presentation —
+   * `thanksVerified()` over `paywall-origin.ts`, and nothing else.
+   *
+   * FALSE is not an error and is not drawn as one. It is the screen reached
+   * without a transaction behind it (a deep link, a restored navigation
+   * state), and what it gets is a reconciliation: what the subscription read
+   * currently says, and a way back. No "You're in.", no receipt line, no
+   * congratulation — none of which this app is in a position to mean.
+   */
+  verified: boolean;
   /** True while `subscriptions` is still being (re)read after the purchase. */
   loading: boolean;
   /**
@@ -57,6 +81,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function MembershipThanksView({
+  verified,
   loading,
   planKnown,
   planName,
@@ -70,15 +95,19 @@ export function MembershipThanksView({
   return (
     <View>
       <Text variant="title" trim style={{ fontSize: 30, lineHeight: 36 }}>
-        You&rsquo;re in.
+        {verified ? 'You\u2019re in.' : THANKS_UNVERIFIED_TITLE}
       </Text>
 
       <Text variant="body" className="mt-2.5" style={{ color: theme.muted }}>
         {loading
           ? 'Confirming with the App Store…'
-          : planKnown
-            ? `${planName} is active.`
-            : "Your purchase went through — Cinch is still confirming the plan on our side. It’ll be here in a moment."}
+          : verified
+            ? planKnown
+              ? `${planName} is active.`
+              : "Your purchase went through — Cinch is still confirming the plan on our side. It’ll be here in a moment."
+            : planKnown
+              ? `${planName} is active on this account.`
+              : THANKS_UNVERIFIED_BODY}
       </Text>
 
       {planKnown ? (
@@ -110,9 +139,13 @@ export function MembershipThanksView({
 
       <Button title={returnLabel} variant="primary" className="mt-6" onPress={onBack} />
 
-      <Text variant="noteSmall" className="mt-3.5 text-center" style={{ color: theme.muted }}>
-        A receipt is on its way from Apple.
-      </Text>
+      {/* Only where there is a receipt. Promising one for a visit that bought
+          nothing is the same lie as the headline, one size smaller. */}
+      {verified ? (
+        <Text variant="noteSmall" className="mt-3.5 text-center" style={{ color: theme.muted }}>
+          A receipt is on its way from Apple.
+        </Text>
+      ) : null}
     </View>
   );
 }
