@@ -76,9 +76,32 @@ test('door wells use the owner’s own garments, never stock artwork', () => {
   assert.doesNotMatch(ROUTE, /require\('\.\.\/.*assets|unsplash|placeholder\.com/i);
 });
 
-test('a door well with no garment takes the same neutral ground', () => {
-  assert.match(PARTS, /className="bg-sand overflow-hidden"/);
-  assert.match(PARTS, /\{imageUri \? \(/);
+test('the door grid is all garments or all glyphs, and never five empty slabs', () => {
+  // ── CHANGED 2026-09-02 · AUDIT FINDING 11 ───────────────────────────────
+  //
+  // WAS: `a door well with no garment takes the same neutral ground` —
+  //   assert.match(PARTS, /className="bg-sand overflow-hidden"/);
+  //   assert.match(PARTS, /\{imageUri \? \(/);
+  // i.e. the 132pt sand well was drawn whether or not there was anything to
+  // put in it, and the test pinned exactly that.
+  //
+  // The audit: "the flagship Stylist entry screen is visually dominated by
+  // five large empty beige tiles. Use meaningful editorial thumbnails or a
+  // lighter icon/typography treatment with consistent content loading."
+  //
+  // The first remedy is closed to this screen — a door may only show a garment
+  // the reader actually owns, and stock photography on the stylist would be the
+  // exact lie the screen exists to refuse (see `DoorCard`'s docblock, which the
+  // next test still holds). So it takes the second, and this test now pins both
+  // halves of it: a much smaller glyph plate when there is nothing to show, and
+  // ONE regime for all five doors rather than a mix.
+  assert.match(PARTS, /className="bg-sand overflow-hidden"/, 'the garment well lost its ground');
+  assert.match(PARTS, /regime === 'garment' \? \(/, 'the well no longer branches on the regime');
+  assert.match(PARTS, /doorGlyphWell\(ax\)/, 'the imageless door is not the lighter treatment');
+  // Decided once for all five, by the grid rather than by each card: three
+  // photographs beside two blanks is the broken-grid reading, and it is the one
+  // arrangement this must not produce.
+  assert.match(PARTS, /const regime = doorRegime\(starts\.map\(\(s\) => s\.imageUri\)\)/);
 });
 
 // ---------------------------------------------------------------------------

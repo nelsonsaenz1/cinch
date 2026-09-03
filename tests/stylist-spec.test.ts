@@ -13,6 +13,8 @@ import assert from 'node:assert/strict';
 import {
   DENIAL_COPY,
   DOORS,
+  doorGlyphWell,
+  doorRegime,
   DOOR_COLUMNS,
   DOOR_COLUMNS_AX,
   LOCAL_FACT_MARK,
@@ -109,6 +111,42 @@ test('the door index is its position, and nothing else', () => {
   assert.equal(doorIndex('pack'), 3);
   assert.equal(doorIndex('piece'), 4);
   assert.equal(doorIndex('closet'), 5);
+});
+
+test('the grid is one regime or the other, never a mix — audit 2026-09-02 · 11', () => {
+  // "The flagship Stylist entry screen is visually dominated by five large
+  // empty beige tiles." A door well only holds a garment the reader owns, and
+  // most closets cannot fill five of them (the cutout pipeline needs a native
+  // module the Simulator cannot run, and an expired signature resolves to
+  // nothing). The remedy the app CAN take is the lighter treatment, and its
+  // other half is consistency: three photographs beside two blanks is the
+  // broken-grid reading this rule exists to prevent.
+  assert.equal(doorRegime(['a', 'b', 'c', 'd', 'e']), 'garment');
+  assert.equal(doorRegime(['a', 'b', undefined, 'd', 'e']), 'glyph');
+  assert.equal(doorRegime([undefined, undefined]), 'glyph');
+  // An empty grid is not "every door resolved" — it is no doors at all.
+  assert.equal(doorRegime([]), 'glyph');
+});
+
+test('the imageless door is a mark beside the type, not a slab above it', () => {
+  // 132pt of sand per door, five of them, was the finding. The glyph plate is
+  // roughly a third of that, and it GROWS at an accessibility size where the
+  // garment well shrinks — the two treatments answer opposite pressures.
+  assert.ok(doorGlyphWell(false) < doorWell(false), 'the lighter treatment is not lighter');
+  assert.ok(doorGlyphWell(true) > doorGlyphWell(false), 'the glyph does not grow with the type');
+});
+
+test('every door carries a mark for its ACTION, never a picture of clothes', () => {
+  // The one imagery rule this screen has: a garment shown is a garment owned.
+  // A generic `tshirt` glyph standing in for a wardrobe would break it in
+  // outline form, which is why none of the five is one.
+  const glyphs = DOORS.map((d) => d.glyph);
+  assert.equal(glyphs.length, 5);
+  assert.equal(new Set(glyphs).size, 5, 'two doors share a mark');
+  for (const g of glyphs) {
+    assert.ok(g.length > 0, 'a door has no mark');
+    assert.doesNotMatch(g, /tshirt|shoe|hanger|bag/i, `${g} draws a garment`);
+  }
 });
 
 test('no door label promises a purchase, a brand or a price', () => {

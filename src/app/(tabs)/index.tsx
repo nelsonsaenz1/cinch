@@ -1814,22 +1814,6 @@ export default function TodayScreen() {
               masthead stands still. */}
           <Masthead city={cityLabel} name={firstName} weather={weatherClause} collapse={scrollY} />
 
-          {/* Directive #35 — above `AX_FONT_SCALE` the membership card stops
-              floating and takes a place in the flow, under the masthead and
-              over the outfit rather than on top of it. Only one of the two
-              sites is ever mounted, so the once-per-open latch in
-              `upsell-bubble.ts` is still claimed exactly once. */}
-          {ax ? (
-            <TodayUpsell
-              placement="inline"
-              plan={planState.plan}
-              trialing={planState.trialing}
-              trialEndsAt={planState.trialEndsAt}
-              ready={!planState.loading && !planState.unconfirmed}
-              onSeePlans={openRepeatUpsell}
-            />
-          ) : null}
-
           {/* T-02 · the occasion interrupt. Above the look it competes with,
               exactly one action, and it takes the frame's oxblood while it is
               there — the plate's wear action falls back to ink below. */}
@@ -2196,6 +2180,49 @@ export default function TodayScreen() {
             </Text>
           </PressableSurface>
 
+          {/* ── THE MEMBERSHIP ROW, AFTER THE FULL DAILY SET ────────────────
+              Audit 2026-09-02 · findings 2, 5 and 7.
+
+              It was a floating blush card pinned 96pt off the bottom of the
+              screen, arriving OVER the morning: "commercial UI arrives before
+              product trust is earned", "it occupies almost half the viewport",
+              "the first viewport has four simultaneous asks". The instruction
+              was to move it after the full daily set and reduce it to a quiet
+              inline row, and this is both halves of that.
+
+              THIS POSITION IS THE POINT. It is a sibling of the three plates
+              rather than an overlay on them, and it stands below the carousel,
+              below every card's own Wear action and taste row, and below the
+              compose escape hatch — so every path the day actually offers has
+              been passed before membership says anything. The dots and the
+              compose row above it close the zone; nothing here competes with
+              them.
+
+              WHAT DID NOT CHANGE: the same placement (`repeat_upsell`, through
+              `openRepeatUpsell`), the same once-per-app-open latch, and the
+              same analytics — `gate.present` reports this door exactly as it
+              did from the card, and the row itself tracks nothing of its own.
+
+              Drawn from this state and only this one. The loading, failed and
+              under-the-floor branches return above and none of them reaches
+              here: a closet that cannot be read is not a closet anyone can be
+              told about, and an account under the activation floor has not met
+              the product yet. It is also not drawn over the refusal — a closet
+              that could not be dressed is owed a next action, not an offer.
+
+              Everything it says — and whether it says anything at all — is
+              `features/billing/upsell-bubble.ts`. This site passes the plan
+              state through and nothing else. */}
+          {nothingWorks ? null : (
+            <TodayUpsell
+              plan={planState.plan}
+              trialing={planState.trialing}
+              trialEndsAt={planState.trialEndsAt}
+              ready={!planState.loading && !planState.unconfirmed}
+              onSeePlans={openRepeatUpsell}
+            />
+          )}
+
           {/* A thin wardrobe: enough for today, said plainly and with no count.
               Not a refusal and not a floor — the plates above are real. */}
           {!nothingWorks && isThinWardrobe(effectiveShown.length) ? (
@@ -2239,30 +2266,6 @@ export default function TodayScreen() {
           )}
         </Animated.ScrollView>
       </Animated.View>
-      {/* The membership bubble, for an account that is not paying — founder
-          order, 2026-08-18. A sibling of the scroll view rather than a child of
-          it, so it arrives OVER the morning rather than pushing the outfit down
-          the page; `TodayUpsell` is `pointerEvents="box-none"` outside its own
-          card, so the carousel behind it still swipes.
-
-          Drawn from this state and only this one. The loading, failed and
-          under-the-floor branches return above and none of them mounts it: a
-          closet that cannot be read is not a closet anyone can be told about,
-          and an account under the activation floor has not met the product yet.
-
-          Everything it says — and whether it says anything at all — is
-          `features/billing/upsell-bubble.ts`. This site passes the plan state
-          through and nothing else. */}
-      {ax ? null : (
-        <TodayUpsell
-          plan={planState.plan}
-          trialing={planState.trialing}
-          trialEndsAt={planState.trialEndsAt}
-          ready={!planState.loading && !planState.unconfirmed}
-          onSeePlans={openRepeatUpsell}
-        />
-      )}
-
       {/* Redesign 13. The sheet is handed a PHASE rather than a boolean and a
           pre-rendered error string: the four states it draws — idle,
           confirming, settled, failed — are distinct compositions, and a

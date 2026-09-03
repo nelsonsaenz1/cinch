@@ -475,6 +475,10 @@ export default function RevealScreen() {
       <RevealStage>
         <RevealArrival
           otherUris={items.slice(0, -1).slice(0, 6).map((g) => resolve(g.platePath, g.cutoutPath, g.thumbPath))}
+          // The same six pieces, so a tile whose render has not landed can draw
+          // the garment's own colour and kind instead of empty sand (audit 62).
+          otherGarments={items.slice(0, -1).slice(0, 6)}
+          lastGarment={items[items.length - 1]}
           lastUri={
             items.length
               ? resolve(

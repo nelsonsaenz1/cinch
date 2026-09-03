@@ -110,10 +110,21 @@ export function countUpValue(target: number, progress: number): number {
 // ---------------------------------------------------------------------------
 
 /**
- * The accepted measures: 150pt for one or two digits, 112pt for three, 82pt
- * once plates are on screen, 76pt at an accessibility size.
+ * The measures, rebalanced by audit 2026-09-02 · 42.
+ *
+ * They were 150 / 112 / 82 / 76, against a derivation set at 15pt. "A very
+ * large bare number ('5') is paired with tiny explanation" — a ten-to-one ratio
+ * between a numeral and the sentence that says what the numeral counts, and the
+ * numeral alone carried no unit at all, so the payoff of the whole onboarding
+ * was a glyph.
+ *
+ * The number stays the hero and stops being the whole screen: it is still by
+ * far the largest thing on the beat, and the space it gives back goes to the
+ * eyebrow that names it and the derivation that explains it (both in
+ * `reveal-count.tsx`). Every relation `reveal-spec.test.ts` holds is unchanged
+ * — three digits step down, plates step it down again, AX wins over both.
  */
-export const DISPLAY_SIZE = { one: 150, three: 112, withPlates: 82, ax: 76 } as const;
+export const DISPLAY_SIZE = { one: 108, three: 84, withPlates: 64, ax: 60 } as const;
 
 /**
  * How large the number is drawn.
@@ -267,6 +278,18 @@ export const REVEAL_COPY = {
   /** Beat two — words, because a digit here would be a claim. */
   computingTitle: 'Working out what these make.',
   computingBody: 'Cinch is pairing your pieces on this phone. Nothing leaves it.',
+
+  /**
+   * The eyebrow over the numeral — audit 2026-09-02 · 42's "a very large BARE
+   * number".
+   *
+   * A count with no unit is a glyph, and this was the payoff of the entire
+   * onboarding. Plural-agnostic on purpose: "outfit" and "outfits" would need
+   * the count, and a tracked uppercase eyebrow that changes word between two
+   * closets reads as a bug rather than as grammar. It is hidden from VoiceOver,
+   * which hears the whole derivation as one sentence instead.
+   */
+  countEyebrow: 'OUTFITS FROM YOUR CLOSET',
 
   /** The exit. */
   openToday: 'Open Today',

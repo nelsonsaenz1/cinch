@@ -13,6 +13,13 @@ export type SwapPiece = {
   id: string;
   name: string;
   imageUri?: string;
+  /** The garment's own colour, for the well's swatch fallback. Audit 62. */
+  hex: string | null;
+  /**
+   * One fact that tells this row apart from the row above it — the brand, or
+   * the month the piece was added. Null when the row carries neither. Audit 48.
+   */
+  detail: string | null;
 };
 
 export type SwapModel = {
@@ -61,6 +68,15 @@ export function useSwap(add: CountedKind): SwapModel {
           imageUri: item
             ? resolve(item.listingPath, item.platePath, item.cutoutPath, item.thumbPath)
             : undefined,
+          // AUDIT 2026-09-02 · 48 · "guard against duplicate-looking inventory
+          // rows". `pieceName` is colour + subcategory, so three black t-shirts
+          // are three rows reading "Black t-shirt" — and the ranking is
+          // least-worn-first, which CLUSTERS the never-worn ones so the
+          // identical rows land next to each other. These two are what tell
+          // them apart: the garment's own colour under the thumbnail, and one
+          // fact the row can name (the brand, or the month it was added).
+          hex: item?.colors[0]?.hex ?? null,
+          detail: item ? (item.brand?.trim() || addedMonth(item.createdAt)) : null,
         },
       };
     });
@@ -73,4 +89,18 @@ export function useSwap(add: CountedKind): SwapModel {
     tally,
     candidates,
   };
+}
+
+/**
+ * "Added Mar 2025" — the fallback distinguisher for two rows with one name.
+ *
+ * Month rather than a full date: the day is noise on a row whose job is to be
+ * telling apart from the row above it, and a full timestamp in a caption reads
+ * as a record rather than as a reminder.
+ */
+function addedMonth(createdAt: string | null | undefined): string | null {
+  if (!createdAt) return null;
+  const at = new Date(createdAt);
+  if (Number.isNaN(at.getTime())) return null;
+  return `Added ${at.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
 }

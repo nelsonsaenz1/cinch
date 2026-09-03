@@ -33,11 +33,20 @@ function capitalise(value: string): string {
 export function ItemChips({ category, colors, occasions, seasons, onAddTag }: ItemChipsProps) {
   return (
     <View className="flex-row flex-wrap gap-1.5 px-gutter">
-      {/* Composed, not a fourth tone: `selected` + `selectedGround="ink"` is
-          already the ink ground with a canvas label, which is exactly what I-01
-          draws here. `tone="fill"` would be the wrong half of the pair — it
-          means the sand read-only tag, and its ground wins over `selected`. */}
-      <Chip label={capitalise(category)} selected selectedGround="ink" />
+      {/* ── AUDIT 2026-09-02 · 46 · ONE READ-ONLY TREATMENT ────────────────
+          This was `selected` + `selectedGround="ink"` — I-01's filled ink chip
+          with a canvas label. It is the treatment a SELECTED CONTROL wears
+          everywhere else in the app, on the one chip in this row that cannot be
+          selected and cannot be pressed, next to four tags that can't either
+          and don't look like it. That is the "inconsistently exposed as buttons
+          versus plain text" the audit names, in its loudest form.
+
+          `tone="fill"` is the read-only tag's own ground, and the category
+          keeps its precedence by ORDER — it is still the first chip, and it is
+          still the garment's identity. What it no longer does is impersonate a
+          control. The only chip in this row that looks different is now the
+          only one that does anything: "+ Tag", dashed, and a real button. */}
+      <Chip label={capitalise(category)} tone="fill" />
 
       {colors.map((c, i) => (
         // A name-only colour is the tagger's ordinary output, not an edge case,

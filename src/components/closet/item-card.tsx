@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { GarmentImage } from '@/components/media/garment-image';
+import { GarmentSwatch } from '@/components/media/garment-swatch';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { pieceName } from '@/features/closet/item-name';
@@ -206,23 +207,37 @@ function ItemCardComponent({
             // co-occur today, and if they ever do the louder one should win.
             !dimmed && stored ? { opacity: 0.72 } : null,
           ]}>
-          {/* UX-06. The mark below is the same one this card always drew for a
-              piece whose cutout has not landed — the default in the Simulator,
-              where subject lifting cannot run — and `GarmentImage` now draws it
-              for an expired signature and a body that will not decode too,
-              instead of leaving the 168pt well empty and unexplained. */}
+          {/* UX-06 drew a `tshirt` glyph here for a piece whose cutout has not
+              landed — the default in the Simulator, where subject lifting
+              cannot run — and for an expired signature or a body that will not
+              decode.
+
+              AUDIT 2026-09-02 · 62 REPLACED THE GLYPH WITH THE GARMENT. A grid
+              of identical hangers tells a reader how many pieces they own and
+              nothing else; the shared swatch grounds the well in the piece's
+              own colour and prints its name, so a closet with no cutouts is
+              still a closet somebody can read and tap the right tile in.
+
+              The needs-review well keeps its warning glyph: that state is not
+              "no photograph", it is "this piece needs you", and it is the one
+              well whose mark should stop the eye rather than describe the
+              garment. */}
           <GarmentImage
             uri={displayUri}
             recyclingKey={item.id}
             contentFit={wearsListing ? 'contain' : 'cover'}
             transition={180}
             fallback={
-              <SymbolView
-                name={needsReview ? 'exclamationmark.triangle' : 'tshirt'}
-                size={26}
-                tintColor={needsReview ? theme.warning : theme.hairline}
-                resizeMode="scaleAspectFit"
-              />
+              needsReview ? (
+                <SymbolView
+                  name="exclamationmark.triangle"
+                  size={26}
+                  tintColor={theme.warning}
+                  resizeMode="scaleAspectFit"
+                />
+              ) : (
+                <GarmentSwatch label={name} hex={item.colors[0]?.hex} />
+              )
             }
           />
 

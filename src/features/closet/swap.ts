@@ -51,6 +51,45 @@ export function outcomeOfSwap(tally: Tally, remove: CountedKind | null, add: Cou
   };
 }
 
+/**
+ * The capacity change, as two scannable clauses rather than one dense sentence.
+ *
+ * AUDIT 2026-09-02 · 48: Wall Swap "uses a dense sticky sentence to explain the
+ * capacity change. Make the selected outgoing item and resulting capacity
+ * scannable in two rows." The sentence it replaces was assembled inline in the
+ * route as a nested ternary plus a concatenated tail, and rendered as, verbatim:
+ *
+ *   "9 fewer than you have now, 9 fewer than keeping both. Storing is
+ *    reversible at any time."
+ *
+ * Three clauses, two different "fewer" baselines and a reassurance, in one run
+ * of 11pt muted type under two figures the reader has not finished reading yet.
+ * Nobody parses that at the moment they are deciding which garment to put away.
+ *
+ * It is two functions now, so the screen can put each on its own row — and it
+ * is HERE, beside the arithmetic it describes, where `tests/swap.test.ts` can
+ * run it. The reassurance is neither of them: it is a standing fact about
+ * storing, not a fact about this swap, and it belongs under the action.
+ */
+export function swapDeltaLine(outcome: SwapOutcome): string {
+  const d = outcome.swapped - outcome.from;
+  if (d > 0) return `${d} more than now`;
+  if (d === 0) return 'The same as now';
+  return `${-d} fewer than now`;
+}
+
+/**
+ * What keeping both would have made, when that is a different number.
+ *
+ * Null when the swap costs nothing — on a coat, a bag or an accessory it
+ * genuinely does not (see `outcomeOfSwap`), and printing "0 fewer than keeping
+ * both" would invent a trade-off the reader is not making.
+ */
+export function swapCostLine(outcome: SwapOutcome): string | null {
+  if (outcome.costOfSwap <= 0) return null;
+  return `${outcome.costOfSwap} fewer than keeping both`;
+}
+
 /** A garment as the swap picker needs to know it — never more than this. */
 export type SwapCandidate<T> = {
   id: string;

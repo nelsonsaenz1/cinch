@@ -1,10 +1,7 @@
-import { View } from 'react-native';
-
 import { GarmentImage } from '@/components/media/garment-image';
-import { Text } from '@/components/ui/text';
+import { GarmentSwatch } from '@/components/media/garment-swatch';
 import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
-import { useTheme } from '@/theme/tokens';
 
 /**
  * THE STACK — the single geometry the outfit is laid out by.
@@ -204,35 +201,18 @@ export function GarmentCell({
   uri?: string;
   paper?: boolean;
 }) {
-  const theme = useTheme();
-
   // No cutout yet — background removal needs a native module that cannot run
   // in the Simulator, so this path is the norm right now — and, since UX-06,
   // a signature that expired between the render and the request or a body that
   // will not decode. The garment's real colour is honest either way: it is the
-  // value the palette rules actually scored. Text flips using OKLCH lightness —
-  // the perceptual space is exactly for this.
+  // value the palette rules actually scored, converted once here so the shared
+  // swatch has one rule for legibility rather than one per colour space.
   const swatch = (
-    <View
-      className="h-full w-full items-center justify-center overflow-hidden px-1"
-      style={{
-        backgroundColor: garment.colors[0]
-          ? oklchToHex(garment.colors[0].oklch)
-          : paper
-            ? '#F0ECE3'
-            : theme.tray,
-      }}>
-      <Text
-        variant="caption"
-        numberOfLines={2}
-        className="text-center"
-        maxFontSizeMultiplier={paper ? 1 : undefined}
-        style={{
-          color: (garment.colors[0]?.oklch.L ?? 1) < 0.55 ? '#FFFFFFCC' : '#1C1A16AA',
-        }}>
-        {garment.subcategory ?? garment.category}
-      </Text>
-    </View>
+    <GarmentSwatch
+      label={garment.subcategory ?? garment.category}
+      hex={garment.colors[0] ? oklchToHex(garment.colors[0].oklch) : null}
+      paper={paper}
+    />
   );
 
   return (

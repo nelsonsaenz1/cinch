@@ -1,15 +1,14 @@
-import { SymbolView } from 'expo-symbols';
 import { memo } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { GarmentImage } from '@/components/media/garment-image';
 import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
+import { GarmentSwatch } from '@/components/media/garment-swatch';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { pieceName } from '@/features/closet/item-name';
 import { type Item, costPerWear } from '@/schemas/item';
-import { useTheme } from '@/theme/tokens';
 
 export type RailCardProps = {
   item: Item;
@@ -42,21 +41,31 @@ function Well({
   width: number;
   height: number;
 }) {
-  const theme = useTheme();
   return (
     <View
       className="overflow-hidden rounded-md border border-hairline bg-tray"
       style={{ width, height }}>
       {/* No cutout yet is the norm in the Simulator, where subject lifting
           cannot run; an expired signature and a body that will not decode land
-          on the same considered mark (UX-06), never on an empty well. */}
+          on the same considered mark (UX-06), never on an empty well.
+
+          AUDIT 2026-09-02 · 62. That mark used to be a hairline `tshirt` glyph,
+          which is a hanger in every well: a rail of six of them says only that
+          six pieces exist. The shared swatch says WHICH six — the garment's own
+          colour where the row carries a hex, and its name either way. The
+          `mostWorn` card is 74pt square and drops the caption, because 11pt
+          type in a 74pt box wraps to nothing legible. */}
       <GarmentImage
         uri={imageUri}
         recyclingKey={item.id}
         contentFit="cover"
         transition={180}
         fallback={
-          <SymbolView name="tshirt" size={20} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
+          <GarmentSwatch
+            label={pieceName(item)}
+            hex={item.colors[0]?.hex}
+            showLabel={width >= 88}
+          />
         }
       />
     </View>

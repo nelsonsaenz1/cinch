@@ -16,6 +16,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { GarmentSwatch } from '@/components/media/garment-swatch';
 import { Chip } from '@/components/ui/chip';
 import { Decisions } from '@/components/ingest/capture-parts';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
@@ -23,6 +24,7 @@ import { Swatch } from '@/components/ui/swatch';
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
+import { pieceName } from '@/features/closet/item-name';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import type { Item, ItemCategory } from '@/schemas/item';
 import { GUTTER, MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
@@ -406,6 +408,17 @@ export function ReviewCard({
     <View
       className="items-center justify-center overflow-hidden rounded-md bg-tray"
       style={{ width, height }}>
+      {/* ── AUDIT 2026-09-02 · 45 · "REVIEW LOOKS UNFINISHED WHEN PHOTOGRAPHY
+             IS MISSING" ────────────────────────────────────────────────────
+          The third branch used to be a 40pt `tshirt` glyph at `theme.hairline`
+          — 9% ink — inside a 132×160 well, which is a large empty block with a
+          rumour in the middle of it. It is the garment's own colour and its
+          name now, the same swatch every other well in the app draws.
+
+          The MIDDLE branch is still deliberately blank. `hasPhoto` true with no
+          `photoSource` means a signed URL that has not landed yet, and flashing
+          "no photograph" for the frame before a photograph arrives is the one
+          thing `mediaWell` exists to prevent. */}
       {photoSource ? (
         <Image
           source={photoSource}
@@ -414,13 +427,15 @@ export function ReviewCard({
           style={{ width: '100%', height: '100%' }}
           accessibilityIgnoresInvertColors
         />
-      ) : hasPhoto ? null : (
+      ) : hasPhoto ? null : needsReview ? (
         <SymbolView
-          name={needsReview ? 'exclamationmark.triangle' : 'tshirt'}
+          name="exclamationmark.triangle"
           size={40}
-          tintColor={needsReview ? theme.warning : theme.hairline}
+          tintColor={theme.warning}
           resizeMode="scaleAspectFit"
         />
+      ) : (
+        <GarmentSwatch label={pieceName(item)} hex={item.colors[0]?.hex} />
       )}
     </View>
   );
@@ -641,15 +656,21 @@ export function ReviewCard({
                           setOpenEditor(null);
                         }}
                         fill
+                        // AUDIT 2026-09-02 · 45 · "heavy outlined form
+                        // regions". Ten bordered boxes, stacked, is ten
+                        // competing rectangles for one radio question — the
+                        // frame drew the choice as ten controls when it is one
+                        // control with ten values. An unheld option is a ruled
+                        // ROW now; only the held one keeps a box, which is what
+                        // makes it findable at a glance instead of by reading.
                         style={{
                           minHeight: 46,
-                          borderWidth: held ? 1.5 : 1,
+                          borderWidth: held ? 1.5 : 0,
+                          borderBottomWidth: held ? 1.5 : 1,
                           borderColor: held ? theme.ink : theme.hairline,
                         }}
                         contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-                        className={`rounded-md px-4 ${
-                          held ? 'bg-surface' : ''
-                        }`}>
+                        className={`px-4 ${held ? 'rounded-md bg-surface' : ''}`}>
                         <Text
                           variant="body"
                           className="text-ink"
@@ -791,9 +812,23 @@ export function ReviewCard({
                   {decisions}
 
                   {/* Printed under them, not discovered afterwards — audit 72's
-                      own rule, kept, with Drop's name in place of Skip's. */}
-                  <Text variant="note" className="mt-2.5">
-                    Dropping keeps the piece and the photograph. It comes back to this queue.
+                      own rule, kept, with Drop's name in place of Skip's.
+
+                      AUDIT 2026-09-02 · 45 · "clipped/awkward bottom helper
+                      copy". Two sentences at the foot of a card whose frame is
+                      absolutely positioned and `overflow-hidden`: when anything
+                      above it grew — a correction open, an unsaved notice, a
+                      long name at a large type size — the second sentence was
+                      the part that went under the card's own edge, so the
+                      reader was left with a promise cut in half.
+
+                      One sentence now, and the same promise: the pinned clause
+                      is intact and "it comes back to this queue" survives as
+                      its second half rather than as a separate line that can be
+                      lost on its own. The `pb-1` keeps the descenders clear of
+                      the rounded corner. */}
+                  <Text variant="note" className="mt-2.5 pb-1">
+                    Dropping keeps the piece and the photograph — it comes back to this queue.
                   </Text>
                 </View>
               </>

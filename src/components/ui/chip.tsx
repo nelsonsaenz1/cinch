@@ -108,8 +108,24 @@ export function Chip({
     onPress();
   }, [onPress]);
 
+  // ── AUDIT 2026-09-02 · 46 · AN INERT CHIP IS NOT A CONTROL ────────────────
+  //
+  // "Tag chips are inconsistently exposed as buttons versus plain text;
+  // normalize interaction and semantics." Every chip in the app was a
+  // `Pressable` whether or not it had anything to press: the role was already
+  // reported honestly as `text`, but the node still claimed a 44pt padded touch
+  // target, still ran the press-feedback hooks, and — on item detail, where
+  // four of the five tags are read-only — put four dead targets in a row beside
+  // one live one. A finger that lands on a target and gets nothing is the
+  // clearest possible statement that a screen is broken.
+  //
+  // A chip with no handler is now a plain `View`. Nothing else changes: the
+  // ground, the ring, the swatch and the label are the same drawn output, and
+  // `chipSpec` already withheld the pressed `active:` class from this case.
+  const Frame = onPress ? Pressable : View;
+
   return (
-    <Pressable
+    <Frame
       accessibilityRole={onPress ? 'button' : 'text'}
       // Reported only for a chip that can actually be pressed. `selected` is a
       // state a control is IN, and item detail draws its category chip in the
@@ -169,6 +185,6 @@ export function Chip({
       ) : null}
         </View>
       </Animated.View>
-    </Pressable>
+    </Frame>
   );
 }

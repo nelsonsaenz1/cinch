@@ -59,19 +59,60 @@ function secondary(): string {
 // ---------------------------------------------------------------------------
 
 test('the masthead is four sections deep, and the last of them is the chips', () => {
+  // ── CHANGED 2026-09-02 · AUDIT FINDING 8 ────────────────────────────────
+  //
+  // WAS: the masthead had to contain `<CapacityBandRow` between `<StatRow` and
+  // `<CategoryChipsRow`, and the band was asserted above the chips.
+  //
+  // The audit: "the subscription capacity card takes the visual position that
+  // should establish the wardrobe itself. The first actual garment row begins
+  // low on the page." Between the stats and the chips, the band put a plan
+  // name, a ceiling, a progress track and — near a wall — a filled oxblood
+  // door in front of every garment in the closet.
+  //
+  // The band moved to `SecondaryInsights`, below the grid, on this file's own
+  // distinction (see the next test): the rails are PIECES and belong with the
+  // pieces; the band is a READING about pieces, like the insight card it now
+  // sits above. Nothing was deleted, and the masthead still states the two
+  // populations one line up in `ClosetCountsLine`.
+  //
+  // What this test holds now is the stronger half of the original rule: the
+  // masthead is the identity and the filter, the chips are still last, and
+  // NOTHING about membership stands between them and the grid.
   const src = masthead();
-  // `<CapacityColophon` became `<CapacityBandRow` in redesign 14: the 11pt
-  // line stating a bare count became a designed band stating BOTH ceilings,
-  // and telling the two capacity walls apart. Same slot, same order.
-  for (const section of ['<EyebrowHeader', '<Avatar', '<StatRow', '<CapacityBandRow', '<CategoryChipsRow']) {
+  for (const section of ['<EyebrowHeader', '<Avatar', '<StatRow', '<CategoryChipsRow']) {
     assert.ok(src.includes(section), `the masthead lost ${section}`);
   }
+  assert.doesNotMatch(src, /<CapacityBandRow/, 'the capacity band climbed back above the grid');
   // The chips are the last thing before the grid: a filter row that sits under
   // a summary of the thing it filters is a row nobody reaches.
   const chips = src.indexOf('<CategoryChipsRow');
-  for (const earlier of ['<EyebrowHeader', '<Avatar', '<StatRow', '<CapacityBandRow']) {
+  for (const earlier of ['<EyebrowHeader', '<Avatar', '<StatRow']) {
     assert.ok(src.indexOf(earlier) < chips, `${earlier} fell below the category chips`);
   }
+});
+
+test('the capacity band is a reading below the grid, and still reports on every visit', () => {
+  // The other half of finding 8, and the part that is easy to get wrong.
+  //
+  // A block inside a FlashList's `ListFooterComponent` does not mount until
+  // somebody scrolls to it. `capacity_state` used to fire from the band itself,
+  // on focus, for every reader; left there it would silently have become
+  // "capacity state, among readers who scroll" — the same event name measuring
+  // a different population, which is the worst kind of analytics regression
+  // because nothing about it looks broken.
+  const footer = secondary();
+  assert.match(footer, /<CapacityBandRow large=\{false\} \/>/, 'the band is not in the footer');
+  const src = stripped(CLOSET);
+  // The report is a hook on the screen body, and the band no longer tracks.
+  assert.match(src, /function useCapacityStateReport\(\)/);
+  assert.match(src, /\n  useCapacityStateReport\(\);/, 'the screen no longer calls the report');
+  const band = src.slice(src.indexOf('function CapacityBandRow'));
+  assert.doesNotMatch(
+    band.slice(0, band.indexOf('\n}')),
+    /CLOSET_EVENTS\.capacityState/,
+    'the footer band reports the capacity state again',
+  );
 });
 
 test('nothing that is merely ABOUT the closet sits above the garments', () => {

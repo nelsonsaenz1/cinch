@@ -1,6 +1,7 @@
 import { View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { REVEAL_COPY } from '@/features/onboarding/reveal-spec';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -61,25 +62,47 @@ export function RevealCount({
   return (
     <View accessible accessibilityRole="header" accessibilityLabel={spokenLabel}>
       {showNumber ? (
-        <Text
-          variant="wordmark"
-          trim
-          // Explicitly excluded from the announcement: the label above already
-          // says "twenty-seven outfits", and a bare "27" read out first is the
-          // same fact twice in two registers.
-          accessibilityElementsHidden
-          importantForAccessibility="no"
-          style={{ fontSize, lineHeight: fontSize * 1.02 }}>
-          {String(count)}
-        </Text>
+        <>
+          {/* ── AUDIT 2026-09-02 · 42 · THE NUMBER IS NO LONGER BARE ────────
+              The payoff of the whole onboarding was a glyph: a 150pt "5" with
+              no unit anywhere near it and a 15pt line under it. This names the
+              figure before it is read, in the eyebrow the rest of the app uses
+              for exactly that. Hidden from VoiceOver, like the numeral — the
+              header's own label is the full derivation, and a reader who hears
+              "outfits from your closet", then "5", then "Five outfits from
+              three pieces" has heard one fact three times. */}
+          <Text
+            variant="eyebrow"
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            style={{ marginBottom: large ? 10 : 6 }}>
+            {REVEAL_COPY.countEyebrow}
+          </Text>
+          <Text
+            variant="wordmark"
+            trim
+            // Explicitly excluded from the announcement: the label above already
+            // says "twenty-seven outfits", and a bare "27" read out first is the
+            // same fact twice in two registers.
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            style={{ fontSize, lineHeight: fontSize * 1.02 }}>
+            {String(count)}
+          </Text>
+        </>
       ) : null}
 
+      {/* The other half of 42's rebalance. This was `note` — 13pt muted,
+          overridden to 15 — against a numeral ten times its size, which is not
+          a hierarchy, it is a caption under a poster. It is body copy in the
+          page's own ink now, one step under the display line, and it is the
+          sentence that makes the number mean something. */}
       <Text
-        variant="note"
+        variant="body"
         style={{
-          marginTop: showNumber ? 14 : 0,
-          fontSize: large ? 21 : 15,
-          lineHeight: large ? 29 : 23,
+          marginTop: showNumber ? 16 : 0,
+          fontSize: large ? 23 : 18,
+          lineHeight: large ? 31 : 26,
         }}>
         {derivation}
       </Text>
