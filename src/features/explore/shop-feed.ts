@@ -222,6 +222,57 @@ export const FASHION_CATEGORY_LABELS: Record<string, string> = {
   totes: 'Tote',
   backpack: 'Backpack',
   backpacks: 'Backpack',
+  jersey: 'Jersey',
+  jerseys: 'Jersey',
+  polo: 'Polo',
+  polos: 'Polo',
+  robe: 'Robe',
+  robes: 'Robe',
+  sock: 'Socks',
+  socks: 'Socks',
+  tights: 'Tights',
+  kimono: 'Kimono',
+  kimonos: 'Kimono',
+  vest: 'Vest',
+  vests: 'Vest',
+  waistcoat: 'Waistcoat',
+  waistcoats: 'Waistcoat',
+  parka: 'Parka',
+  parkas: 'Parka',
+  anorak: 'Anorak',
+  anoraks: 'Anorak',
+  dungarees: 'Dungarees',
+  overalls: 'Overalls',
+  romper: 'Romper',
+  rompers: 'Romper',
+  kurta: 'Kurta',
+  kurtas: 'Kurta',
+  tunic: 'Tunic',
+  tunics: 'Tunic',
+  poncho: 'Poncho',
+  ponchos: 'Poncho',
+  cape: 'Cape',
+  capes: 'Cape',
+  mule: 'Mules',
+  mules: 'Mules',
+  espadrille: 'Espadrilles',
+  espadrilles: 'Espadrilles',
+  clog: 'Clogs',
+  clogs: 'Clogs',
+  slide: 'Slides',
+  slides: 'Slides',
+  wallet: 'Wallet',
+  wallets: 'Wallet',
+  purse: 'Purse',
+  purses: 'Purse',
+  bralette: 'Bralette',
+  bralettes: 'Bralette',
+  bandeau: 'Bandeau',
+  balaclava: 'Balaclava',
+  cufflink: 'Cufflinks',
+  cufflinks: 'Cufflinks',
+  sarong: 'Sarong',
+  sarongs: 'Sarong',
 };
 
 /**
@@ -393,19 +444,48 @@ export const NON_APPAREL_TITLE_WORDS: readonly string[] = [
   'comforter',
   'keychain',
   'magnet',
-  'bottle',
 ];
+
+/** Fold accents so "Décor" and "Decor" are one word (verification, UX-9). */
+const foldText = (text: string): string =>
+  text.normalize('NFKD').replace(/[̀-ͯ]/g, '');
 
 /**
  * Merchant text, reduced to space-separated words so a match can be bounded.
- * Anything that is not a letter or a digit becomes a gap, which is what turns
- * "Home & Garden > Décor" into words and stops "tan" firing inside "titanium"
- * — the same word-boundary rule the colour scorer already lives by.
+ * Anything that is not a letter or a digit becomes a gap — what stops "tan"
+ * firing inside "titanium", the same word-boundary rule the colour scorer
+ * lives by.
  */
-const wordsOf = (text: string): string => ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
+const wordsOf = (text: string): string =>
+  ` ${foldText(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
 
+/**
+ * Word-bounded, and PLURAL-AWARE: merchant titles are overwhelmingly plural
+ * or pack-quantified ("Ceramic Mugs Gift Set"), and a singular-only veto
+ * admitted seventeen of eighteen such titles (verification, UX-9).
+ */
 const containsWord = (haystack: string, phrase: string): boolean =>
-  haystack.includes(` ${phrase} `);
+  haystack.includes(` ${phrase} `) ||
+  haystack.includes(` ${phrase}s `) ||
+  haystack.includes(` ${phrase}es `);
+
+/**
+ * The last word of a title that is not a pack or quantity word — the noun the
+ * thing IS. "Wooden Coat Hanger Set" is a hanger; "Beach Towels 2-Pack" is towels.
+ */
+const TAIL_QUALIFIERS: ReadonlySet<string> = new Set([
+  'set', 'sets', 'pack', 'packs', 'bundle', 'kit', 'piece', 'pieces', 'pc', 'pcs',
+  'pair', 'pairs', 'count', 'lot', 'of', 'x',
+]);
+const headWord = (title: string): string => {
+  const words = wordsOf(title).trim().split(' ').filter(Boolean);
+  for (let i = words.length - 1; i >= 0; i -= 1) {
+    const w = words[i]!;
+    if (TAIL_QUALIFIERS.has(w) || /^\d+$/.test(w)) continue;
+    return w;
+  }
+  return '';
+};
 
 export type CategoryVerdict = 'fashion' | 'non-fashion' | 'unknown';
 
@@ -413,16 +493,23 @@ export type CategoryVerdict = 'fashion' | 'non-fashion' | 'unknown';
 export function categoryVerdict(category: string | null): CategoryVerdict {
   if (!category) return 'unknown';
   const haystack = wordsOf(category);
-  // The veto is read first and wins: "Home Decor > Clothing Rack" is a rack.
-  for (const word of NON_FASHION_CATEGORY_WORDS) {
-    if (containsWord(haystack, word)) return 'non-fashion';
-  }
-  for (const word of GENERIC_FASHION_CATEGORY_WORDS) {
-    if (containsWord(haystack, word)) return 'fashion';
-  }
+  // A GARMENT word wins over a department word — "Kitchen & Chef Apparel",
+  // "Sporting Goods > Golf > Apparel", "Home > Bath > Robes", a brand named
+  // "House of …" are all clothing, and the veto-first reading dropped half
+  // of a real corpus (verification, UX-8). The one weak word is
+  // "accessories": "Electronics > Phone Accessories" is electronics, so it
+  // counts only when no department word is present.
   for (const word of Object.keys(FASHION_CATEGORY_LABELS)) {
     if (containsWord(haystack, word)) return 'fashion';
   }
+  for (const word of GENERIC_FASHION_CATEGORY_WORDS) {
+    if (word === 'accessories') continue;
+    if (containsWord(haystack, word)) return 'fashion';
+  }
+  for (const word of NON_FASHION_CATEGORY_WORDS) {
+    if (containsWord(haystack, word)) return 'non-fashion';
+  }
+  if (containsWord(haystack, 'accessories')) return 'fashion';
   return 'unknown';
 }
 
@@ -454,9 +541,18 @@ export function isConfidentFashion(
   const verdict = categoryVerdict(family.category);
   if (verdict === 'non-fashion') return false;
 
+  // The title's veto is the noun the thing IS — its head word — or, when no
+  // garment noun appears anywhere in the title, any veto word at all. A
+  // modifier is never a veto: "Bottle Green Coat" is a coat, "Magnet Buckle
+  // Belt" is a belt, "Clothing Rack" is a rack (verification, UX-8b).
   const title = wordsOf(family.title);
+  const head = headWord(family.title);
+  const titleNamesGarment = Object.keys(FASHION_CATEGORY_LABELS).some((word) =>
+    containsWord(title, word),
+  );
   for (const word of NON_APPAREL_TITLE_WORDS) {
-    if (containsWord(title, word)) return false;
+    const hit = head === word || head === `${word}s` || head === `${word}es`;
+    if (hit || (!titleNamesGarment && containsWord(title, word))) return false;
   }
 
   if (family.productClass) return family.productClass === slot;

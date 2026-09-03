@@ -125,7 +125,9 @@ export default function SavedLooksScreen() {
     () =>
       resolveSavedListState({
         loading: load.state === 'skeleton',
-        failed: load.failed,
+        // The screen's own `error` state only — a timeout is a wait, not a
+        // failure, and `saved_state_shown` counts failures (verification, UX-32).
+        failed: load.state === 'error',
         // Offline only counts as offline once the read has actually failed or
         // is empty; a successful read over a connection the device believes is
         // down is still a successful read, and banners it does not need are
@@ -133,7 +135,7 @@ export default function SavedLooksScreen() {
         offline: !online && (saves.isError || rows.length > 0),
         saves: rows,
       }),
-    [load.state, load.failed, saves.isError, online, rows],
+    [load.state, saves.isError, online, rows],
   );
 
   const counts = useMemo(() => collectionCounts(rows), [rows]);

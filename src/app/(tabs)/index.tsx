@@ -2216,6 +2216,7 @@ export default function TodayScreen() {
           {nothingWorks ? null : (
             <TodayUpsell
               plan={planState.plan}
+              paid={planState.paid}
               trialing={planState.trialing}
               trialEndsAt={planState.trialEndsAt}
               ready={!planState.loading && !planState.unconfirmed}

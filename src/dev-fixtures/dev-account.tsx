@@ -93,6 +93,7 @@ function PS01({ onOpenEdit, onOpenDelete }: { onOpenEdit: () => void; onOpenDele
   const membership = membershipCopyFor({
     plan,
     copy: PLANS[plan],
+    paid: false,
     trialing: false,
     trialEndsAt: null,
     currentPeriodEnd: planVariant.endsWith('known') ? KNOWN_RENEWAL : null,

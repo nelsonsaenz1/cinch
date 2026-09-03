@@ -24,7 +24,7 @@ import { membershipRowFor, type MembershipRowInput } from '../src/features/billi
 import { PLANS } from '../src/features/billing/plans';
 
 const base: MembershipRowInput = {
-  plan: 'free',
+  plan: 'free', paid: false,
   trialing: false,
   trialEndsAt: null,
   currentPeriodEnd: null,
@@ -75,7 +75,7 @@ test('an unknown period end drops the term rather than computing one', () => {
 test('a trial is drawn only when the read returns one, and always with its end', () => {
   const trial = membershipRowFor({
     ...base,
-    plan: 'pro',
+    plan: 'pro', paid: false,
     trialing: true,
     trialEndsAt: new Date('2026-09-12T00:00:00Z'),
   });

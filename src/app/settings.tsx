@@ -159,6 +159,7 @@ export default function SettingsScreen() {
   // which changes the plate the row is drawn on and nothing about the reading.
   const membership = membershipRowFor({
     plan: plan.plan,
+    paid: plan.paid,
     trialing: plan.trialing,
     trialEndsAt: plan.trialEndsAt,
     currentPeriodEnd: plan.currentPeriodEnd,

@@ -8,53 +8,35 @@ import {
 } from '@/lib/bounded-load';
 
 /**
- * THE BOUNDED LOAD, AS A HOOK — the one clock behind every route's skeleton.
+ * The clock behind the bounded-load contract (`bounded-load.ts`).
  *
- * `@/lib/bounded-load` holds the rule; this holds the timer that decides when
- * `expired` is true, and nothing else. It takes a react-query result already
- * reduced to three booleans rather than the query object itself, because half
- * the screens in this app compose two or three queries into one page state
- * (`useLookbook` is `plates.isLoading || boards.isLoading`) and a hook typed to
- * a single `UseQueryResult` would send them back to hand-rolling the bound.
+ * Takes booleans rather than a `UseQueryResult` because half the screens that
+ * use it compose two or three queries into one page state. The bound is a
+ * statement about the WAIT, never about the request: nothing here cancels a
+ * read, and a read that lands after the clock has run out falls straight
+ * through to `content`.
  *
- * ── THE TIMER RESTARTS ON A RETRY, NOT ON A RENDER ────────────────────────
- *
- * `retry()` bumps an attempt counter that the effect depends on. Without it a
- * retry pressed from the timeout state would be invisible: react-query keeps
- * `isLoading` true across the refetch, the effect never re-runs, and the
- * screen stays on the timeout it was already showing while a perfectly healthy
- * request runs behind it. The counter is the only reason the button does
- * anything the reader can see.
- *
- * ── NOTHING IS CANCELLED ──────────────────────────────────────────────────
- *
- * A timeout here is a statement about the wait, not an abort. The query is
- * untouched and still in flight; if it lands a second later the state falls
- * straight through to `content` and the page fills in. Cancelling would turn a
- * slow read into a failed one, which is the opposite of honest.
+ * `fetching` is the difference between a bound and half a bound: react-query
+ * keeps `status: 'error'` through a retry, so `loading` is false while that
+ * retry hangs. With `fetching` the clock arms for the retry too
+ * (verification, UX-29), and a retry tapped during a timeout re-arms the
+ * clock instead of cancelling the read still in flight (UX-33).
  */
 export type BoundedLoadOptions = {
-  /** Nothing to draw yet. `isLoading`/`isPending`, never `isFetching`. */
   loading: boolean;
-  /** The read failed. */
   error: boolean;
-  /** Settled and empty. Only consulted once the other two are false. */
   empty?: boolean;
-  /** A refetch is in flight — the retry button reads "Trying…". */
+  /** `isFetching` — a request is out, first read or retry. */
+  fetching?: boolean;
   retrying?: boolean;
-  /** Wired to the query's `refetch`. Without it the failing states dead-end. */
   onRetry?: () => void;
-  /** Override for a screen with a genuinely different budget. Rarely needed. */
   timeoutMs?: number;
 };
 
 export type BoundedLoad = {
   state: BoundedState;
-  /** `error` or `timeout` — the two states that owe a retry and a way back. */
   failed: boolean;
-  /** The bound fired. Switches the error copy; see `boundedErrorCopy`. */
   timedOut: boolean;
-  /** Restarts the read AND the clock. Safe to pass straight to `onRetry`. */
   retry: () => void;
   retrying: boolean;
 };
@@ -63,26 +45,21 @@ export function useBoundedLoad({
   loading,
   error,
   empty = false,
+  fetching = false,
   retrying = false,
   onRetry,
   timeoutMs = BOUNDED_TIMEOUT_MS,
 }: BoundedLoadOptions): BoundedLoad {
-  const waiting = loading && !error;
+  // A retry in flight is a wait again: the clock, not a disabled button, is
+  // what bounds it.
+  const retryOut = error && fetching;
+  const waiting = (loading && !error) || retryOut;
 
   const [expired, setExpired] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
-  /**
-   * Retiring a stale expiry belongs to RENDER, not to an Effect.
-   *
-   * This is React's own "adjusting state when a prop changes" pattern, the one
-   * `components/media/garment-image.tsx` already uses to retire a previous
-   * picture's verdict: the moment the wait ends, the expiry from that wait is
-   * cleared in the SAME commit rather than one commit later, so a read that
-   * lands never paints one frame of "this is taking a while" on its way to the
-   * content. Doing it in an Effect would also be a synchronous setState in an
-   * effect body, which is a cascading render and a lint error besides.
-   */
+  // Reset in render, not in an effect: a wait that ends (content landed, or
+  // failed) must clear a stale expiry before the next frame draws it.
   const [wasWaiting, setWasWaiting] = useState(waiting);
   if (wasWaiting !== waiting) {
     setWasWaiting(waiting);
@@ -93,16 +70,31 @@ export function useBoundedLoad({
     if (!waiting) return;
     const timer = setTimeout(() => setExpired(true), timeoutMs);
     return () => clearTimeout(timer);
-    // `attempt` is the retry's restart. See the docblock.
+    // `attempt` is the retry's restart: without it a retry from the timeout
+    // state is invisible (`waiting` never changes) and the clock never re-arms.
   }, [waiting, timeoutMs, attempt]);
 
   const retry = useCallback(() => {
     setExpired(false);
     setAttempt((n) => n + 1);
+    // A read that is still out is left alone — `refetch()` would cancel it
+    // and restart the wait from zero. The clock is what restarts.
+    if (fetching && !error) return;
     onRetry?.();
-  }, [onRetry]);
+  }, [onRetry, fetching, error]);
 
-  const state = boundedState({ loading, error, empty, expired });
+  const state = boundedState({
+    loading: loading || retryOut,
+    error: error && !fetching,
+    empty,
+    expired,
+  });
 
-  return { state, failed: isFailed(state), timedOut: state === 'timeout', retry, retrying };
+  return {
+    state,
+    failed: isFailed(state),
+    timedOut: state === 'timeout',
+    retry,
+    retrying: retrying || retryOut,
+  };
 }

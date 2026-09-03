@@ -316,12 +316,12 @@ export function MembershipBody(props: MembershipBodyProps) {
                 out of `PLANS`, no price anywhere. The terms are rendered from
                 the store on the paywall the button below opens. */}
             {(['standard', 'pro'] as const)
-              .filter((tier) => tier !== plan)
+              .filter((tier) => tier !== surface.owned)
               .map((tier) => (
                 <DeltaTable
                   key={tier}
                   kicker={`${COMPARISON_KICKER} · ${PLANS[tier].name.toUpperCase()}`}
-                  rows={planDelta(plan, tier)}
+                  rows={planDelta(surface.owned, tier)}
                   toName={PLANS[tier].name}
                   className="mt-3"
                 />

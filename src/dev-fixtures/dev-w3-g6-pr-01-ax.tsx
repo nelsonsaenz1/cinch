@@ -40,6 +40,7 @@ export default function DevW3G6PR01AX() {
 
   const membership = membershipRowFor({
     plan: 'standard',
+    paid: true,
     trialing: false,
     trialEndsAt: null,
     currentPeriodEnd: new Date('2027-03-03T00:00:00Z'),

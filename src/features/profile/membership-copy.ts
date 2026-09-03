@@ -20,6 +20,8 @@ import type { Plan, PlanCopy } from '@/features/billing/plans';
 export type MembershipCopyInput = {
   plan: Plan;
   copy: PlanCopy;
+  /** `PlanState.paid` — outranks `trialing` (verification, UX-3). */
+  paid: boolean;
   trialing: boolean;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
@@ -41,15 +43,17 @@ function formatDay(date: Date): string {
 }
 
 export function membershipCopyFor(input: MembershipCopyInput): MembershipCopy {
-  const paidPlan = !input.trialing && input.plan !== 'free';
+  // A paid row with a stale trial date is paying: read it as paid, not trialing.
+  const trialing = input.trialing && !input.paid;
+  const paidPlan = input.paid || (!trialing && input.plan !== 'free');
 
-  if (!input.trialing && input.plan === 'free') {
+  if (!trialing && input.plan === 'free') {
     return { visible: false, title: '', subtitle: '', paidPlan: false };
   }
 
-  const title = input.trialing ? `${input.copy.name} trial` : `Cinch ${input.copy.name}`;
+  const title = trialing ? `${input.copy.name} trial` : `Cinch ${input.copy.name}`;
   const renewsOn = input.currentPeriodEnd ? formatDay(input.currentPeriodEnd) : null;
-  const subtitle = input.trialing
+  const subtitle = trialing
     ? input.trialEndsAt
       ? `Trial ends ${formatDay(input.trialEndsAt)}`
       : ''

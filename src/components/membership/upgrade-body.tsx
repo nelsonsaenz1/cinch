@@ -174,12 +174,12 @@ export function UpgradeBody(props: UpgradeBodyProps) {
             ) : null}
 
             {(['standard', 'pro'] as const)
-              .filter((tier) => tier !== surface.plan)
+              .filter((tier) => tier !== surface.owned)
               .map((tier) => (
                 <DeltaTable
                   key={tier}
                   kicker={`${COMPARISON_KICKER} · ${PLANS[tier].name.toUpperCase()}`}
-                  rows={planDelta(surface.plan, tier)}
+                  rows={planDelta(surface.owned, tier)}
                   toName={PLANS[tier].name}
                   className="mt-6"
                 />

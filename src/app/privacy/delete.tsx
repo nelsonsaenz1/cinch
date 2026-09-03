@@ -39,6 +39,7 @@ export default function DeleteAccountScreen() {
   const paidPlan = membershipCopyFor({
     plan: plan.plan,
     copy: plan.copy,
+    paid: plan.paid,
     trialing: plan.trialing,
     trialEndsAt: plan.trialEndsAt,
     currentPeriodEnd: plan.currentPeriodEnd,

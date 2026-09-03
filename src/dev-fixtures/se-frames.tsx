@@ -37,7 +37,7 @@ export const DEV_DIAGNOSTICS: readonly UpdateDiagnostic[] = [
 /** A confirmed Standard member, read cleanly. The page's ordinary day. */
 export const PAID_STANDARD: MembershipRowInput = {
   plan: 'standard',
-  trialing: false,
+  paid: true, trialing: false,
   trialEndsAt: null,
   currentPeriodEnd: new Date('2026-09-14T12:00:00Z'),
   loading: false,

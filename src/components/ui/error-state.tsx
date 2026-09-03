@@ -142,7 +142,14 @@ export function ErrorState({
   return (
     <ScrollView
       accessibilityRole="alert"
-      className="flex-1"
+      // `flexGrow: 1`, never `flex-1`: `flex-1` is `flexBasis: 0`, which in an
+      // unflexed parent (a plain ScrollView's content, a `pt-4` View) is a
+      // zero-height box — and unlike a View, a ScrollView CLIPS, so the error
+      // vanished on Notifications and both boards (verification, UX-6/30).
+      // `bounces={false}` so a pull inside the error reaches the outer
+      // pull-to-refresh rather than this inner scroll (UX-7).
+      style={{ flexGrow: 1 }}
+      bounces={false}
       contentContainerClassName="px-gutter"
       contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 24 }}>
       {content}

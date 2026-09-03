@@ -131,7 +131,7 @@ test('the plan door still derives from membership-row, byte for byte', () => {
   // The redesign changes the PLATE. If it ever changed the reading, this is
   // where a member on a slow network starts being told they are not one.
   const reading = membershipRowFor({
-    plan: 'standard',
+    plan: 'standard', paid: false,
     trialing: false,
     trialEndsAt: null,
     currentPeriodEnd: null,
@@ -142,7 +142,7 @@ test('the plan door still derives from membership-row, byte for byte', () => {
   assert.equal(reading.chevron, false);
 
   const failed = membershipRowFor({
-    plan: 'free',
+    plan: 'free', paid: false,
     trialing: false,
     trialEndsAt: null,
     currentPeriodEnd: null,
@@ -155,7 +155,7 @@ test('the plan door still derives from membership-row, byte for byte', () => {
   assert.equal(failed.chevron, false);
 
   const free = membershipRowFor({
-    plan: 'free',
+    plan: 'free', paid: false,
     trialing: false,
     trialEndsAt: null,
     currentPeriodEnd: null,
@@ -180,7 +180,7 @@ test('the plan door still derives from membership-row, byte for byte', () => {
   assert.match(free.label, /^Cinch /);
 
   const paid = membershipRowFor({
-    plan: 'standard',
+    plan: 'standard', paid: true,
     trialing: false,
     trialEndsAt: null,
     currentPeriodEnd: new Date('2026-09-14T00:00:00Z'),

@@ -58,6 +58,7 @@ import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 export function TodayUpsell({
   plan,
   trialing,
+  paid,
   trialEndsAt,
   /**
    * False while `usePlan` is still reading and after a failed read. The row
@@ -69,6 +70,8 @@ export function TodayUpsell({
 }: {
   plan: Plan;
   trialing: boolean;
+  /** `PlanState.paid` — a receipt suppresses the row outright. */
+  paid: boolean;
   trialEndsAt: Date | null;
   ready: boolean;
   onSeePlans: () => void;
@@ -93,6 +96,7 @@ export function TodayUpsell({
     <UpsellRow
       plan={plan}
       trialing={trialing}
+      paid={paid}
       trialEndsAt={trialEndsAt}
       onSeePlans={onSeePlans}
     />
@@ -102,11 +106,14 @@ export function TodayUpsell({
 function UpsellRow({
   plan,
   trialing,
+  paid,
   trialEndsAt,
   onSeePlans,
 }: {
   plan: Plan;
   trialing: boolean;
+  /** `PlanState.paid` — a receipt, which suppresses the row outright. */
+  paid: boolean;
   trialEndsAt: Date | null;
   onSeePlans: () => void;
 }) {
@@ -125,7 +132,7 @@ function UpsellRow({
    * already spent this session", and the row draws nothing either way.
    */
   const [view] = useState<UpsellBubbleView | null>(() => {
-    const next = upsellBubbleFor({ plan, trialing, trialEndsAt, unknown: false, now: new Date() });
+    const next = upsellBubbleFor({ plan, paid, trialing, trialEndsAt, unknown: false, now: new Date() });
     return next && claimUpsellBubble() ? next : null;
   });
   const [dismissed, setDismissed] = useState(false);
@@ -134,7 +141,7 @@ function UpsellRow({
   // stored: an account that stopped being free has stopped being the audience,
   // and leaving an upgrade offer over a receipt is the one state this must not
   // reach.
-  const paying = plan !== 'free' && !trialing;
+  const paying = paid;
 
   if (!view || dismissed || paying) return null;
 

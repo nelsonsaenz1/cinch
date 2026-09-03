@@ -143,6 +143,16 @@ export function boundedErrorCopy(
   own?: BoundedErrorCopy,
 ): BoundedErrorCopy | null {
   if (state === 'timeout') return BOUNDED_TIMEOUT_COPY;
-  if (state === 'error') return own ?? null;
+  // A screen with no wording of its own still gets an error it can read and
+  // retry — `null` here fell through to the skeleton arm and drew a header
+  // over nothing (verification, UX-28).
+  if (state === 'error') return own ?? BOUNDED_ERROR_COPY;
   return null;
 }
+
+/** The generic failure, for a route that supplied no wording of its own. */
+export const BOUNDED_ERROR_COPY: BoundedErrorCopy = {
+  title: 'That didn’t load.',
+  body: 'Cinch couldn’t read this just now — a connection problem, not a change to your things. Nothing has moved.',
+  retryTitle: 'Try again',
+};

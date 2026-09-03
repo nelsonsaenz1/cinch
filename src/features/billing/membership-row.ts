@@ -55,6 +55,8 @@ export type MembershipReadState = 'reading' | 'confirmed' | 'trialing' | 'failed
 
 export type MembershipRowInput = {
   readonly plan: Plan;
+  /** `PlanState.paid` — a paid row is paid whatever its trial date says. */
+  readonly paid: boolean;
   readonly trialing: boolean;
   readonly trialEndsAt: Date | null;
   /**
@@ -122,7 +124,7 @@ export function membershipRowFor(input: MembershipRowInput): MembershipRow {
     };
   }
 
-  if (input.trialing) {
+  if (input.trialing && !input.paid) {
     const copy = PLANS[input.plan];
     const through = input.trialEndsAt ? `Trial through ${membershipDate(input.trialEndsAt)}` : null;
     return {

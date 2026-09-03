@@ -79,6 +79,14 @@ export type MembershipSurface = {
   readonly kind: MembershipSurfaceKind;
   /** The folded plan. NEVER drawn while `reading` or `unconfirmed`. */
   readonly plan: Plan;
+  /**
+   * The tier the account OWNS — the "from" of any comparison. `plan` answers
+   * what the account may do today (a trial answers that as Pro); `owned`
+   * answers what it holds, which for a trial is nothing. A comparison drawn
+   * from `plan` showed a trialing account a table of losses under a kicker
+   * promising additions (verification, UX-1).
+   */
+  readonly owned: Plan;
   /** `PLANS[plan]`, for the one place a tier is named. Same rule as above. */
   readonly copy: PlanCopy;
   /** Cancel and the term colophon — a subscription, and only a subscription. */
@@ -102,6 +110,7 @@ export type MembershipSurface = {
 export function membershipSurface(input: MembershipSurfaceInput): MembershipSurface {
   const base = {
     plan: input.plan,
+    owned: input.paid ? input.plan : 'free',
     copy: PLANS[input.plan],
     manageable: false,
     comparison: false,
@@ -229,6 +238,7 @@ export type UpgradeSurfaceKind = 'reading' | 'delta' | 'plans' | 'at-top';
 export function upgradeSurface(input: MembershipSurfaceInput): {
   readonly kind: UpgradeSurfaceKind;
   readonly plan: Plan;
+  readonly owned: Plan;
   readonly copy: PlanCopy;
   readonly trialEndsAt: Date | null;
 } {
@@ -248,6 +258,7 @@ export function upgradeSurface(input: MembershipSurfaceInput): {
   return {
     kind,
     plan: surface.plan,
+    owned: surface.owned,
     copy: surface.copy,
     trialEndsAt: surface.trialEndsAt,
   };

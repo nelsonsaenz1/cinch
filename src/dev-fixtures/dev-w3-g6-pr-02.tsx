@@ -38,12 +38,13 @@ import { MIN_TAP_TARGET } from '@/theme/tokens';
 const STATES: readonly (readonly [string, MembershipRowInput])[] = [
   [
     'Reading',
-    { plan: 'free', trialing: false, trialEndsAt: null, currentPeriodEnd: null, loading: true, unconfirmed: false },
+    { plan: 'free', paid: false, trialing: false, trialEndsAt: null, currentPeriodEnd: null, loading: true, unconfirmed: false },
   ],
   [
     'Standard, active',
     {
       plan: 'standard',
+      paid: true,
       trialing: false,
       trialEndsAt: null,
       currentPeriodEnd: new Date('2027-03-03T00:00:00Z'),
@@ -55,6 +56,7 @@ const STATES: readonly (readonly [string, MembershipRowInput])[] = [
     'Pro, in trial',
     {
       plan: 'pro',
+      paid: false,
       trialing: true,
       trialEndsAt: new Date('2026-09-12T00:00:00Z'),
       currentPeriodEnd: null,
@@ -64,7 +66,7 @@ const STATES: readonly (readonly [string, MembershipRowInput])[] = [
   ],
   [
     'Read failed',
-    { plan: 'free', trialing: false, trialEndsAt: null, currentPeriodEnd: null, loading: false, unconfirmed: true },
+    { plan: 'free', paid: false, trialing: false, trialEndsAt: null, currentPeriodEnd: null, loading: false, unconfirmed: true },
   ],
 ];
 

@@ -216,7 +216,12 @@ export function AiConsentPage({
           label="The exact wording"
           summary="What you actually agreed to, word for word."
           className="mt-4"
-          bordered={false}>
+          bordered={false}
+          // OPEN BY DEFAULT. The intro above says "the wording below is the
+          // same wording you saw then" — a consent record a reader has to
+          // tap to see is not below anything (verification, UX-21). The
+          // summary still leads; the record still follows, closable.
+          defaultOpen>
           <View className="gap-4">
             {CONSENT_FACTS.map((fact) => (
               // ── The record, at a size a reader can hold to ────────────────

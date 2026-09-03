@@ -81,7 +81,9 @@ export default function MembershipThanksScreen() {
     router.replace((origin?.route ?? '/') as '/');
   };
 
-  const planKnown = !plan.loading && plan.plan !== 'free';
+  // `paid`, not `plan !== 'free'`: the trial fold made a free account read as
+  // Pro from the first frame (verification, UX-5).
+  const planKnown = !plan.loading && plan.paid;
 
   /**
    * Clear on the way out, however the reader leaves.

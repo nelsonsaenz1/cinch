@@ -61,6 +61,7 @@ export default function DevW3G6PR01() {
 
   const membership = membershipRowFor({
     plan: 'free',
+    paid: false,
     trialing: false,
     trialEndsAt: null,
     currentPeriodEnd: null,

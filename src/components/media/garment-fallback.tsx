@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
-import { garmentSwatch, swatchInkOn, type SwatchColorInput } from '@/lib/color';
+import { garmentSwatch, type SwatchColorInput } from '@/lib/color';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -64,6 +64,7 @@ export type GarmentFallbackProps = {
 };
 
 /** The paper palette's tray, from `garment-cell.tsx`. Not a theme token. */
+const PAPER_INK = '#1C1A16';
 const PAPER_GROUND = '#F0ECE3';
 
 /**
@@ -96,7 +97,6 @@ export function GarmentFallback({
 
   const swatch = garmentSwatch(color);
   const ground = swatch?.background ?? (paper ? PAPER_GROUND : theme.tray);
-  const ink = swatch?.ink ?? swatchInkOn(ground);
 
   const name = label?.trim();
 
@@ -110,16 +110,24 @@ export function GarmentFallback({
       className="h-full w-full items-center justify-center overflow-hidden px-1.5"
       style={{ backgroundColor: ground }}>
       {name ? (
-        <Text
-          variant="caption"
-          numberOfLines={lines}
-          className="text-center"
-          // The card's geometry is fixed in print mode; on screen the name
-          // grows with the reader's type size like every other word.
-          maxFontSizeMultiplier={paper ? 1 : undefined}
-          style={{ color: ink }}>
-          {name}
-        </Text>
+        // On a pill of the page's own ground, never straight on the colour:
+        // an ink flipped on lightness fails AA on 57 of the 104 wardrobe
+        // colours — the mid-tones, where neither white nor near-black clears
+        // 4.5:1 (verification, UX-34). Ink on canvas always does.
+        <View
+          className="rounded-full px-2 py-0.5"
+          style={{ backgroundColor: paper ? PAPER_GROUND : theme.canvas, opacity: 0.94 }}>
+          <Text
+            variant="caption"
+            numberOfLines={lines}
+            className="text-center"
+            // The card's geometry is fixed in print mode; on screen the name
+            // grows with the reader's type size like every other word.
+            maxFontSizeMultiplier={paper ? 1 : undefined}
+            style={{ color: paper ? PAPER_INK : theme.ink }}>
+            {name}
+          </Text>
+        </View>
       ) : null}
     </View>
   );

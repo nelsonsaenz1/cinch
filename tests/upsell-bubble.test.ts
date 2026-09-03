@@ -35,6 +35,7 @@ const inDays = (n: number) => new Date(NOW.getTime() + n * 86_400_000);
 
 const state = (over: Partial<UpsellBubbleInput> = {}): UpsellBubbleInput => ({
   plan: 'free',
+  paid: false,
   trialing: false,
   trialEndsAt: null,
   unknown: false,

@@ -24,7 +24,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import {
+  BOUNDED_ERROR_COPY, test } from 'node:test';
 
 import {
   BOUNDED_TIMEOUT_COPY,
@@ -134,8 +135,10 @@ test('the screen’s own error wording survives an error and is replaced by a ti
   assert.deepEqual(boundedErrorCopy('timeout', own), BOUNDED_TIMEOUT_COPY);
   // A timeout with no screen wording still gets the full sentence.
   assert.deepEqual(boundedErrorCopy('timeout'), BOUNDED_TIMEOUT_COPY);
-  // No wording for an error just means `ErrorState`'s own defaults.
-  assert.equal(boundedErrorCopy('error'), null);
+  // No wording for an error means the GENERIC error — never null, because a
+  // null fell through RouteState's branches to a header over nothing
+  // (verification, UX-28).
+  assert.deepEqual(boundedErrorCopy('error'), BOUNDED_ERROR_COPY);
 });
 
 test('the non-failing states cannot be rendered as errors by forgetting a branch', () => {

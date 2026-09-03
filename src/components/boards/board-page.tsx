@@ -137,7 +137,7 @@ export function BoardPage({
               is the exact "empty state or still loading?" ambiguity the
               finding names. An unread board has an unknown plate count; this
               line says nothing until it actually knows one. */}
-          {!loading && !error ? (
+          {!loading && !error && !timedOut ? (
             <Text variant="note" className="mt-2">
               {summary}
             </Text>

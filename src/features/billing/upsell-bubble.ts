@@ -95,6 +95,8 @@ export function trialDaysLeft(endsAt: Date | null, now: Date): number {
 
 export type UpsellBubbleInput = {
   plan: Plan;
+  /** A live paid row or StoreKit entitlement — `PlanState.paid`. */
+  paid: boolean;
   trialing: boolean;
   trialEndsAt: Date | null;
   /** True while `usePlan` is still reading, or after the read failed. */
@@ -112,7 +114,11 @@ export type UpsellBubbleInput = {
 export function upsellBubbleFor(input: UpsellBubbleInput): UpsellBubbleView | null {
   if (input.unknown) return null;
 
-  // Already paying. A trial reads as `pro` here, hence the second clause.
+  // Already paying — a receipt, not an audience. `paid` rather than
+  // `plan !== 'free' && !trialing`: a paid row that still carries a future
+  // trial date is paying, and told otherwise it would read "N days left in
+  // your trial" over its own subscription (verification, UX-2).
+  if (input.paid) return null;
   if (input.plan !== 'free' && !input.trialing) return null;
 
   if (input.trialing) {
