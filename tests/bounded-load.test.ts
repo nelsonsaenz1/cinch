@@ -24,8 +24,7 @@
  */
 
 import assert from 'node:assert/strict';
-import {
-  BOUNDED_ERROR_COPY, test } from 'node:test';
+import { test } from 'node:test';
 
 import {
   BOUNDED_TIMEOUT_COPY,
@@ -35,6 +34,7 @@ import {
   hasExpired,
   isFailed,
   isWaiting,
+  BOUNDED_ERROR_COPY,
 } from '@/lib/bounded-load';
 
 // ---------------------------------------------------------------------------
