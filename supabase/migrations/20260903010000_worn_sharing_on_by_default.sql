@@ -24,8 +24,9 @@
 -- this migration's own minute; the one pre-existing opt-in predates it):
 --   alter table public.profiles alter column worn_outfits_shared_since drop default;
 --   update public.profiles set worn_outfits_shared_since = null
---    where worn_outfits_shared_since >= '2026-09-03T04:00:00Z'
---      and worn_outfits_shared_since <  '2026-09-03T05:00:00Z';
+--    where worn_outfits_shared_since >= '2026-09-03T02:40:00Z'
+--      and worn_outfits_shared_since <  '2026-09-03T02:50:00Z';
+--   (applied to production 2026-09-03T02:44:37Z; 49 rows stamped in that second)
 -- ---------------------------------------------------------------------------
 alter table public.profiles alter column worn_outfits_shared_since set default now();
 
