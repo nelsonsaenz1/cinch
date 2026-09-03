@@ -398,6 +398,7 @@ export default function StylistScreen() {
         key: door.key,
         label: door.label,
         hint: door.hint,
+        glyph: door.glyph,
         imageUri: resolve(
           doorPieces[i]?.platePath,
           doorPieces[i]?.cutoutPath,
@@ -506,21 +507,28 @@ export default function StylistScreen() {
               line={hello.line}
               starts={doorCards}
               onStart={openDoor}
-              footer={
-                markVisible && allowance ? (
-                  // A MARK, NOT A COUNTER. One quiet line in the back half of
-                  // the allowance — no badge, no ring, no countdown from five,
-                  // and nothing that turns five chats into a game worth
-                  // rationing. It never appears while entitlement or usage is
-                  // loading, because a mark that arrives and then corrects
-                  // itself is worse than one that arrives late.
-                  <Text variant="note">{allowanceMarkLabel(allowance.remaining)}</Text>
-                ) : showMembershipLine ? (
-                  // One line, no price, no chat count, no accent — the header's
-                  // oxblood sparkle stays this screen's only accent, and the
-                  // doors above remain fully usable because nothing here gates
-                  // anything. It states where the stylist lives and opens the
-                  // same door `use-chat.ts` would have opened later.
+              /* ── AUDIT 2026-09-02 · 13 · THE LOCK MOVED ABOVE THE DOORS ────
+                 It was the second branch of the `footer` ternary — a `note`
+                 line twelve points under the FIFTH door, which on a 393pt
+                 frame is off the bottom of the screen: "the membership lock
+                 appears only below the fifth prompt and is easy to miss. Set
+                 expectation at the top or allow one clear sample path."
+
+                 It is set at the top now, before a free reader taps a door
+                 that will meet a paywall three steps later. Nothing else about
+                 it changed: same sentence, same `Placement.OpenStylist`, no
+                 price, no chat count, no accent — the header's oxblood sparkle
+                 stays this screen's only one — and the doors above remain
+                 fully usable, because this line gates nothing. `closet` in
+                 particular is answered on device and costs nothing at all.
+
+                 The ALLOWANCE mark did not move with it. That is a member's
+                 own reading of their own month, and it belongs where it always
+                 was: under the doors, after the offer, as a mark rather than a
+                 counter. The two were one ternary only because they shared a
+                 slot; they were never the same kind of sentence. */
+              notice={
+                showMembershipLine ? (
                   <View className="flex-row flex-wrap items-center" style={{ columnGap: 10 }}>
                     <Text variant="note" style={{ flexShrink: 1 }}>
                       Stylist is part of membership.
@@ -538,6 +546,17 @@ export default function StylistScreen() {
                       </Text>
                     </PressableSurface>
                   </View>
+                ) : null
+              }
+              footer={
+                markVisible && allowance ? (
+                  // A MARK, NOT A COUNTER. One quiet line in the back half of
+                  // the allowance — no badge, no ring, no countdown from five,
+                  // and nothing that turns five chats into a game worth
+                  // rationing. It never appears while entitlement or usage is
+                  // loading, because a mark that arrives and then corrects
+                  // itself is worse than one that arrives late.
+                  <Text variant="note">{allowanceMarkLabel(allowance.remaining)}</Text>
                 ) : null
               }
             />

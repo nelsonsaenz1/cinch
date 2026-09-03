@@ -61,6 +61,16 @@ export type Door = {
   label: string;
   /** The one-line description under the label. */
   hint: string;
+  /**
+   * The SF Symbol the door takes in the `glyph` regime — see `doorRegime`.
+   *
+   * A mark for the ACTION, never a picture of clothes: the app's one rule about
+   * imagery on this screen is that a garment shown is a garment owned, and a
+   * generic tshirt glyph standing in for a wardrobe would break it in outline
+   * form. `suitcase` is a trip, `photo` is the photograph you saved, and none of
+   * them claims to be anything in the closet.
+   */
+  glyph: string;
   action: DoorAction;
 };
 
@@ -84,12 +94,14 @@ export type Door = {
 export const DOORS: readonly Door[] = [
   {
     key: 'wear',
+    glyph: 'sparkles',
     label: 'What should I wear',
     hint: 'A few taps, then a look built from your own clothes.',
     action: { kind: 'questionnaire', entry: 'dressed' },
   },
   {
     key: 'recreate',
+    glyph: 'photo',
     // Named for what the door is FOR rather than for the one source it has
     // today, so a second inspiration source joins it without a second door.
     // The key and the route stay `recreate`: renaming those would break a
@@ -100,18 +112,21 @@ export const DOORS: readonly Door[] = [
   },
   {
     key: 'pack',
+    glyph: 'suitcase',
     label: 'Pack for a trip',
     hint: 'Say where and how long.',
     action: { kind: 'compose', seed: 'Help me pack for ' },
   },
   {
     key: 'piece',
+    glyph: 'square.on.square',
     label: 'Make this piece work',
     hint: 'Name something you own and Cinch builds around it.',
     action: { kind: 'compose', seed: 'What goes with my ' },
   },
   {
     key: 'closet',
+    glyph: 'questionmark.circle',
     label: 'Ask about my closet',
     hint: 'Counted from what you own. Costs nothing.',
     action: { kind: 'compose', seed: 'How many ' },
@@ -470,6 +485,47 @@ export const DOOR_COLUMNS_AX = 1;
 export const DOOR_RADIUS = 20;
 export const DOOR_WELL = 132;
 export const DOOR_WELL_AX = 96;
+
+/**
+ * The well a door takes when there is NO garment to put in it.
+ *
+ * Audit 2026-09-02 · 11: "the flagship Stylist entry screen is visually
+ * dominated by five large empty beige tiles. Use meaningful editorial
+ * thumbnails or a lighter icon/typography treatment with consistent content
+ * loading."
+ *
+ * The first option is closed to this app by its own promise: a door may only
+ * show a garment the reader actually owns (see `DoorCard`), and stock
+ * photography on the stylist would be the exact lie the screen exists to
+ * refuse. So it takes the second — a 44pt glyph plate instead of a 132pt slab,
+ * with the label and hint carrying the card. Same cards, same order, same
+ * targets; roughly 88pt of empty sand per door given back to type.
+ *
+ * "Consistent content loading" is the other half, and it is `doorRegime`: the
+ * five doors are drawn ONE way or the other, never a mix. Three photographs and
+ * two blanks reads as a broken grid, which is the same all-or-nothing rule
+ * `stackRegime` applies to an outfit's tiles for the same reason.
+ */
+export const DOOR_GLYPH_WELL = 44;
+export const DOOR_GLYPH_WELL_AX = 56;
+
+export type DoorRegime = 'garment' | 'glyph';
+
+/**
+ * Which way the grid draws. `garment` only when EVERY door resolved a picture.
+ *
+ * A closet is under this threshold whenever it holds fewer than five
+ * image-bearing pieces, which is most closets on this app right now — the
+ * cutout pipeline needs a native module the Simulator cannot run, and a
+ * thumb-only piece is common on device.
+ */
+export function doorRegime(imageUris: readonly (string | undefined)[]): DoorRegime {
+  return imageUris.length > 0 && imageUris.every(Boolean) ? 'garment' : 'glyph';
+}
+
+export function doorGlyphWell(ax: boolean): number {
+  return ax ? DOOR_GLYPH_WELL_AX : DOOR_GLYPH_WELL;
+}
 
 export const PLATE_RADIUS = 14;
 export const PLATE_WELL = 104;

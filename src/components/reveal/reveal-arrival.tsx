@@ -1,9 +1,43 @@
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 
+import { GarmentSwatch } from '@/components/media/garment-swatch';
 import { Text } from '@/components/ui/text';
 import { numberWord } from '@/features/onboarding/reveal-copy';
+import { oklchToHex } from '@/lib/color';
+import type { Garment } from '@/lib/styling';
 import { shadow, useTheme } from '@/theme/tokens';
+
+/**
+ * The tile's own fallback — audit 2026-09-02 · 62.
+ *
+ * The grid used to draw `{uri ? <Image/> : null}` over a sand ground, so a
+ * closet whose cutouts have not rendered — the norm, since background removal
+ * needs a native module the Simulator cannot run — met the beat that says "ten
+ * pieces are in your closet" over seven empty tiles. The swatch is the same one
+ * every other garment well in the app now draws.
+ */
+function ArrivalTile({ garment, uri, dim }: { garment?: Garment; uri?: string; dim?: boolean }) {
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        contentFit="contain"
+        style={{ width: '100%', height: '100%', opacity: dim ? 0.55 : 1, padding: dim ? 0 : 6 }}
+        accessibilityIgnoresInvertColors
+      />
+    );
+  }
+  if (!garment) return null;
+  return (
+    <View style={{ flex: 1, opacity: dim ? 0.55 : 1 }}>
+      <GarmentSwatch
+        label={garment.subcategory ?? garment.category}
+        hex={garment.colors[0] ? oklchToHex(garment.colors[0].oklch) : null}
+      />
+    </View>
+  );
+}
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -23,7 +57,9 @@ function cap(s: string): string {
  */
 export function RevealArrival({
   otherUris,
+  otherGarments = [],
   lastUri,
+  lastGarment,
   pieceCount,
   title,
   body,
@@ -31,8 +67,12 @@ export function RevealArrival({
 }: {
   /** The rest of the closet, dimmed behind the last piece. */
   otherUris: (string | undefined)[];
+  /** The same pieces, in the same order, so a tile with no photograph can still
+   *  say which garment it is. See `ArrivalTile`. */
+  otherGarments?: readonly Garment[];
   /** The piece that just finished — full brightness, full size. */
   lastUri?: string;
+  lastGarment?: Garment;
   /**
    * How many pieces actually arrived. Ten on the ordinary path, and this
    * eyebrow reads the real figure rather than always printing "Ten of ten" —
@@ -65,14 +105,7 @@ export function RevealArrival({
               // being ink.
               backgroundColor: theme.sand,
             }}>
-            {uri ? (
-              <Image
-                source={{ uri }}
-                contentFit="contain"
-                style={{ width: '100%', height: '100%', opacity: 0.55 }}
-                accessibilityIgnoresInvertColors
-              />
-            ) : null}
+            <ArrivalTile garment={otherGarments[i]} uri={uri} dim />
           </View>
         ))}
       </View>
@@ -94,14 +127,7 @@ export function RevealArrival({
             shadowRadius: shadow.contact.blur,
             shadowOffset: { width: shadow.contact.dx, height: shadow.contact.dy },
           }}>
-          {lastUri ? (
-            <Image
-              source={{ uri: lastUri }}
-              contentFit="contain"
-              style={{ width: '100%', height: '100%', padding: 6 }}
-              accessibilityIgnoresInvertColors
-            />
-          ) : null}
+          <ArrivalTile garment={lastGarment} uri={lastUri} />
         </View>
       </View>
 

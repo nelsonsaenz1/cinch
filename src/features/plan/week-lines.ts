@@ -54,6 +54,67 @@ export function weekTempRange(
 }
 
 /**
+ * ── AUDIT 2026-09-02 · 15 · ONE FORECAST GRAMMAR FOR EVERY WEEK ROW ─────────
+ *
+ * "Repeated weather microcopy ('today,' 'mild') is inconsistent across future
+ * rows. Normalize forecast phrasing."
+ *
+ * The week's seven rows were composed as `formatTemp(feelsLikeC)` joined to
+ * `describeWeather()`, which produced four different shapes on adjacent days:
+ *
+ *   Thu 7   72° · 60% rain          a quantity
+ *   Fri 8   72° · windy             an adjective
+ *   Sat 9   72° · 64°–83° today     a SECOND temperature, and a false "today"
+ *   Sun 10  72° · mild              an adjective that restates the 72°
+ *
+ * Two defects, and the third row holds both. `describeWeather` takes no date,
+ * so its swing clause appends the literal word "today" to every day in the
+ * week — printed, in production, on the row labelled `Sat 9`. And it states the
+ * day's low–high beside a feels-like the row has already printed, so the reader
+ * is given two temperatures for one day and no rule for telling them apart.
+ *
+ * `describeWeather` itself is NOT changed: it is Today's strip, the masthead
+ * eyebrow, the diary and the packing memo as well, and on Today the word
+ * "today" is true and pinned (`tests/context-label.test.ts`). This is the Plan
+ * row's own composition, and it lives here — beside the other week lines, in a
+ * `.ts` a test can execute — rather than inside `day-row.tsx`, where nothing
+ * could reach it.
+ *
+ * THE GRAMMAR, one shape for all seven rows:
+ *
+ *   <temperature> · [quantified conditions] · <adjective>
+ *
+ *   * The temperature is a RANGE on a day that swings and a point on a day that
+ *     does not, so the range replaces the feels-like instead of arguing with
+ *     it. Both come off the same reading `describeWeather` uses.
+ *   * The quantified conditions are the same two facts and the same thresholds
+ *     (`>= 0.4` rain, `>= 25` wind) — a row must not disagree with Today about
+ *     whether it is going to rain.
+ *   * The adjective always closes the line, so no row ends on a number and no
+ *     row is the only one without a word.
+ *   * NO TIME WORD, on any row. The row is already labelled with its own day.
+ */
+export function dayForecastLine(weather: WeatherContext, units: 'C' | 'F' = 'F'): string {
+  const parts: string[] = [
+    weather.swing
+      ? `${formatTemp(weather.lowC, units).replace('°', '')}–${formatTemp(weather.highC, units)}`
+      : formatTemp(weather.feelsLikeC, units),
+  ];
+
+  if (weather.precipitationChance >= 0.4) {
+    parts.push(`${Math.round(weather.precipitationChance * 100)}% rain`);
+  }
+  if (weather.windKph >= 25) parts.push('windy');
+
+  // The closing adjective, on the same three thresholds `describeWeather` uses
+  // for its own fallback. Read off the feels-like even on a swing day: it is
+  // what the day is like NOW, which is what an adjective is for.
+  parts.push(weather.feelsLikeC >= 24 ? 'warm' : weather.feelsLikeC <= 8 ? 'cold' : 'mild');
+
+  return parts.join(' · ');
+}
+
+/**
  * The masthead's second line — the range, and the temperatures when known.
  *
  * The atlas also prints a city ("7–13 August · Denver · 68–84°F"). It is NOT

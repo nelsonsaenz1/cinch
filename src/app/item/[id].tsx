@@ -979,6 +979,9 @@ export default function ItemDetailScreen() {
           // `imageUri` prefers the listing path, so this is the same condition
           // that chose the picture — not a second guess at what is on screen.
           listing={item.listingPath !== null}
+          // Audit 2026-09-02 · 46/62: the empty hero draws the garment's own
+          // colour under its name, not a hanger on beige.
+          swatchHex={item.colors[0]?.hex ?? null}
         />
 
         <View className="px-gutter pt-5">

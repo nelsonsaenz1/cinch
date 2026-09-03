@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GarmentImage } from '@/components/media/garment-image';
+import { GarmentSwatch } from '@/components/media/garment-swatch';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 export type ItemHeroProps = {
@@ -30,6 +31,11 @@ export type ItemHeroProps = {
    * changes and the block stays the same shape on a mini and a Max.
    */
   stacked?: boolean;
+  /**
+   * The garment's own colour, when the row carries one — the ground its swatch
+   * fallback takes. Audit 2026-09-02 · 46/62.
+   */
+  swatchHex?: string | null;
 };
 
 /**
@@ -42,6 +48,22 @@ const HERO_ASPECT = 393 / 430;
 /** IT-01 / AX's hero: 430 − 142 = 288, at the same width. */
 const HERO_ASPECT_AX = 393 / 288;
 
+/**
+ * The block with NO PHOTOGRAPH in it — audit 2026-09-02 · 46.
+ *
+ * "Item detail gives roughly half the first viewport to an empty beige hero...
+ * the primary garment identity/action should not be pushed so far down." At
+ * 393/430 the block is 1.09 × the screen width, which on a 393pt frame is
+ * ~430pt of an 852pt viewport, and the garment's NAME — the first thing the
+ * screen is about — starts below all of it.
+ *
+ * A photograph earns that space; a swatch does not. So the empty block is 240
+ * at the same width and the name arrives inside the first screen. The
+ * ratio-not-height reasoning above still holds: it is the ratio that changes,
+ * so the block is the same shape on a mini and a Max.
+ */
+const HERO_ASPECT_EMPTY = 393 / 240;
+
 const DISC = 36;
 /** The atlas's inset for the two discs — tighter than the 20 page gutter, because a disc floating on a photograph is measured from the image edge, not from the text measure below it. */
 const DISC_INSET = 16;
@@ -53,11 +75,26 @@ const DISC_HIT_SLOP = (MIN_TAP_TARGET - DISC) / 2;
  * the photograph. Deliberately NOT `scrim` — scrim's 40% is for dimming a whole
  * layer, and a control has to keep its own edge over a pale garment.
  */
-const DISC_ON_PHOTO = 'rgba(28,26,22,0.45)';
-/** I-03's pair, for the frame with no photograph in it yet: a light ground cannot carry a canvas-coloured glyph, so the disc inverts. */
+const DISC_ON_PHOTO = 'rgba(28,26,22,0.62)';
+/**
+ * I-03's pair, for the frame with no photograph in it yet: a light ground
+ * cannot carry a canvas-coloured glyph, so the disc inverts.
+ *
+ * AUDIT 2026-09-02 · 46 · "header actions need reliable contrast". Both halves
+ * were too weak to promise it. The tray disc was ink at 10% carrying a glyph at
+ * 45% — a 45%-alpha stroke on a pale ground is around 3:1, under AA, on the
+ * only way OUT of the screen. And the photo disc was ink at 45%, which is a
+ * translucent scrim over arbitrary pixels: a canvas chevron on a pale garment
+ * shot composites to near-white on near-white and nothing clamps it.
+ *
+ * The fix is opacity in both directions rather than a new colour: 62% ink under
+ * a canvas glyph is opaque enough that the garment beneath cannot lighten it
+ * past the floor, and the tray disc now takes the full `ink` stroke, which is
+ * the value the contrast floor was measured against everywhere else in the app.
+ * The atlas's 6px backdrop blur is still not a dependency, and now matters
+ * less, which is the point.
+ */
 const DISC_ON_TRAY = 'rgba(28,26,22,0.10)';
-/** I-03's glyph stroke, the same 45% the disc uses over a photo. */
-const GLYPH_ON_TRAY = 'rgba(28,26,22,0.45)';
 
 /**
  * The photograph that carries the top of item detail.
@@ -80,9 +117,9 @@ export function ItemHero({
   onEdit,
   listing = false,
   stacked = false,
+  swatchHex = null,
 }: ItemHeroProps) {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   /**
    * Whether there is a PHOTOGRAPH under the two floating discs — which is not
    * the same question as whether there is a URL.
@@ -110,7 +147,12 @@ export function ItemHero({
           ? 'w-full overflow-hidden bg-surface p-5'
           : 'w-full overflow-hidden bg-tray'
       }
-      style={{ aspectRatio: stacked ? HERO_ASPECT_AX : HERO_ASPECT }}>
+      // Keyed off the WELL, like the discs are, so an expired signature gets
+      // the short block too rather than 430pt of tray. It settles in the same
+      // frame the discs invert, before anything under the hero has been read.
+      style={{
+        aspectRatio: !onPhoto ? HERO_ASPECT_EMPTY : stacked ? HERO_ASPECT_AX : HERO_ASPECT,
+      }}>
       <GarmentImage
         uri={imageUri}
         contentFit={listing ? 'contain' : 'cover'}
@@ -126,15 +168,10 @@ export function ItemHero({
         onWell={(well) => setOnPhoto(well === 'photograph')}
         // The same considered mark the closet grid draws for a piece whose
         // cutout has not landed (closet/item-card.tsx) — never a broken image,
-        // and never an empty rectangle either.
-        fallback={
-          <SymbolView
-            name="tshirt"
-            size={40}
-            tintColor={theme.hairline}
-            resizeMode="scaleAspectFit"
-          />
-        }
+        // and never an empty rectangle either. Audit 62 made that mark the
+        // garment rather than a hanger: its own colour, and the name the screen
+        // is about to print underneath.
+        fallback={<GarmentSwatch label={label} hex={swatchHex} />}
       />
 
       {/* Live immediately, per I-03's note: a person can leave a screen that
@@ -209,7 +246,7 @@ function HeroDisc({
       <SymbolView
         name={symbol}
         size={15}
-        tintColor={onPhoto ? theme.canvas : GLYPH_ON_TRAY}
+        tintColor={onPhoto ? theme.canvas : theme.ink}
         resizeMode="scaleAspectFit"
       />
     </Pressable>

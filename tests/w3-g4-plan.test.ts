@@ -11,6 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { dayForecastLine } from '../src/features/plan/week-lines.ts';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
@@ -99,4 +100,65 @@ test('progress is a count, and zero is quiet', () => {
   // digits take over rather than the word list being extended for a case a
   // seven-day week cannot reach.
   assert.equal(weekProgressLine(8, 7), '8 days planned. The week is done.');
+});
+
+// ---------------------------------------------------------------------------
+// One forecast grammar for every week row — audit 2026-09-02 · 15
+// ---------------------------------------------------------------------------
+
+/** A day's forecast, with only the fields the phrasing reads. */
+const day = (over: Partial<Parameters<typeof dayForecastLine>[0]> = {}) =>
+  ({
+    feelsLikeC: 16,
+    highC: 18,
+    lowC: 14,
+    precipitationChance: 0,
+    windKph: 0,
+    swing: false,
+    ...over,
+  }) as Parameters<typeof dayForecastLine>[0];
+
+test('no week row says “today”, because six of the seven are not', () => {
+  // The defect this replaced: `describeWeather` takes no date, so its swing
+  // clause appended the literal word "today" to every day in the week — printed,
+  // in production, on the row labelled `Sat 9`.
+  const rows = [
+    dayForecastLine(day()),
+    dayForecastLine(day({ swing: true, lowC: 12, highC: 28 })),
+    dayForecastLine(day({ precipitationChance: 0.6 })),
+    dayForecastLine(day({ windKph: 30 })),
+  ];
+  for (const row of rows) assert.doesNotMatch(row, /today|tomorrow|tonight|now\b/i, row);
+});
+
+test('a swing day states a RANGE instead of a second temperature', () => {
+  // The row already prints one temperature. `72° · 64°–83° today` gave the
+  // reader two and no rule for telling them apart.
+  assert.equal(dayForecastLine(day({ swing: true, lowC: 12, highC: 28 })), '54–82° · mild');
+  // A day that does not swing keeps its point reading.
+  assert.equal(dayForecastLine(day({ feelsLikeC: 16 })), '61° · mild');
+});
+
+test('every row ends on an adjective, and the quantified facts sit between', () => {
+  // The old fallback produced a bare "mild" on some rows and nothing on others,
+  // so one row in seven was the only one without a word. Now the shape is
+  // always <temperature> · [quantities] · <adjective>.
+  assert.equal(dayForecastLine(day({ feelsLikeC: 26, precipitationChance: 0.6 })), '79° · 60% rain · warm');
+  assert.equal(dayForecastLine(day({ feelsLikeC: 2, windKph: 30 })), '36° · windy · cold');
+  for (const row of [
+    dayForecastLine(day()),
+    dayForecastLine(day({ swing: true, lowC: 12, highC: 28 })),
+    dayForecastLine(day({ precipitationChance: 0.6 })),
+  ]) {
+    assert.match(row, /(warm|cold|mild)$/, row);
+  }
+});
+
+test('the thresholds are the ones Today already uses', () => {
+  // A Plan row must not disagree with Today's strip about whether it is going
+  // to rain: `describeWeather` uses 0.4 and 25, and so does this.
+  assert.doesNotMatch(dayForecastLine(day({ precipitationChance: 0.39 })), /rain/);
+  assert.match(dayForecastLine(day({ precipitationChance: 0.4 })), /40% rain/);
+  assert.doesNotMatch(dayForecastLine(day({ windKph: 24 })), /windy/);
+  assert.match(dayForecastLine(day({ windKph: 25 })), /windy/);
 });

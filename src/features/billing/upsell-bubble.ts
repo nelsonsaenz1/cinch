@@ -56,7 +56,16 @@ export type UpsellBubbleView = {
   body: string;
 };
 
-/** The two controls. One filled door out, one quiet way to be left alone. */
+/**
+ * The two controls: one door out, one way to be left alone.
+ *
+ * Audit 2026-09-02 · 7 ("establish one primary action per visual zone") retired
+ * the third. The card used to carry a filled oxblood CTA, a "Not now" text
+ * button UNDER it and a dismiss disc beside the headline — three controls for a
+ * yes/no question. The row now has one action, which is the row itself, and one
+ * dismissal, which is the disc; `UPSELL_COPY.dismiss` went with the button that
+ * spoke it.
+ */
 export const UPSELL_COPY = {
   /**
    * "See plans" — the words `placements.ts` already uses for this door, where
@@ -64,7 +73,6 @@ export const UPSELL_COPY = {
    * explained why". Not "Upgrade now", which is a verb with a deadline behind it.
    */
   cta: 'See plans',
-  dismiss: 'Not now',
   /** The X. A label, because a glyph alone is not a name. */
   close: 'Dismiss',
 } as const;
@@ -118,30 +126,49 @@ export function upsellBubbleFor(input: UpsellBubbleInput): UpsellBubbleView | nu
       eyebrow: 'YOUR TRIAL',
       headline: `${days} ${days === 1 ? 'day' : 'days'} left in your trial`,
       // What LAPSING does, in the two places it is felt, and what it does not
-      // do. Both ceilings are read from `plans.ts`; the stylist and packing are
+      // do. The ceiling is read from `plans.ts`; the stylist and packing are
       // named as pausing rather than vanishing because that is what happens —
       // free is excluded from `stylist_chat`, and `usePackingAccess` stops
       // rendering the questionnaire. The closet is untouched either way.
+      //
+      // Audit 2026-09-02 · 6 dropped the opening "Until then everything is
+      // open": the headline has just said how many days are left, so the clause
+      // was a feature inventory in front of the one fact that matters.
       body:
-        `Until then everything is open. After it, the closet styles from ` +
-        `${PLANS.free.items} active pieces, and the stylist and trip packing go ` +
-        `quiet. Nothing you have added goes anywhere.`,
+        `After it, the closet styles from ${PLANS.free.items} active pieces and ` +
+        `the stylist and trip packing pause. Nothing you have added goes anywhere.`,
     };
   }
 
   return {
     kind: 'free',
     eyebrow: 'MEMBERSHIP',
-    // THE CONSTRAINT LEADS, which is the founder's instruction and also the
-    // only version of this sentence that is not a pitch. "Active" is
-    // load-bearing: `PLANS.free.items` mirrors `item_limit_for_plan()`, which
-    // excludes archived pieces — `storedItems` is the other, larger number and
-    // saying "10 pieces" flat would understate what the account may hold.
-    headline: `Your closet holds ${PLANS.free.items} active pieces on Free`,
+    // ── AUDIT 2026-09-02 · 6 · THE OUTCOME LEADS, THE ARITHMETIC DEFERS ─────
+    //
+    // This said "Your closet holds 10 active pieces on Free" over "Standard
+    // opens 150 of them and 15 occasions at once. Pro packs a trip out of the
+    // closet you already own." Three tiers, four figures and two feature names
+    // in two sentences, on a screen whose subject is what to wear today:
+    // "membership copy is feature-dense and plan-centric. Lead with the user
+    // outcome and defer tier arithmetic to Membership."
+    //
+    // So the headline is what changes for the reader, the body is the one
+    // constraint they are actually inside, and the comparison between tiers
+    // happens on Membership — which is where every figure is stated in full,
+    // beside the price only Superwall may render.
+    //
+    // WHAT DID NOT CHANGE: no tier's contents moved, and nothing here is now
+    // less true. "Active" is still load-bearing — `PLANS.free.items` mirrors
+    // `item_limit_for_plan()`, which excludes archived pieces, and a flat "10
+    // pieces" would understate what the account may hold. The stylist is named
+    // because it is the one paid feature BOTH tiers carry (`plans.ts`:
+    // Standard "5 chats a month", Pro "Unlimited", free "Not included"); trip
+    // packing is deliberately absent, because it is Pro alone and naming it
+    // here would sell a tier the feature is not on.
+    headline: 'Style from more of your closet',
     body:
-      `Standard opens ${PLANS.standard.items} of them and ` +
-      `${PLANS.standard.eventHosting} occasions at once. Pro packs a trip out of ` +
-      `the closet you already own.`,
+      `Free styles from ${PLANS.free.items} active pieces at a time. Membership ` +
+      `raises the ceiling and opens the stylist.`,
   };
 }
 

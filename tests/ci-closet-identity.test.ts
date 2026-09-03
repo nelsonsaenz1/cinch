@@ -115,6 +115,28 @@ test('CI-01 — the strip is the same four columns the filled closet uses', () =
   assert.match(header, /growWithType/);
 });
 
+test('a column of one does not say “1 Outfits” — audit 2026-09-02 · 10', () => {
+  // The four columns are read as sentences: `Stat` announces "`${figure}
+  // ${label}`", so a closet with one saved outfit told VoiceOver "1 Outfits"
+  // and printed the same disagreement under the numeral. Three of the four
+  // count things that have a singular; `Unworn` is an adjective and takes no
+  // form at all, which is why this is a pair per column rather than an `s`
+  // appended by rule.
+  const row = stripped('src/components/closet/stat-row.tsx');
+  assert.match(row, /function statLabel\(figure: number \| undefined, one: string, many: string\)/);
+  assert.match(row, /return figure === 1 \? one : many;/);
+  for (const [one, many] of [['Piece', 'Pieces'], ['Outfit', 'Outfits'], ['Friend', 'Friends']]) {
+    assert.match(
+      row,
+      new RegExp(`statLabel\\([a-z]+, '${one}', '${many}'\\)`),
+      `the ${many} column lost its singular`,
+    );
+  }
+  // A figure that has not landed keeps the plural: "— Outfits" is the column's
+  // name, and there is no count yet for it to agree with.
+  assert.match(row, /label="Unworn"/, 'Unworn was given a plural it does not have');
+});
+
 test('CI-03 — the strip’s scaled line boxes are opt-in, and off by default', () => {
   const row = stripped('src/components/closet/stat-row.tsx');
   // Default off is what keeps the filled closet's masthead out of this packet:

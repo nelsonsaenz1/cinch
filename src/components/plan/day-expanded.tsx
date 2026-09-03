@@ -1,7 +1,8 @@
-import { SymbolView } from 'expo-symbols';
 import { Pressable, View } from 'react-native';
 
 import { GarmentImage } from '@/components/media/garment-image';
+import { GarmentSwatch } from '@/components/media/garment-swatch';
+import { oklchToHex } from '@/lib/color';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { type PlannedDay } from '@/features/plan/packing';
@@ -160,6 +161,7 @@ export function DayExpanded({
                   key={g.id}
                   uri={resolveImage(g.platePath, g.cutoutPath, g.thumbPath)}
                   label={g.subcategory ?? g.category}
+                  hex={g.colors[0] ? oklchToHex(g.colors[0].oklch) : null}
                 />
               ))}
             </View>
@@ -186,26 +188,36 @@ export function DayExpanded({
 }
 
 /** Fitted, never cropped — the same rule as every other well in the app. */
-function PieceWell({ uri, label }: { uri: string | undefined; label: string }) {
-  const theme = useTheme();
-
+function PieceWell({
+  uri,
+  label,
+  hex,
+}: {
+  uri: string | undefined;
+  label: string;
+  /** The garment's own colour, when the engine scored one. */
+  hex: string | null;
+}) {
   return (
     <View
       accessible
       accessibilityRole="image"
       accessibilityLabel={label}
       className="items-center justify-center overflow-hidden rounded bg-tray"
-      style={{ width: WELL, height: WELL, padding: 6 }}>
+      style={{ width: WELL, height: WELL }}>
       {/* UX-06 — one considered mark for every way this well can end up with
-          no photograph in it, not just for a piece that never had one. */}
+          no photograph in it, not just for a piece that never had one.
+
+          AUDIT 2026-09-02 · 62 made that mark say something. A packed day of
+          five hairline t-shirt glyphs is five identical wells; the shared
+          swatch gives each one the piece's own colour and its kind, which is
+          what a person packing actually needs to recognise. */}
       <GarmentImage
         uri={uri}
         contentFit="contain"
         transition={120}
         style={{ width: '100%', height: '100%' }}
-        fallback={
-          <SymbolView name="tshirt" size={24} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
-        }
+        fallback={<GarmentSwatch label={label} hex={hex} />}
       />
     </View>
   );

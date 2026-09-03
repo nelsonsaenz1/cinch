@@ -1,10 +1,11 @@
-import { SymbolView } from 'expo-symbols';
 import { Pressable, View } from 'react-native';
 
 import { GarmentImage } from '@/components/media/garment-image';
+import { GarmentSwatch } from '@/components/media/garment-swatch';
 import { Text } from '@/components/ui/text';
-import { describeWeather, formatTemp } from '@/features/context/weather';
 import { type PlannedDay } from '@/features/plan/packing';
+import { dayForecastLine } from '@/features/plan/week-lines';
+import { oklchToHex } from '@/lib/color';
 import { type Garment } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
 
@@ -33,7 +34,7 @@ const IMAGE_COL = THUMB_W * 3 + 10;
  * lines to the outfit, so everything the day itself knows has to compress into
  * this one 11pt line: the weekday, the date, the temperature and the reason.
  *
- * The weather phrase is `describeWeather` — the same sentence the Today strip
+ * The weather phrase is `dayForecastLine` — one grammar for all seven rows
  * and the memo print. There is no separate "condition" field anywhere in the
  * forecast (precipitation, wind and apparent temperature are all it returns),
  * so the atlas's "clear" is a word a mock can write and the app cannot: it
@@ -74,9 +75,12 @@ export function dayContextLabel(
   units: 'C' | 'F',
   occasion?: string | null,
 ): string {
+  // ONE FRAGMENT FOR THE WEATHER, not a temperature joined to a second
+  // sentence that could restate it — audit 2026-09-02 · 15. The whole
+  // composition, and the argument for it, is `dayForecastLine` in
+  // `features/plan/week-lines.ts`; a `.ts` so a test can run it.
   return [
-    day.weather ? formatTemp(day.weather.feelsLikeC, units) : null,
-    day.weather ? describeWeather(day.weather, units) : null,
+    day.weather ? dayForecastLine(day.weather, units) : null,
     occasion?.trim() || null,
   ]
     .filter(Boolean)
@@ -220,7 +224,7 @@ export function DayRow({
       {shown.length ? (
         <View className="flex-row" style={{ width: IMAGE_COL, gap: 5 }}>
           {shown.map((g) => (
-            <GarmentThumb key={g.id} uri={resolveImage(g.cutoutPath, g.thumbPath)} />
+            <GarmentThumb key={g.id} garment={g} uri={resolveImage(g.cutoutPath, g.thumbPath)} />
           ))}
         </View>
       ) : null}
@@ -294,23 +298,31 @@ export function DayRow({
 }
 
 /** Fitted, never cropped, with the silhouette at the identical size. */
-function GarmentThumb({ uri }: { uri: string | undefined }) {
-  const theme = useTheme();
-
+function GarmentThumb({ uri, garment }: { uri: string | undefined; garment: Garment }) {
   return (
     <View
       className="items-center justify-center overflow-hidden rounded bg-tray"
-      style={{ width: THUMB_W, height: THUMB_H, padding: 3 }}>
-      {/* UX-06: the silhouette now stands for an expired signature and a body
-          that will not decode as well as for a piece with no render yet — the
-          44×52 well is too small for a blank to read as anything but a bug. */}
+      style={{ width: THUMB_W, height: THUMB_H }}>
+      {/* UX-06: the mark stands for an expired signature and a body that will
+          not decode as well as for a piece with no render yet — the 44×52 well
+          is too small for a blank to read as anything but a bug.
+
+          AUDIT 2026-09-02 · 62 replaced the t-shirt glyph with the garment's
+          own colour. NO CAPTION at this size: 11pt type in a 44pt box wraps to
+          nothing legible, and the row already lists the pieces in prose
+          underneath. The colour alone still tells four thumbs apart, which a
+          row of identical hangers could not. */}
       <GarmentImage
         uri={uri}
         contentFit="contain"
         transition={120}
         style={{ width: '100%', height: '100%' }}
         fallback={
-          <SymbolView name="tshirt" size={16} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
+          <GarmentSwatch
+            label={garment.subcategory ?? garment.category}
+            hex={garment.colors[0] ? oklchToHex(garment.colors[0].oklch) : null}
+            showLabel={false}
+          />
         }
       />
     </View>

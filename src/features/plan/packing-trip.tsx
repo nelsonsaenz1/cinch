@@ -943,7 +943,7 @@ export function PackingMemo({
               piece={piece}
               chip={packedPieceChip(pieceCoverage(packing.looks, piece))}
               item={byId.get(piece.garment.id)}
-              uri={resolve(piece.garment.platePath, piece.garment.cutoutPath)}
+              uri={resolve(piece.garment.platePath, piece.garment.cutoutPath, piece.garment.thumbPath)}
             />
           ))}
         </View>

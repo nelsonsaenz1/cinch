@@ -28,7 +28,7 @@ import {
   type LifeStageKey,
 } from '../src/features/profile/lifestyle';
 import { PLANS } from '../src/features/billing/plans';
-import { lifestyleOpeningLine } from '../src/features/stylist/opening';
+import { lifestyleOpeningLine, weatherAside } from '../src/features/stylist/opening';
 import { OCCASIONS, buildSteps } from '../src/features/stylist/questionnaire';
 import { occasionRule } from '../src/lib/styling';
 import { occasion as taggerOccasion } from '../src/schemas/item';
@@ -288,4 +288,49 @@ test('PLANS.free.eventJoins agrees with event_join_limit_for_plan, both ways', (
   assert.match(migration, /event_id uuid not null,\n/);
   assert.doesNotMatch(migration, /event_id uuid not null references/);
   assert.match(migration, /security definer/);
+});
+
+// ---------------------------------------------------------------------------
+// The stylist's weather aside — audit 2026-09-02 · 12
+// ---------------------------------------------------------------------------
+
+const sky = (over: Partial<Parameters<typeof weatherAside>[0] & object> = {}) =>
+  ({
+    feelsLikeC: 18,
+    highC: 20,
+    lowC: 16,
+    precipitationChance: 0,
+    windKph: 0,
+    swing: false,
+    ...over,
+  }) as NonNullable<Parameters<typeof weatherAside>[0]>;
+
+test('a swing day says WHICH WAY it goes, with the temperature it goes to', () => {
+  // WAS: "65° now, and a long way from where it ends up" — poetic, and silent
+  // about the one thing a swing day needs somebody to know: whether to carry a
+  // layer for the cold coming or shed one for the heat.
+  //
+  // Both ends are already on the reading (`swing` IS `highC - lowC >= 8`), so
+  // the direction is read off the forecast rather than guessed: whichever end
+  // is further from where the day is now.
+  const rising = weatherAside(sky({ feelsLikeC: 12, lowC: 10, highC: 26, swing: true }));
+  assert.equal(rising, '54° now, up to 79° later.');
+  const falling = weatherAside(sky({ feelsLikeC: 22, lowC: 6, highC: 24, swing: true }));
+  assert.equal(falling, '72° now, down to 43° later.');
+  for (const line of [rising, falling]) {
+    assert.doesNotMatch(line!, /a long way|ends up/i, line!);
+  }
+});
+
+test('the aside stays silent on a day nobody would remark on', () => {
+  // The silence is what makes the remark land when it comes. Unchanged.
+  assert.equal(weatherAside(sky()), null);
+  assert.equal(weatherAside(null), null);
+});
+
+test('the three louder readings still outrank the swing', () => {
+  // Rain, cold and heat are facts a person acts on before a range is.
+  assert.match(weatherAside(sky({ precipitationChance: 0.6, swing: true }))!, /^Rain is likely/);
+  assert.match(weatherAside(sky({ feelsLikeC: 2, swing: true }))!, /Layers, then\.$/);
+  assert.match(weatherAside(sky({ feelsLikeC: 28, swing: true }))!, /Light and loose\.$/);
 });

@@ -3,6 +3,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { swapCostLine, swapDeltaLine } from '../src/features/closet/swap.ts';
 import { test } from 'node:test';
 
 import { outcomeOfSwap, rankSwapCandidates, type SwapCandidate } from '../src/features/closet/swap';
@@ -69,5 +70,43 @@ test('rankSwapCandidates sorts least-worn first, ties broken by fewer outfits he
   for (const c of ranked) {
     assert.equal(c.outcome.from, 14);
     assert.equal(typeof c.outcome.swapped, 'number');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The sticky bar's two clauses — audit 2026-09-02 · 48
+// ---------------------------------------------------------------------------
+
+const outcome = (from: number, swapped: number, keptBoth: number) => ({
+  from,
+  swapped,
+  keptBoth,
+  costOfSwap: Math.max(0, keptBoth - swapped),
+});
+
+test('the capacity change is one short clause, not a sentence with two baselines', () => {
+  // WAS, assembled inline in `app/wall-swap.tsx` as a nested ternary plus a
+  // concatenated tail and rendered as one run of 11pt muted type: "9 fewer than
+  // you have now, 9 fewer than keeping both. Storing is reversible at any
+  // time." Three clauses and two different baselines, at the moment somebody is
+  // choosing which garment to put away.
+  assert.equal(swapDeltaLine(outcome(14, 12, 21)), '2 fewer than now');
+  assert.equal(swapDeltaLine(outcome(14, 17, 21)), '3 more than now');
+  assert.equal(swapDeltaLine(outcome(14, 14, 14)), 'The same as now');
+});
+
+test('the trade-off is stated only when there is one', () => {
+  assert.equal(swapCostLine(outcome(14, 12, 21)), '9 fewer than keeping both');
+  // A coat, a bag or an accessory costs the count nothing — `outcomeOfSwap`
+  // says so — and "0 fewer than keeping both" would invent a trade-off the
+  // reader is not making.
+  assert.equal(swapCostLine(outcome(14, 14, 14)), null);
+});
+
+test('neither clause carries the standing fact about storing', () => {
+  // "Storing is reversible at any time" is true of storing, not of this swap.
+  // It belongs under the action, not inside the sentence about the arithmetic.
+  for (const line of [swapDeltaLine(outcome(14, 12, 21)), swapCostLine(outcome(14, 12, 21))]) {
+    assert.doesNotMatch(line ?? '', /reversible|storing/i);
   }
 });

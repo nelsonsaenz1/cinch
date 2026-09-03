@@ -116,6 +116,9 @@ test('one day is not “1 days”', () => {
 });
 
 test('the trial line says what lapsing pauses, and what it does not touch', () => {
+  // The trial body was tightened by audit finding 6 as well: it opened on
+  // "Until then everything is open.", which the headline ("4 days left in your
+  // trial") had just said. Every FACT below is unchanged and still required.
   const view = upsellBubbleFor(state({ plan: 'pro', trialing: true, trialEndsAt: inDays(4) }))!;
   // The ceiling comes from plans.ts, never from prose.
   assert.match(view.body, new RegExp(`${PLANS.free.items} active pieces`));
@@ -132,23 +135,66 @@ test('the trial line says what lapsing pauses, and what it does not touch', () =
 // 3 · The free branch — the constraint leads
 // ---------------------------------------------------------------------------
 
-test('a free account is led with the constraint, not with the offer', () => {
+test('a free account is led with the OUTCOME, and the ceiling follows it', () => {
+  // ── CHANGED 2026-09-02 · AUDIT FINDING 6 ────────────────────────────────
+  //
+  // WAS: headline `Your closet holds ${PLANS.free.items} active pieces on Free`,
+  // asserted verbatim, with `/active/` on top of it.
+  //
+  // The audit: "membership copy is feature-dense and plan-centric. Lead with
+  // the user outcome and defer tier arithmetic to Membership." A headline whose
+  // subject is the reader's PLAN, on the screen whose subject is what to wear
+  // today, is the plan-centric half of that.
+  //
+  // The constraint did not disappear — it moved one line down, into the body,
+  // where it is still read from `plans.ts` and still says "active". What the
+  // headline says now is what changes for the reader.
   const view = upsellBubbleFor(state())!;
   assert.equal(view.kind, 'free');
-  assert.equal(view.headline, `Your closet holds ${PLANS.free.items} active pieces on Free`);
-  // "active" is load-bearing: `PLANS.free.items` mirrors `item_limit_for_plan()`
-  // and excludes archived pieces, so a flat "10 pieces" would understate what
-  // the account may actually hold (`storedItems` is three times it).
-  assert.match(view.headline, /active/);
+  assert.equal(view.headline, 'Style from more of your closet');
+  // No plan name and no figure in the headline: that is the whole point of it.
+  assert.doesNotMatch(view.headline, /\d|Free|Standard|Pro\b/);
+  // "active" is load-bearing wherever the ceiling is stated: `PLANS.free.items`
+  // mirrors `item_limit_for_plan()` and excludes archived pieces, so a flat "10
+  // pieces" would understate what the account may actually hold (`storedItems`
+  // is three times it).
+  assert.match(view.body, new RegExp(`${PLANS.free.items} active pieces`));
 });
 
-test('what upgrading opens is read from plans.ts, both halves of it', () => {
+test('the tier arithmetic is deferred to Membership, and no tier is mis-sold', () => {
+  // ── CHANGED 2026-09-02 · AUDIT FINDING 6 ────────────────────────────────
+  //
+  // WAS: `what upgrading opens is read from plans.ts, both halves of it` —
+  //   assert.match(view.body, new RegExp(`${PLANS.standard.items}`));
+  //   assert.match(view.body, new RegExp(`${PLANS.standard.eventHosting}`));
+  //   assert.match(view.body, /Pro packs a trip/);
+  // i.e. the body had to enumerate two of Standard's figures and one of Pro's
+  // features. That is precisely the "tier arithmetic" the audit asks to defer:
+  // three tiers, four figures and two feature names in two sentences.
+  //
+  // NOTHING ABOUT ANY PLAN CHANGED — `plans.ts` is untouched, and Membership
+  // still states every figure in full beside the price only Superwall renders.
+  // What this test holds now is that the row does not do Membership's job, and
+  // that the one feature it DOES name is one every paid tier actually carries.
   const view = upsellBubbleFor(state())!;
-  assert.match(view.body, new RegExp(`${PLANS.standard.items}`));
-  assert.match(view.body, new RegExp(`${PLANS.standard.eventHosting}`));
-  // Trips are Pro, and the line says Pro. Attributing packing to Standard would
-  // be selling a tier the feature is not on.
-  assert.match(view.body, /Pro packs a trip/);
+  assert.doesNotMatch(
+    view.body,
+    new RegExp(`\\b(${PLANS.standard.items}|${PLANS.pro.items}|${PLANS.standard.eventHosting})\\b`),
+    'a tier ceiling is being compared on Today again',
+  );
+  // The stylist is Standard AND Pro (`plans.ts`: "5 chats a month" /
+  // "Unlimited"), and free is "Not included" — so naming it here is true of
+  // membership as such rather than of one tier.
+  assert.match(view.body, /stylist/i);
+  assert.equal(PLANS.free.stylist, 'Not included');
+  assert.notEqual(PLANS.standard.stylist, 'Not included');
+  assert.notEqual(PLANS.pro.stylist, 'Not included');
+  // Trip packing is PRO ALONE. The free row must not name it: `usePackingAccess`
+  // refuses Standard outright, and a Standard purchase made on the strength of
+  // this sentence would have bought a feature it does not carry. (The TRIAL
+  // branch may still name it — that reader has it today and is being told what
+  // pauses.)
+  assert.doesNotMatch(view.body, /pack/i);
 });
 
 // ---------------------------------------------------------------------------
@@ -177,10 +223,14 @@ test('the module types no ceiling of its own — every digit derives', () => {
   // The §7 rule, enforced structurally: the only numerals allowed in this file's
   // code are the day arithmetic. Anything else would be a ceiling that could
   // quietly disagree with `plans.ts` after a tier change.
+  //
+  // CHANGED 2026-09-02 · FINDING 6: `PLANS.standard.items` is no longer
+  // referenced, because the free branch no longer compares tiers (see above).
+  // The rule itself is unchanged and now rests entirely on `PLANS.free.items`,
+  // which is the only ceiling this module still states.
   const copy = SPEC_CODE.slice(SPEC_CODE.indexOf('export function upsellBubbleFor'));
   assert.doesNotMatch(copy, /\b\d{2,}\b/, 'a two-digit literal in the copy branch');
   assert.match(SPEC_CODE, /PLANS\.free\.items/);
-  assert.match(SPEC_CODE, /PLANS\.standard\.items/);
   assert.doesNotMatch(SPEC_CODE, /monthlyPriceHint|annualPriceHint/);
 });
 
@@ -235,18 +285,43 @@ test('the CTA opens an existing placement and names no new one', () => {
   assert.doesNotMatch(CARD_CODE, /useGate|registerPlacement|Superwall|usePlacement/);
 });
 
-test('the two controls are a filled door and a quiet word', () => {
+test('there is one action and one way out, and the action names no deadline', () => {
+  // ── CHANGED 2026-09-02 · AUDIT FINDING 7 ────────────────────────────────
+  //
+  // WAS: `the two controls are a filled door and a quiet word` —
+  //   assert.equal(UPSELL_COPY.dismiss, 'Not now');
+  // The card actually carried THREE controls: a filled oxblood CTA, a "Not now"
+  // text button under it, and a dismiss disc beside the headline. "The first
+  // viewport has four simultaneous asks... establish one primary action per
+  // visual zone."
+  //
+  // The row has one action — the row itself — and one dismissal, the disc.
+  // `UPSELL_COPY.dismiss` went with the button that spoke it, which is why the
+  // constant is gone rather than merely unused.
   assert.equal(UPSELL_COPY.cta, 'See plans');
-  assert.equal(UPSELL_COPY.dismiss, 'Not now');
+  assert.equal(UPSELL_COPY.close, 'Dismiss');
+  assert.deepEqual(Object.keys(UPSELL_COPY), ['cta', 'close'], 'a third control returned');
   // "Upgrade now" is a verb with a deadline behind it, and there is no deadline.
   assert.doesNotMatch(UPSELL_COPY.cta, /now|today|upgrade/i);
 });
 
-test('every target on the card clears the 44pt floor', () => {
-  // The card's two full-width controls take `MIN_TAP_TARGET` outright; the X is
-  // drawn at 28 and compensates with `hitSlop`, the Remove disc's arrangement.
-  assert.equal((CARD_CODE.match(/minHeight: MIN_TAP_TARGET/g) ?? []).length, 2);
+test('every target on the row clears the 44pt floor', () => {
+  // CHANGED 2026-09-02 · FINDING 7: this counted TWO `minHeight: MIN_TAP_TARGET`
+  // for the card's two full-width controls. There is one full-width control
+  // now. The X is still drawn at 28 and still compensates with `hitSlop`, the
+  // Remove disc's arrangement — that half is untouched.
+  assert.equal((CARD_CODE.match(/minHeight: MIN_TAP_TARGET/g) ?? []).length, 1);
   assert.match(CARD_CODE, /hitSlop=\{\(MIN_TAP_TARGET - 28\) \/ 2\}/);
+});
+
+test('the row stands in the page, not over it', () => {
+  // FINDING 5, held structurally. The card used to be an absolutely-positioned
+  // overlay pinned 96pt off the bottom of the screen, which is how it arrived
+  // over the morning's outfit; `tests/today-redesign-11.test.ts` pinned the
+  // `box-none` that stopped it eating every touch on the way past. A row that
+  // occupies its own space needs neither, and must not grow either back.
+  assert.doesNotMatch(CARD_CODE, /position: 'absolute'|pointerEvents/);
+  assert.doesNotMatch(CARD_CODE, /bottom: \d/);
 });
 
 test('the card carries no weight and reaches for no colour of its own', () => {

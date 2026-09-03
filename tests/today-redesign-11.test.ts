@@ -250,8 +250,19 @@ test('a missing, hidden, unauthorized or unloaded image draws the same neutral f
   // exists, which is exactly the inference the closet refuses everywhere else.
   // ONE placeholder component, reached by both paths — the tile with no uri at
   // all, and the tile whose image failed to load. Nothing branches on WHY.
-  assert.match(PLATE_CODE, /function PiecePlaceholder\(\)/);
-  assert.equal((PLATE_CODE.match(/<PiecePlaceholder \/>/g) ?? []).length, 2);
+  //
+  // CHANGED 2026-09-02 · AUDIT FINDING 62. The placeholder used to take no
+  // arguments — `function PiecePlaceholder()`, drawn as `<PiecePlaceholder />`
+  // twice — because it was a bare `bg-tray` rectangle with nothing in it. Three
+  // of those in a row is a card that shows an outfit's name and then three
+  // blank boxes, which is the state most closets are actually in.
+  //
+  // It now takes the garment and draws the shared swatch: its own colour, and
+  // its kind. The rule this test exists for is UNCHANGED and still checked
+  // below — one placeholder, reached by both paths, branching on nothing but
+  // whether there is a picture.
+  assert.match(PLATE_CODE, /function PiecePlaceholder\(\{ garment \}/);
+  assert.equal((PLATE_CODE.match(/<PiecePlaceholder garment=\{garment\} \/>/g) ?? []).length, 2);
   assert.match(PLATE_CODE, /uri \? \(/);
   assert.doesNotMatch(PLATE_CODE, /isHidden|hiddenFallback|unauthori[sz]ed/i);
 });
@@ -345,21 +356,41 @@ test('no paywall, gate or access chrome on Today', () => {
   assert.doesNotMatch(ROUTE_CODE, /registerPlacement|placement: '/);
 });
 
-test('the membership bubble is dismissible, and says only what plans.ts knows', () => {
-  // Founder order, 2026-08-18. The bubble itself is `components/today/
-  // upsell-bubble.tsx` and its copy is `features/billing/upsell-bubble.ts`;
-  // `tests/upsell-bubble.test.ts` holds what it SAYS. What belongs here is the
-  // half that is about Today: that it cannot become a wall.
+test('the membership row is dismissible, stands after the day, and says only what plans.ts knows', () => {
+  // ── CHANGED 2026-09-02 · AUDIT FINDINGS 2, 5 AND 7 ──────────────────────
+  //
+  // Founder order, 2026-08-18, made this a floating blush CARD: absolutely
+  // positioned, 96pt off the bottom, `pointerEvents="box-none"` so the carousel
+  // underneath still swiped. This test pinned that arrangement —
+  //   assert.match(card, /UPSELL_COPY\.dismiss/);
+  //   assert.match(card, /pointerEvents="box-none"/);
+  // — because an overlay that ate every touch would have been a modal in
+  // everything but name.
+  //
+  // The audit reversed the arrangement rather than the offer: "commercial UI
+  // arrives before product trust is earned"; "the membership card interrupts
+  // the outfit stack after the first card... it occupies almost half the
+  // viewport"; "establish one primary action per visual zone." The card is a
+  // quiet tray ROW in the scroll flow now, mounted after all three plates,
+  // their actions and the compose escape hatch, with one action and one
+  // dismissal — so `box-none` is gone because there is nothing on top of the
+  // page to let touches through, and `UPSELL_COPY.dismiss` is gone with the
+  // "Not now" button that was the third control.
+  //
+  // What this test holds is unchanged in substance: it still cannot become a
+  // wall, and it still cannot type a price.
   const card = stripped(readFileSync('src/components/today/upsell-bubble.tsx', 'utf8'));
-  // Two ways out, one of them a word rather than a second filled control.
-  assert.match(card, /UPSELL_COPY\.dismiss/);
   assert.match(card, /UPSELL_COPY\.close/);
   assert.equal((card.match(/setDismissed\(true\)/g) ?? []).length, 1, 'one dismissal path');
-  // The page behind it stays live. Without `box-none` an absolutely positioned
-  // full-width overlay eats every touch across the screen, which would make a
-  // dismissible card a modal in everything but name.
-  assert.match(card, /pointerEvents="box-none"/);
+  // It is not an overlay at all any more, which is a stronger guarantee than
+  // `box-none` was: a row cannot cover anything.
+  assert.doesNotMatch(card, /position: 'absolute'|pointerEvents/);
   assert.doesNotMatch(card, /accessibilityViewIsModal|<Modal|backdrop|scrim/i);
+  // And it stands AFTER the day's full set on the route: below the carousel,
+  // below the dots, below the compose row.
+  const compose = ROUTE_CODE.indexOf('Wearing something else? Compose your own');
+  const row = ROUTE_CODE.indexOf('<TodayUpsell');
+  assert.ok(compose > -1 && row > compose, 'the membership row climbed back above the daily set');
   // No price is typed into the layout — the app has no StoreKit, and every
   // price it has ever shown was Superwall rendering its own document.
   assert.doesNotMatch(card, /\$\d|\/mo\b|\/yr\b|monthlyPriceHint|annualPriceHint/);

@@ -96,7 +96,26 @@ export function weatherAside(weather: WeatherContext | null, units: 'C' | 'F' = 
   if (weather.precipitationChance >= 0.5) return `Rain is likely — ${temp} out.`;
   if (weather.feelsLikeC <= 4) return `It is ${temp} out. Layers, then.`;
   if (weather.feelsLikeC >= 26) return `It is ${temp} out. Light and loose.`;
-  if (weather.swing) return `${temp} now, and a long way from where it ends up.`;
+
+  // ── AUDIT 2026-09-02 · 12 · SAY WHICH WAY IT GOES ─────────────────────────
+  //
+  // This read "65° now, and a long way from where it ends up" — poetic, and it
+  // told the one thing a swing day needs a person to know precisely nothing
+  // about: whether to carry a layer for the cold coming, or shed one for the
+  // heat. "It does not tell the user the expected temperature direction."
+  //
+  // Both ends are already on the reading (`fetchWeather` writes `highC`/`lowC`
+  // beside `feelsLikeC`, and `swing` IS `highC - lowC >= 8`), so the direction
+  // is read off the forecast rather than guessed: whichever end is further from
+  // where the day is now is where the day is going, and the sentence names that
+  // end with its temperature. No invented number, and no claim on a reading
+  // that does not carry one.
+  if (weather.swing) {
+    const rising = weather.highC - weather.feelsLikeC >= weather.feelsLikeC - weather.lowC;
+    return rising
+      ? `${temp} now, up to ${formatTemp(weather.highC, units)} later.`
+      : `${temp} now, down to ${formatTemp(weather.lowC, units)} later.`;
+  }
   return null;
 }
 

@@ -46,10 +46,82 @@ const ADOPTED = [
   'src/components/closet/rail-card.tsx',
   'src/components/closet/plate-thumb.tsx',
   'src/components/today/garment-cell.tsx',
+  'src/components/today/today-plate.tsx',
   'src/components/item/item-hero.tsx',
   'src/components/plan/day-row.tsx',
   'src/components/plan/day-expanded.tsx',
+  // Adopted 2026-09-02 by audit finding 48: Wall Swap's 60pt row well was the
+  // one owned-garment surface still reaching past the primitive to expo-image,
+  // with `{uri ? <Image/> : null}` and nothing at all behind it.
+  'src/app/wall-swap.tsx',
 ];
+
+/**
+ * `review-card.tsx` is deliberately NOT adopted, and this is the note that says
+ * so rather than an omission.
+ *
+ * Its well has a third state the primitive has no concept of: `hasPhoto` true
+ * with no signed URL yet, which is "a photograph is coming" and must draw
+ * NOTHING — flashing "no photograph" for the frame before one arrives is the
+ * flicker `mediaWell` exists to prevent, and here it would flicker on every
+ * card in a deck of thirty. Moving it onto `GarmentImage` means teaching the
+ * primitive that state, which is a change to seven other screens.
+ *
+ * What audit 62 DID change on that card is the fallback itself: the third
+ * branch is the shared swatch now rather than a 9%-alpha hanger. See SWATCHED.
+ */
+
+/**
+ * The wells whose fallback must be the SWATCH — audit 2026-09-02 · 62.
+ *
+ * "Every image surface on Today / Closet / Stylist / Plan / item detail /
+ * review / wall-swap needs a meaningful fallback (garment name/kind/colour on a
+ * swatch) instead of a blank beige tile."
+ *
+ * Three different marks were live for the same absence: a blank `bg-tray`
+ * rectangle on Today's plate, a hairline `tshirt` glyph in the closet grid and
+ * its rails and on the item hero, and an honest colour-and-caption swatch in
+ * `GarmentCell` / `PlateThumb`. Only the third says anything — a grid of
+ * hangers tells a reader how many pieces they own and nothing else.
+ *
+ * `review-card.tsx` is deliberately absent from the glyph half of this list:
+ * its `needs_review` well keeps a warning triangle, because that state is not
+ * "no photograph", it is "this piece needs you". Same for `item-card.tsx`.
+ */
+const SWATCHED = [
+  'src/components/closet/item-card.tsx',
+  'src/components/closet/rail-card.tsx',
+  'src/components/closet/plate-thumb.tsx',
+  'src/components/today/garment-cell.tsx',
+  'src/components/today/today-plate.tsx',
+  'src/components/item/item-hero.tsx',
+  'src/components/plan/day-row.tsx',
+  'src/components/plan/day-expanded.tsx',
+  'src/components/reveal/reveal-arrival.tsx',
+  'src/components/review/review-card.tsx',
+  'src/app/wall-swap.tsx',
+];
+
+test('every core-tab garment well falls back to the garment, not to a hanger', () => {
+  for (const file of SWATCHED) {
+    const src = stripped(file);
+    assert.match(src, /<GarmentSwatch/, `${file} does not draw the shared swatch`);
+    assert.doesNotMatch(src, /name="tshirt"/, `${file} still draws a hanger for a missing photo`);
+  }
+});
+
+test('the swatch is one component, so the two colour spaces cannot drift apart', () => {
+  // `GarmentCell` holds styling `Garment`s (OKLCH) and `PlateThumb` holds
+  // closet `Item`s (sRGB hex); both convert once and hand the same component a
+  // ground and a name. A fallback duplicated is a fallback that drifts, which
+  // is how three of them came to exist in the first place.
+  const swatch = stripped('src/components/media/garment-swatch.tsx');
+  assert.match(swatch, /export function GarmentSwatch/);
+  assert.match(swatch, /export function swatchInk/);
+  // It is not a loading mark: `GarmentImage` draws its own ground while a URL
+  // is in flight and only reaches for this when there is nothing to draw.
+  assert.doesNotMatch(swatch, /Skeleton|shimmer|ActivityIndicator/i);
+});
 
 // ---------------------------------------------------------------------------
 // The four ways a well ends up empty, and the one thing a reader sees

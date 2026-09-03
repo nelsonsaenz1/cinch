@@ -47,6 +47,23 @@ const LINE_BOX = {
   label: 12,
 } as const;
 
+/**
+ * The label a figure takes, singular or plural.
+ *
+ * Audit 2026-09-02 · 10: "'1 Outfits' is grammatically wrong. Use
+ * singular/plural formatting." A stat column reads as a sentence — the figure
+ * and its label are one accessible node announcing "1 Outfits" — and three of
+ * the four columns count things that have a singular. `Unworn` is an adjective
+ * and takes no form at all, which is why this is a pair per column rather than
+ * an `s` appended by rule.
+ *
+ * A figure that has not landed keeps the plural: "— Outfits" is the column's
+ * name, and there is no count yet to agree with.
+ */
+function statLabel(figure: number | undefined, one: string, many: string): string {
+  return figure === 1 ? one : many;
+}
+
 /** One column: serif 24pt figure over a 9pt tracked uppercase label. */
 function Stat({
   figure,
@@ -137,10 +154,12 @@ export function StatRow({
     // indistinguishable, and this component has callers outside this packet.
     <View
       className={`flex-row border-b border-t border-rule py-[12px] ${growWithType ? 'items-start' : ''}`}>
-      <Stat figure={pieces} label="Pieces" grow={growWithType} />
-      <Stat figure={outfits} label="Outfits" grow={growWithType} />
+      <Stat figure={pieces} label={statLabel(pieces, 'Piece', 'Pieces')} grow={growWithType} />
+      <Stat figure={outfits} label={statLabel(outfits, 'Outfit', 'Outfits')} grow={growWithType} />
+      {/* No pair: "1 Unworn" is already correct English, and "Unworns" is not
+          a word. The column names a state, not a countable noun. */}
       <Stat figure={unworn} label="Unworn" accent grow={growWithType} />
-      <Stat figure={followers} label="Friends" grow={growWithType} />
+      <Stat figure={followers} label={statLabel(followers, 'Friend', 'Friends')} grow={growWithType} />
     </View>
   );
 }

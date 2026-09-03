@@ -8,7 +8,15 @@ import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
-import { DOORS, DOOR_RADIUS, doorColumns, doorWell } from '@/features/stylist/stylist-spec';
+import {
+  DOORS,
+  DOOR_RADIUS,
+  doorColumns,
+  doorGlyphWell,
+  doorRegime,
+  doorWell,
+  type DoorRegime,
+} from '@/features/stylist/stylist-spec';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -241,31 +249,51 @@ export function AnswerGrid<K extends string>({
 const DOOR_GAP = 10;
 
 /**
- * One door: a garment well with a label plate under it.
+ * One door: a garment well with a label plate under it — or, when the closet
+ * cannot fill five wells, a glyph plate and the words.
  *
  * ── THE WELL IS A REAL GARMENT, OR IT IS NOTHING ────────────────────────────
  *
  * `imageUri` is a signed URL for a piece the owner already owns, resolved by
- * the screen. When there is none the well takes the same neutral ground every
- * missing, expired or unauthorized image on this app takes — never a stock
- * photograph, an illustration or a product shot, because a stylist that
- * decorates itself with clothes you do not own has already broken its promise
- * before you tap anything.
+ * the screen. There is never a stock photograph, an illustration or a product
+ * shot here, because a stylist that decorates itself with clothes you do not
+ * own has already broken its promise before you tap anything.
+ *
+ * ── AUDIT 2026-09-02 · 11 · WHAT "NOTHING" NOW LOOKS LIKE ───────────────────
+ *
+ * It used to look like the well anyway: a 132pt `bg-sand` slab with nothing in
+ * it, five of them, which is "visually dominated by five large empty beige
+ * tiles" and is the state most closets are actually in (fewer than five pieces
+ * with a render, or a signature that did not resolve).
+ *
+ * The audit offers two remedies and the first — "meaningful editorial
+ * thumbnails" — is closed to this screen by the paragraph above. So this takes
+ * the second: "a lighter icon/typography treatment with consistent content
+ * loading". A 44pt tray plate carrying the door's own action glyph, the label
+ * and hint doing the work, and the card is about a third of the height. The
+ * consistency half is `doorRegime`, decided once for all five by
+ * `StylistOpening` — three photographs beside two blanks is the broken-grid
+ * reading, and it is the one arrangement this must not produce.
  */
 function DoorCard({
   label,
   hint,
+  glyph,
+  regime,
   index,
   imageUri,
   onPress,
 }: {
   label: string;
   hint?: string;
+  glyph: string;
+  regime: DoorRegime;
   index: number;
   imageUri?: string;
   onPress?: () => void;
 }) {
   const { width, fontScale } = useWindowDimensions();
+  const theme = useTheme();
   const ax = fontScale >= AX_STACK_SCALE;
   const columns = doorColumns(ax);
   const feedback = usePressFeedback(Boolean(onPress));
@@ -284,10 +312,10 @@ function DoorCard({
       {/* UX-07's compression instead of the `active:` snap — the whole card,
           well and words together, the same response the closet's cards give. */}
       <Animated.View style={feedback.style}>
-      <View
-        className="bg-sand overflow-hidden"
-        style={{ height: doorWell(ax), borderRadius: DOOR_RADIUS }}>
-        {imageUri ? (
+      {regime === 'garment' ? (
+        <View
+          className="bg-sand overflow-hidden"
+          style={{ height: doorWell(ax), borderRadius: DOOR_RADIUS }}>
           <Image
             source={{ uri: imageUri }}
             style={{ width: '100%', height: '100%' }}
@@ -297,8 +325,30 @@ function DoorCard({
             transition={120}
             accessibilityIgnoresInvertColors
           />
-        ) : null}
-      </View>
+        </View>
+      ) : (
+        // The lighter treatment. Tray rather than sand — sand is the ground a
+        // PICTURE sits back into, and there is no picture — at a size that
+        // reads as a mark beside the type instead of a hole above it. Silent
+        // to VoiceOver: the card's own label already says what the door is,
+        // and a glyph announced beside it would be the same fact twice.
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          className="bg-tray items-center justify-center"
+          style={{
+            width: doorGlyphWell(ax),
+            height: doorGlyphWell(ax),
+            borderRadius: DOOR_RADIUS - 6,
+          }}>
+          <SymbolView
+            name={glyph as never}
+            size={ax ? 24 : 19}
+            tintColor={theme.muted}
+            resizeMode="scaleAspectFit"
+          />
+        </View>
+      )}
       <Text variant="label" className="mt-2 text-ink" numberOfLines={ax ? undefined : 2}>
         {label}
       </Text>
@@ -318,13 +368,14 @@ export function StylistOpening<K extends string>({
   starts,
   onStart,
   footer,
+  notice,
 }: {
   /** "Evening" — the serif line. */
   salutation: string;
   /** The sentence under it, which already knows the hour and the forecast. */
   line: string;
   /** The five doors, in order. */
-  starts: readonly { key: K; label: string; hint?: string; imageUri?: string }[];
+  starts: readonly { key: K; label: string; hint?: string; glyph: string; imageUri?: string }[];
   /** Absent on the fixture, which draws the doors without opening one. */
   onStart?: (key: K) => void;
   /**
@@ -338,8 +389,21 @@ export function StylistOpening<K extends string>({
    * a member and the fixture both get.
    */
   footer?: ReactNode;
+  /**
+   * A line the opening states BEFORE the doors — audit 2026-09-02 · 13.
+   *
+   * The membership lock used to ride the `footer` slot, twelve points under the
+   * fifth door: "the membership lock appears only below the fifth prompt and is
+   * easy to miss. Set expectation at the top." It is set at the top now. Same
+   * rule as `footer` — this is a SLOT, and the opening still does not read a
+   * plan, present a paywall or know that membership exists.
+   */
+  notice?: ReactNode;
 }) {
   const theme = useTheme();
+  // One regime for all five, decided here rather than per card: the point of
+  // the rule is that the grid cannot be half photographs. See `doorRegime`.
+  const regime = doorRegime(starts.map((s) => s.imageUri));
 
   return (
     <View className="px-gutter">
@@ -363,6 +427,9 @@ export function StylistOpening<K extends string>({
       <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
         {line}
       </Text>
+
+      {/* The expectation, set before the doors rather than after them. */}
+      {notice ? <View className="mt-3">{notice}</View> : null}
 
       {/* ── FIVE IMAGE-LED DOORS, NOT TEXT ROWS — redesign 16 ─────────────
           They were full-width rows of a label and a chevron, which is a
@@ -389,6 +456,8 @@ export function StylistOpening<K extends string>({
             key={start.key}
             label={start.label}
             hint={start.hint}
+            glyph={start.glyph}
+            regime={regime}
             index={i}
             imageUri={start.imageUri}
             onPress={onStart ? () => onStart(start.key) : undefined}

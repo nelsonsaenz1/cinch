@@ -161,6 +161,11 @@ export default function ClosetScreen() {
     reportedSize.current = size;
     track(CLOSET_EVENTS.selection, closetSelectionProps(size));
   }, [size]);
+  // The capacity wall this closet is against, reported from the screen rather
+  // than from the band that draws it — the band is a footer now, and a footer
+  // only mounts for the readers who scroll. See `useCapacityStateReport`.
+  useCapacityStateReport();
+
   const inspiration = useClosetInspiration();
   const [menuOpen, setMenuOpen] = useState(false);
   const insets = useSafeAreaInsets();
@@ -781,11 +786,30 @@ function Masthead({ screen, onMenu }: { screen: ClosetScreenModel; onMenu: () =>
         />
       </View>
 
-      {/* The Wall, W-01/W-05 — full reads as a stated count, never a
-          disabled control, and the ceiling disappears the moment it stops
-          being one. */}
-      <CapacityBandRow large={false} />
+      {/* ── THE CAPACITY BAND LEFT THE MASTHEAD ─────────────────────────────
+          Audit 2026-09-02 · 8: "the subscription capacity card takes the
+          visual position that should establish the wardrobe itself. The first
+          actual garment row begins low on the page."
 
+          It stood here, between the stats and the chips, which put a plan
+          name, a ceiling, a progress track and — whenever a wall was near — a
+          filled oxblood door in front of every garment in the closet. It is
+          now the first block of `SecondaryInsights`, below the grid, on this
+          file's own long-standing distinction: the rails are PIECES and belong
+          with the pieces; the band is a READING about pieces, like the insight
+          card it now sits above.
+
+          Nothing was deleted and nothing was quieted. The masthead still
+          states the two populations one line up (`ClosetCountsLine`, "84
+          active · 26 stored"), which is the fact a reader opens the closet
+          wanting; the band still states both ceilings, both walls and their
+          remedies, one scroll down.
+
+          The capacity_state observation did NOT move with it — see
+          `useCapacityStateReport` on the screen body. A footer inside a
+          FlashList only mounts once somebody scrolls to it, and an event that
+          fired for every visit before must not quietly become an event that
+          fires for the people who scroll. */}
       <CategoryChipsRow screen={screen} />
     </View>
   );
@@ -861,7 +885,7 @@ function ClosetRails({ screen }: { screen: ClosetScreenModel }) {
               key={item.id}
               item={item}
               variant="mostWorn"
-              imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath)}
+              imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath, item.thumbPath)}
               onPress={screen.openItem}
             />
           ))}
@@ -887,6 +911,15 @@ function SecondaryInsights({
     // Same negative gutter as the masthead: the grid's contentContainer pads by
     // GUTTER, and these sections measure from the screen edge.
     <View style={{ marginHorizontal: -GUTTER }}>
+      {/* The Wall, W-01/W-05 — full reads as a stated count, never a disabled
+          control, and the ceiling disappears the moment it stops being one.
+          Moved here from the masthead by audit 2026-09-02 · 8; the argument is
+          at its old site. First in the footer rather than last: of the three
+          readings below the grid it is the only one that can carry an action,
+          and a door nobody scrolls past two rails to find is a door that may
+          as well not be there. */}
+      <CapacityBandRow large={false} />
+
       {screen.latestPieces.length > 0 ? (
         <Rail
           title="Latest pieces"
@@ -906,7 +939,7 @@ function SecondaryInsights({
               key={item.id}
               item={item}
               variant="latest"
-              imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath)}
+              imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath, item.thumbPath)}
               onPress={screen.openItem}
             />
           ))}
@@ -1128,11 +1161,22 @@ function ClosetCountsLine() {
   );
 }
 
-function CapacityBandRow({ large }: { large: boolean }) {
+/**
+ * The capacity_state observation, on the SCREEN rather than on the band.
+ *
+ * Audit 2026-09-02 · 8 moved the band below the grid, and a block inside a
+ * FlashList's `ListFooterComponent` does not mount until somebody scrolls to
+ * it. Left where it was, the event would silently have become "capacity state,
+ * among readers who scroll" — the same number under the same name, measuring a
+ * different population, which is the worst kind of analytics regression because
+ * nothing about it looks broken.
+ *
+ * So the report is a hook the screen body calls unconditionally, and the band
+ * is drawing only. Same event, same single bounded property, same focus gate
+ * (`use-tab-visited.ts`) — a closet observation still means somebody looked.
+ */
+function useCapacityStateReport() {
   const capacity = useCapacity();
-  const { plan, copy } = usePlan();
-  const gate = useGate();
-  const router = useRouter();
   const reported = useRef<string | null>(null);
 
   const state = capacityState({
@@ -1143,19 +1187,32 @@ function CapacityBandRow({ large }: { large: boolean }) {
   });
 
   // Which of three walls, and nothing about the ceiling or the usage — a
-  // wardrobe size is a wealth proxy and a near-unique number. Gated on FOCUS
-  // like every other closet observation (see use-tab-visited.ts).
+  // wardrobe size is a wealth proxy and a near-unique number.
   const visited = useTabVisited();
   useEffect(() => {
     if (!visited || capacity.loading || reported.current === state) return;
     reported.current = state;
     track(CLOSET_EVENTS.capacityState, closetCapacityProps(state));
   }, [visited, capacity.loading, state]);
+}
+
+function CapacityBandRow({ large }: { large: boolean }) {
+  const capacity = useCapacity();
+  const { plan, copy } = usePlan();
+  const gate = useGate();
+  const router = useRouter();
+
+  const state = capacityState({
+    active: capacity.used,
+    activeLimit: capacity.limit,
+    stored: capacity.stored,
+    storedLimit: capacity.storedLimit,
+  });
 
   if (capacity.loading) return null;
 
   return (
-    <View className="px-gutter" style={{ paddingTop: 12 }}>
+    <View className="px-gutter" style={{ paddingTop: 20 }}>
       <CapacityBand
         plan={plan}
         planName={copy.name}

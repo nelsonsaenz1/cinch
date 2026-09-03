@@ -2,9 +2,11 @@ import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { View } from 'react-native';
 
 import { GarmentImage } from '@/components/media/garment-image';
+import { GarmentSwatch } from '@/components/media/garment-swatch';
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { TODAY_COPY } from '@/features/today/today-spec';
+import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
 
@@ -52,9 +54,30 @@ export type TodayPlateView = {
   applyingLabel?: string | null;
 };
 
-/** The neutral tile a piece with no visible photograph takes. */
-function PiecePlaceholder() {
-  return <View className="h-full w-full rounded-lg border border-rule bg-tray" />;
+/**
+ * The tile a piece with no visible photograph takes.
+ *
+ * AUDIT 2026-09-02 · 62. This was a bare `bg-tray` rectangle: three of them in
+ * a row is a card that shows an outfit's NAME and then three blank boxes, which
+ * is the state most accounts on Today are actually in (the cutout pipeline
+ * needs a native module the Simulator cannot run, and a thumb-only piece is
+ * common on device). The swatch is the same one `GarmentCell` and `PlateThumb`
+ * draw: the garment's own colour where the engine scored one, and its kind
+ * either way, so a collage of un-photographed pieces still reads as an outfit
+ * of three particular garments.
+ *
+ * The rule and the border stay — they are what make the tile read as a filed
+ * piece rather than a hole in the card.
+ */
+function PiecePlaceholder({ garment }: { garment: Garment }) {
+  return (
+    <View className="h-full w-full overflow-hidden rounded-lg border border-rule">
+      <GarmentSwatch
+        label={garment.subcategory ?? garment.category}
+        hex={garment.colors[0] ? oklchToHex(garment.colors[0].oklch) : null}
+      />
+    </View>
+  );
 }
 
 export function TodayPlate({
@@ -186,10 +209,10 @@ export function TodayPlate({
                       uri={uri}
                       contentFit="contain"
                       style={{ flex: 1, minWidth: 0 }}
-                      fallback={<PiecePlaceholder />}
+                      fallback={<PiecePlaceholder garment={garment} />}
                     />
                   ) : (
-                    <PiecePlaceholder />
+                    <PiecePlaceholder garment={garment} />
                   )}
                 </View>
               );
