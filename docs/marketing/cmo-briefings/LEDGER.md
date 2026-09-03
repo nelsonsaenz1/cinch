@@ -83,6 +83,41 @@ outside the clamp), the heat gate for knit cores when shirts exist (taste), the 
 "Filing three pieces" masthead over an all-parked batch (taste), Plan showing one outfit
 for four days on the QA closet (worth a look, not diagnosed).
 
+## Audit ship 2 — the founder follow-ups and the visual/usability directive (2026-09-03 04:5xZ)
+
+Commits bb53d4d…8af1fc0 on main (seven merged UX clusters + three verification passes;
+reports in `docs/eng/audit-2026-09-02/`: verification-ux.md, verification-ux-2.md, p0-images.md).
+Published to all four runtimes and manifest-verified:
+
+| runtime | fleet | OTA | branch |
+|---|---|---|---|
+| 4e646ba0 | 1.2.3 / b47 (store) | `01a0657b-a0d9-7d9b-9818-040fecb9e811` | main |
+| c5f00773 | 1.2.0 / b43-44 | `01a0657d-be8c-73c1-9c10-4753f4f4bc05` | ota/c5f00773-ux |
+| 813c6d34 | 1.2.1 / b45 | `01a0657f-3010-7748-a202-24a992834ca0` | ota/813c-ux |
+| ccfa8345 | 1.2.2 / b46 | `01a06580-a3ef-7407-b752-917aa034941a` | ota/ccfa8345-ux |
+
+(01a06579 on 4e646ba0 was superseded within minutes by 01a0657b — the weapons veto.)
+
+Founder orders executed:
+- **Sharing ON by default** — migration 20260903010000 applied 02:44Z; 49 never-chosen profiles switched on
+  from that instant (boundary semantics untouched: nothing worn before crosses); 50/50 now sharing. A24 → closed
+  by ruling. Effect metric: `daily_social_empty / daily_social_opened` falls below 1.0 once any two mutuals share.
+- **packing-brief** — deleted (function + source); the on-device memo IS the feature; packing's Pro lock is
+  client-side only now (documented).
+- **Device receipt of the 02:0xZ OTAs (01a06505/07/08/0a)**: NOT PROVEN — zero real `Application Opened`
+  carried any of them by 04:5xZ (US night; no real person opened the app after publish). The nightly should
+  look for these ids AND the 01a0657b/7d/7f/80 set.
+
+Directive items shipped (by number): 2 5 6 7 8 9(AX) 10 11 12 13 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64. P0 #1 diagnosed
+as a QA-fixture defect (rows pointing at another user's storage prefix; real users unaffected) with one real
+residue fixed (three thumb-only tiles). Founder/taste items surfaced, not made: #9's default-size fade (C-03 forbids
+it), #4 header grammar on two deliberately different screens, Compose's tray button removed, the Explore doors row
+hidden while the circle is empty (Invite lives in the ellipsis sheet), Reveal numeral 150→108, Wall Swap's
+"Choose/Chosen" wording, the partner shelf stays ungated (founder-curated merchants), the QA closets need
+re-seeding under their own storage prefixes (service-role task). Marketing items 65–69 are assets/copy for the
+founder; only #39 (welcome line) was code.
+
 ## Predictions being scored
 
 | id | made | prediction | falsifier | due | verdict |
