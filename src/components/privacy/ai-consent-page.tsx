@@ -3,10 +3,11 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { OutlinedAccentButton } from '@/components/privacy/outlined-accent-button';
 import { PrivacyPage } from '@/components/privacy/privacy-page';
-import { Button, Card, Rule, SectionHeader, Text } from '@/components/ui';
+import { Button, Card, Disclosure, Rule, SectionHeader, Text } from '@/components/ui';
 import type { SentItemDetail, SentPhoto } from '@/features/auth/use-ai-privacy';
 import {
   CONSENT_FACTS,
+  CONSENT_SUMMARY,
   WITHDRAW_CONSEQUENCE,
   WITHOUT_CONSENT,
   WITHOUT_CONSENT_LOST,
@@ -191,36 +192,59 @@ export function AiConsentPage({
         </View>
       )}
 
-      {/* ── What it covers ───────────────────────────────────────────────── */}
+      {/* ── What it covers, as an overview — P1 #23 ──────────────────────────
+          The wall of legal-style prose this used to be: every one of
+          `CONSENT_FACTS`, printed inline and unconditionally. `CONSENT_SUMMARY`
+          is the founder's own shape (short title, one-line consequence)
+          applied to the same facts, and the exact wording a user agreed to is
+          still here — one tap into "The exact wording" — never deleted, never
+          paraphrased away. */}
       <Card padding="xl" className="mx-gutter mt-6">
         <Text variant="eyebrow">{granted ? 'What it covers' : 'What it would cover'}</Text>
         <View className="mt-3 gap-4">
-          {CONSENT_FACTS.map((fact) => (
-            // ── The record, at a size a reader can hold to ────────────────
-            //
-            // One `Text` per fact with the lead nested inside it, so the
-            // sentence wraps as ONE sentence. That shape is not a preference:
-            // `consent-facts.ts` stores each fact as a bolded opening clause
-            // plus the rest of the same sentence, and the privacy page's job is
-            // to quote the wording a user agreed to, not to re-cut it.
-            //
-            // What changed is the size. This was `note` — 13px — and the
-            // group's floor is that no legal sentence is set below 15 pt
-            // anywhere. It is `body` (17px) now, in `muted`, with the lead in
-            // Medium ink: a clause in Medium, never a full sentence.
-            //
-            // CN-01 draws these as a Medium HEADING plus a separate regular
-            // sentence. That shape cannot be built from this record without
-            // writing four headings, and four headings on a consent sheet are
-            // four new sentences a user never agreed to. See the report.
-            <Text key={fact.lead} variant="body" style={{ color: theme.muted }}>
-              <Text variant="body" style={{ color: theme.ink }}>
-                {fact.lead}
+          {CONSENT_SUMMARY.map((line) => (
+            <View key={line.title}>
+              <Text variant="body">{line.title}</Text>
+              <Text variant="body" className="mt-0.5" style={{ color: theme.muted }}>
+                {line.body}
               </Text>
-              {fact.rest}
-            </Text>
+            </View>
           ))}
         </View>
+
+        <Disclosure
+          label="The exact wording"
+          summary="What you actually agreed to, word for word."
+          className="mt-4"
+          bordered={false}>
+          <View className="gap-4">
+            {CONSENT_FACTS.map((fact) => (
+              // ── The record, at a size a reader can hold to ────────────────
+              //
+              // One `Text` per fact with the lead nested inside it, so the
+              // sentence wraps as ONE sentence. That shape is not a preference:
+              // `consent-facts.ts` stores each fact as a bolded opening clause
+              // plus the rest of the same sentence, and the privacy page's job
+              // is to quote the wording a user agreed to, not to re-cut it.
+              //
+              // What changed is the size. This was `note` — 13px — and the
+              // group's floor is that no legal sentence is set below 15 pt
+              // anywhere. It is `body` (17px) now, in `muted`, with the lead in
+              // Medium ink: a clause in Medium, never a full sentence.
+              //
+              // CN-01 draws these as a Medium HEADING plus a separate regular
+              // sentence. That shape cannot be built from this record without
+              // writing four headings, and four headings on a consent sheet are
+              // four new sentences a user never agreed to. See the report.
+              <Text key={fact.lead} variant="body" style={{ color: theme.muted }}>
+                <Text variant="body" style={{ color: theme.ink }}>
+                  {fact.lead}
+                </Text>
+                {fact.rest}
+              </Text>
+            ))}
+          </View>
+        </Disclosure>
       </Card>
 
       {/* ── The cost, stated before the button ───────────────────────────── */}

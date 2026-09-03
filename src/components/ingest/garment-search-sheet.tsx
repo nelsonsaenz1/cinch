@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Disclosure } from '@/components/ui/disclosure';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -263,22 +264,24 @@ export function GarmentSearchSheetBody({
             reserved half a screen for prose nobody writes. The frame's reading:
             "the old half-screen text area reserved room for prose nobody
             writes, and this one grows a line at a time as it is needed." */}
-        {/* DS-C1 — WHAT THIS SEARCHES, ABOVE THE FIELD.
+        {/* DS-C1 — WHAT THIS SEARCHES, ABOVE THE FIELD — one line, not two.
 
-            "The disclosure sits above the suggestions, not in a footer, because
-            it is the thing a user needs before typing." Three facts, in the
-            order somebody needs them: where the pictures come from, what this
-            is not, and that nothing is being bought. The middle one is the
-            reason the route was renamed — a control that reaches a licensed
-            product feed should say so on itself. */}
+            2026-09-02 copy-reduction pass, P2 #44: this used to be two
+            separate `Text` blocks — "presents two privacy explanations before
+            the user has searched", the finding's own words. One concise line
+            now; the three facts it summarised (where the pictures come from,
+            what this is not, that nothing is bought) are unchanged, one tap
+            away in "How this works" rather than read past every time. */}
         <Text variant="body" className="text-muted">
-          Cinch searches a licensed shop catalog.
+          Cinch searches a licensed shop catalog — never the open web, and nothing here is bought.
         </Text>
-        <Text variant="noteSmall" className="mt-2">
-          Results are product photographs the shops supply. This is not a web search, and what you
-          type is not sent to an AI model. Nothing is bought here — the photo becomes a piece in
-          your closet.
-        </Text>
+        <Disclosure label="How this works" variant="link" className="mt-1.5">
+          <Text variant="body" className="text-muted">
+            Results are product photographs the shops supply. This is not a web search, and what
+            you type is not sent to an AI model. Nothing is bought here — the photo becomes a
+            piece in your closet.
+          </Text>
+        </Disclosure>
 
         {/* AUDIT 71 — THE FIELD NAMES BOTH ITS JOBS, TWICE.
 

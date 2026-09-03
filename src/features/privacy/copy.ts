@@ -432,6 +432,36 @@ export const CONSENT_ASK_FOOTER =
  *      one says the opposite in plain words — and why it now says WHICH search,
  *      rather than implying every listing lookup is one.
  */
+/**
+ * PD-02 · the compact summary (2026-09-02 copy-reduction pass, P1 #23).
+ *
+ * "AI consent is a wall of legal-style prose with no overview or progressive
+ * disclosure" — the finding, verbatim. The page used to print every one of
+ * `CONSENT_FACTS` inline, unconditionally, which is the wall. These three
+ * lines are the founder's own shape (short title, one-line consequence)
+ * applied to the same facts rather than a new claim about the app: "what
+ * leaves" compresses facts 1 and the "three doors" fact below, "what comes
+ * back" is fact 1's own second half, "what is stored" is fact 3, near
+ * verbatim. The exact wording a user actually agreed to is unchanged and
+ * stays reachable in full — `AiConsentPage` puts it one tap down, behind a
+ * `Disclosure`, rather than deleting it.
+ */
+export type ConsentSummaryLine = { title: string; body: string };
+export const CONSENT_SUMMARY: readonly ConsentSummaryLine[] = [
+  {
+    title: 'What leaves',
+    body: 'A photo — when a piece is tagged, matched to a listing, or described with a color photo attached.',
+  },
+  {
+    title: 'What comes back',
+    body: 'A category, color and fabric, from a model that is not allowed to learn from what it sees.',
+  },
+  {
+    title: 'What is stored',
+    body: 'The photo and the tags, in your closet. Deleting an item deletes both.',
+  },
+];
+
 export const CONSENT_FACTS: readonly ConsentFact[] = [
   // The four the sheet asks with, verbatim and by reference.
   ...SHEET_CONSENT_FACTS,
@@ -610,6 +640,24 @@ export const EXPORT_LIMIT_NOTE =
  * Guideline 5.1.1(v); every social table cascades
  * (`20260807102000_event_outfits_votes_comments.sql:17`, `:62`, `:109`).
  */
+/**
+ * PD-06 · the compact summary (2026-09-02 copy-reduction pass, P1 #51).
+ *
+ * "Delete Account is written like an engineering explanation. Phrases about
+ * cascading through every table, moderation records, and an AI-cost
+ * accounting ledger are accurate implementation detail but inappropriate
+ * primary UX." — the finding, verbatim. `DELETION_HORIZONS` below is that
+ * detail, correct and citation-backed, and it stays exactly as it was; it
+ * simply is not the first thing a reader meets any more. These two lines
+ * compress its three rows into what the finding asks for — what is deleted,
+ * what legally must remain — and `EXPORT_FIRST_NOTE` already states the third,
+ * irreversibility, in the panel above the buttons, so it is not repeated here.
+ */
+export const DELETE_SUMMARY_WHAT =
+  'Every photo, piece, wear, plan, board and friendship — along with every comment, vote and post you left — gone the moment you confirm.';
+export const DELETE_SUMMARY_REMAINS =
+  'Two things, stripped of your name: a report someone filed about you, and one row of our AI usage ledger, kept for accounting.';
+
 export const DELETION_HORIZONS: readonly DisclosureRow[] = [
   {
     // PV-04 · correction 16 retitles the three horizons, and the new titles are

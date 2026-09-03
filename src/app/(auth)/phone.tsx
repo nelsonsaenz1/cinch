@@ -29,6 +29,7 @@ import {
   PHONE_PLACEHOLDER,
   PHONE_STEP,
   PHONE_SUBLINE,
+  PHONE_TAGLINE,
   RATE_LIMIT_S,
   offlineTrouble,
   phoneSendFailedTrouble,
@@ -149,7 +150,7 @@ export default function PhoneScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: 26, paddingBottom: 40 }}>
         <RunPrompt headline={PHONE_HEADLINE}>
-          <RunSubline>{PHONE_SUBLINE}</RunSubline>
+          <RunSubline>{PHONE_TAGLINE}</RunSubline>
         </RunPrompt>
 
         <View style={{ marginTop: 26 }}>
@@ -220,6 +221,25 @@ export default function PhoneScreen() {
           <LegalLink label="Terms" url={TERMS_URL} />
           {' and '}
           <LegalLink label="Privacy Policy" url={PRIVACY_URL} />.
+        </RNText>
+
+        {/* P2 #41 — the carrier-required SMS consent text, as a footnote
+            rather than the headline's own subline. Twilio toll-free
+            verification requires this exact wording be readable at the point
+            the number is collected; nothing in it is reworded or shortened —
+            it is only set at the same compact weight as the Terms/Privacy
+            line above, so it stops competing with "Send code" for the
+            reader's attention. */}
+        <RNText
+          maxFontSizeMultiplier={MAX_TEXT_SCALE}
+          style={{
+            marginTop: 8,
+            fontFamily: 'HelveticaNeue',
+            fontSize: LEGAL_SIZE,
+            lineHeight: 20,
+            color: atlas.muted,
+          }}>
+          {PHONE_SUBLINE}
         </RNText>
       </KeyboardAwareScrollView>
     </View>

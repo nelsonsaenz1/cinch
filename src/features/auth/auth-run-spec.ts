@@ -249,8 +249,19 @@ export const PHONE_SIGN_IN_ENABLED = false;
 
 export const PHONE_STEP: RunStep = 1;
 export const PHONE_HEADLINE = 'What’s your number?';
+/**
+ * The ordinary subline — `email.tsx`'s own shape (one short line, the same
+ * size as every other run screen's), rather than the full consent paragraph.
+ * P2 #41: that paragraph "gives the SMS legal explanation nearly the same
+ * visual weight as the action" when it sits in this slot; `PHONE_SUBLINE`
+ * below still carries the required wording, just as a footnote near the
+ * legal links rather than as the headline's own supporting line.
+ */
+export const PHONE_TAGLINE = 'We’ll text a one-time six-digit code to this number.';
 // Twilio toll-free verification requires the opt-in screen to carry the full
 // consent disclosure: brand name, message purpose, frequency, rates, HELP/STOP.
+// Rendered as a compact footnote beside the Terms/Privacy line, not as the
+// screen's headline subline — see `PHONE_TAGLINE` and `phone.tsx`.
 export const PHONE_SUBLINE =
   'Cinch will text a one-time six-digit sign-in code to this number. Message frequency varies by sign-in. Message and data rates may apply. Reply HELP for help or STOP to opt out.';
 // An example the validator itself would accept — NANP forbids an exchange

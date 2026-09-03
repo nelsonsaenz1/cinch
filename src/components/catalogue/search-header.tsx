@@ -12,6 +12,7 @@
  * not a different action position. Building two would guarantee they drifted.
  */
 
+import { SymbolView } from 'expo-symbols';
 import type { RefObject } from 'react';
 import { Pressable, View, type TextInput } from 'react-native';
 
@@ -111,7 +112,12 @@ export function SearchHeader({
         </View>
 
         {/* The 56 pt square. A peer of the field, inside the same group — "both
-            inputs are one control set rather than two features". */}
+            inputs are one control set rather than two features".
+
+            P2 #44 — this used to draw a bare "●", an oxblood dot with no
+            glyph. Sighted or not, nothing about a coloured circle says
+            "microphone"; `accessibilityLabel` alone answered VoiceOver and
+            left the eye to guess. A real mic icon labels itself. */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Say it instead"
@@ -126,9 +132,12 @@ export function SearchHeader({
             borderColor: theme.rule,
             opacity: micBusy ? 0.5 : 1,
           }}>
-          <Text variant="body" style={{ color: theme.accent }}>
-            ●
-          </Text>
+          <SymbolView
+            name="mic.fill"
+            size={20}
+            tintColor={theme.accent}
+            resizeMode="scaleAspectFit"
+          />
         </Pressable>
       </View>
 
