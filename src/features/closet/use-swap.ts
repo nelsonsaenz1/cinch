@@ -43,8 +43,10 @@ export function useSwap(add: CountedKind): SwapModel {
   const wardrobe = useWardrobe();
   const closet = useCloset();
 
-  const garments = wardrobe.data ?? [];
-  const items = closet.data ?? [];
+  // Memoised: a bare `?? []` is a fresh array identity every render, which
+  // would recompute the tally and every derived list on any state change.
+  const garments = useMemo(() => wardrobe.data ?? [], [wardrobe.data]);
+  const items = useMemo(() => closet.data ?? [], [closet.data]);
   const tally = useMemo(() => tallyOf(garments), [garments]);
 
   const { resolve } = useSignedUrls(
