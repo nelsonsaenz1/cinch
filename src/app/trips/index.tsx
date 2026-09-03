@@ -93,6 +93,7 @@ export default function TripsScreen() {
    */
   const load = useBoundedLoad({
     loading: trips.isLoading,
+    fetching: trips.isFetching,
     error: trips.isError,
     retrying: trips.isRefetching,
     onRetry: () => void trips.refetch(),

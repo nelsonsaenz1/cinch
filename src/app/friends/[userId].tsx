@@ -550,6 +550,7 @@ export default function FriendClosetScreen() {
    */
   const load = useBoundedLoad({
     loading: closet.isLoading || meta.isLoading,
+    fetching: closet.isFetching || meta.isFetching,
     error: closet.isError || meta.isError,
     retrying: closet.isRefetching || meta.isRefetching,
     onRetry: () => {

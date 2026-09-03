@@ -94,6 +94,7 @@ export default function DiaryEntryScreen() {
    */
   const load = useBoundedLoad({
     loading: diary.isLoading,
+    fetching: diary.isFetching,
     error: diary.isError,
     retrying: diary.isRefetching,
     onRetry: () => void diary.refetch(),

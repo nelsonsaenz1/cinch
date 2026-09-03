@@ -41,6 +41,7 @@ export default function ExportDataScreen() {
    */
   const load = useBoundedLoad({
     loading: exports.isLoading,
+    fetching: exports.isFetching,
     error: exports.isError,
     retrying: exports.isRefetching,
     onRetry: () => void exports.refetch(),

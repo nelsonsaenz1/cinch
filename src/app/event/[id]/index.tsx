@@ -177,6 +177,7 @@ export default function EventDetailScreen() {
 
   const eventLoad = useBoundedLoad({
     loading: eventQuery.isLoading,
+    fetching: eventQuery.isFetching,
     error: eventQuery.isError,
     retrying: eventQuery.isRefetching,
     onRetry: () => void eventQuery.refetch(),

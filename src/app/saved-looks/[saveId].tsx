@@ -86,6 +86,7 @@ export default function SavedLookDetailScreen() {
    */
   const load = useBoundedLoad({
     loading: query.isLoading,
+    fetching: query.isFetching,
     error: query.isError,
     retrying: query.isRefetching,
     onRetry: () => void query.refetch(),

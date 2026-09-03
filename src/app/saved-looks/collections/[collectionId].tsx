@@ -103,6 +103,7 @@ export default function EditCollectionScreen() {
 
   const load = useBoundedLoad({
     loading: collections.isLoading,
+    fetching: collections.isFetching,
     error: collections.isError,
     // The read settled and this shelf was not in it: deleted, or a stale link.
     // An absence, so it takes the empty grammar rather than an apology.

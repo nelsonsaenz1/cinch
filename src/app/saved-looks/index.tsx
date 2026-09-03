@@ -112,6 +112,7 @@ export default function SavedLooksScreen() {
    */
   const load = useBoundedLoad({
     loading: saves.isLoading,
+    fetching: saves.isFetching,
     error: saves.isError,
     retrying: saves.isRefetching,
     onRetry: () => {

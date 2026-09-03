@@ -78,6 +78,7 @@ export default function WalkthroughReviewScreen() {
    */
   const load = useBoundedLoad({
     loading: drafts.isPending,
+    fetching: drafts.isFetching,
     error: drafts.isError,
     retrying: drafts.isRefetching,
     onRetry: () => void drafts.refetch(),

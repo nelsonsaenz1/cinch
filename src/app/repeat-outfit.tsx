@@ -69,6 +69,7 @@ export default function RepeatOutfitScreen() {
    */
   const load = useBoundedLoad({
     loading: wardrobe.isLoading,
+    fetching: wardrobe.isFetching,
     error: wardrobe.isError,
     retrying: wardrobe.isRefetching,
     onRetry: () => void wardrobe.refetch(),

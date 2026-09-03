@@ -100,6 +100,7 @@ export default function DiaryScreen() {
    */
   const load = useBoundedLoad({
     loading: diary.isLoading,
+    fetching: diary.isFetching,
     error: diary.isError,
     empty: entries.length === 0,
     retrying: diary.isRefetching,
