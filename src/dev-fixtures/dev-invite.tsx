@@ -166,7 +166,9 @@ function DevInviteInner() {
                   onToggle={() =>
                     setPicked01((prev) => {
                       const next = new Set(prev);
-                      next.has(row.userId) ? next.delete(row.userId) : next.add(row.userId);
+                      if (next.has(row.userId)) next.delete(row.userId);
+
+                      else next.add(row.userId);
                       return next;
                     })
                   }
@@ -188,7 +190,9 @@ function DevInviteInner() {
                   onToggle={() =>
                     setPicked01((prev) => {
                       const next = new Set(prev);
-                      next.has(row.userId) ? next.delete(row.userId) : next.add(row.userId);
+                      if (next.has(row.userId)) next.delete(row.userId);
+
+                      else next.add(row.userId);
                       return next;
                     })
                   }
@@ -213,7 +217,9 @@ function DevInviteInner() {
                     onToggle={() =>
                       setPicked02((prev) => {
                         const next = new Set(prev);
-                        next.has(row.userId) ? next.delete(row.userId) : next.add(row.userId);
+                        if (next.has(row.userId)) next.delete(row.userId);
+
+                        else next.add(row.userId);
                         return next;
                       })
                     }
