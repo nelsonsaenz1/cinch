@@ -262,3 +262,93 @@ working when nobody is watching. Worth doing once volume justifies it.
 4. **`push_tokens` is 0.** Email is currently the only re-engagement channel that exists.
 5. **Resend segment cap is 3** on the current plan. A third useful cohort — expiring
    trials, say — needs an upgrade or a rotation strategy.
+
+---
+
+## 11. Re-engagement No. 01 — the first Cinch email with a way in
+
+Drafted 2026-09-03, unsent. This is ledger row **A32**: the 29 conversion notes of
+09-02 delivered 29/29 and produced **zero** in-app events in the following 15 hours,
+and the reason the nightly gave is that the message contained no link of any kind.
+
+### The link, and why it is `/closet`
+
+`/closet` is a **real route inside the app** (`src/app/(tabs)/closet.tsx`). A universal
+link only opens the app; expo-router then resolves the path against its own route
+table, and an unclaimed path lands on `+not-found`. Claiming a path the app already
+answers is what makes this a **web deploy only — no binary, no OTA**:
+
+| piece | file | state |
+|---|---|---|
+| AASA component `/closet` | `web/.well-known/apple-app-site-association` | written |
+| rewrite `/closet` → `/api/open` | `web/vercel.json` | written |
+| fallback page for anyone without the app | `web/api/open.js` | written |
+
+The entitlement (`applinks:cinchstyle.com`, `app.config.ts:207`) is host-scoped and
+already in the shipped build-47 source, so no new binary is needed for a **path**
+addition. **Not verified:** no one has ever recorded a real iPhone opening any
+`cinchstyle.com` universal link into the app — not `/i/*` either. Until someone taps
+one on a phone, the app-opening half of this is unproven and the fallback page is what
+carries the campaign.
+
+### `APP_LIVE` is not set in Vercel — the invite doorway sends iPhones to a waitlist
+
+Found while building this. `web/api/invite.js` gates its store link behind
+`process.env.APP_LIVE === '1'`. Fetched 2026-09-03 with an iPhone user agent, the live
+`/i/<handle>` page renders CTA **"Join the list" → `cinchstyle.com/#waitlist`**, even
+though `itunes.apple.com/lookup?id=6798479578` returns `resultCount: 1`. Every invite
+tap since launch has landed on a waitlist instead of the App Store. **`web/api/open.js`
+deliberately does not read that flag.** Setting `APP_LIVE=1` in the Vercel environment
+is a one-line fix and should ship with the `/closet` deploy.
+
+### Audience — 29, reconciled against Resend and Supabase on 2026-09-03
+
+Exactly the 29 who received the 09-02 conversion note. Exclusions checked and clean:
+none of the 29 is an internal account, none bounced (09-02 batch: 29 sent, 29
+delivered, 0 bounced, 0 complained, 0 unsubscribed), none is suppressed, none is
+unsubscribed. The one suppressed relay address in the account
+(`t5p8cw987n@privaterelay.appleid.com`, bounce 08-31, **pre-dating** the Apple relay
+registration of 09-01 23:26Z) was already outside this batch.
+
+Split by closet progress, from `items` per `auth.users.id`:
+
+| cohort | rule | n | subject |
+|---|---|---|---|
+| **kept** | ≥1 garment | 13 | `Your {n} piece(s) is/are still there` |
+| **start** | 0 garments | 16 | `It only takes ten photos` |
+
+Three of the 29 are `%saenz%` family (`avasaenz06`, `karencsaenz`, `colesaenz5`) and
+two of those sit at the top of the **kept** cohort (21 and 14 garments). Per
+METHODOLOGY they are not internal and the founder ruling is still open, so they are
+**included** — but every result off this send must be printed family-excluded (26)
+as well as family-included (29), or the read is contaminated.
+
+### Sending shape, and why it is not a broadcast
+
+Sent as 29 personalised one-offs (`send-batch-emails`), not a broadcast, because the
+per-person garment count is the whole lever in the **kept** copy and a broadcast cannot
+carry it. The cost is that the hosted `{{{RESEND_UNSUBSCRIBE_URL}}}` is unavailable to
+one-off sends, so unsubscribe is handled by an RFC-8058 `List-Unsubscribe:
+<mailto:hello@mail.cinchstyle.com?subject=UNSUBSCRIBE>` header plus a visible
+reply-UNSUBSCRIBE line. **Replies land in the Resend inbox and must be read and
+converted into a manual suppression within one business day — the email promises it.**
+
+### Measurement — and the trap that would break the link
+
+**Do not turn on click tracking for this send.** Resend click tracking rewrites every
+`href` to a tracking host. iOS matches a universal link against the URL that was
+*tapped* and does not follow redirects into one, so a rewritten link would open Safari
+and never open the app — it would defeat the entire point of the campaign. Open
+tracking (a pixel) does not touch links and may be enabled if an opens number is
+wanted, with the usual Gmail/Yahoo proxy caveat.
+
+What to read instead, in order: Resend `delivered` / `bounced` / `unsubscribed`; then
+in-app events keyed on the 29 recipients' `distinct_id`s (which are their
+`auth.users.id`s — 27 of the 29 resolve in PostHog); then `subscriptions` and
+`asc_notifications` for a purchase. **Click evidence will not exist for this send, by
+design. Do not substitute open rate for it.**
+
+### Frequency cap
+
+These 29 received an email on 09-02. This send is their **second in 7 days** — the cap
+in §1 is then spent, and the week's Dispatch must skip this cohort entirely.

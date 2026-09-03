@@ -37,6 +37,10 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 | **A23** | 09-01n | Ask users to invite (one prompt after `closet_ready`, one after first `outfit_reacted`) | OTA | `invite_shared` > 4 | **new — highest-yield unused mechanic** | 4 shares ever, by 3 people, **3 converted (75%)**; the app's only 5-day-retained user came through it. K ≈ 0.10 |
 | **A24** | 09-01n | Gate or seed Daily Social so nobody opens an empty screen | ~~OTA~~ → **FOUNDER** | `daily_social_empty` / `daily_social_opened` < 1.0 | **REFRAMED 09-02n — this is not a defect** | audit F-DATA-6: every `daily_social_empty` carries `reason=nobody_sharing`; **1 of 50 profiles has sharing on, 6 follow rows, 0 reactions.** The surface already renders a "go first" hero. The only lever is the sharing DEFAULT, which the privacy constitution puts OFF. **Recommendation: do not flip it** — hide the Day section until ≥1 friend shares, and stop counting `nobody_sharing` as a defect |
 | **A34** | 09-02n | **`explore_shop_feed_loaded` fires ungated inside a react-query `queryFn`** (`use-shop-feed.ts:61`, `use-partner-feed.ts:48`) — gate on visit | OTA | The event counts shelf visits, not launches and refetches | **new — A29's baseline is contaminated by it** | audit F-AN-1. I used this event three times on 09-02 (40 → 24 → 24) as the shelf's verification instrument; it was a valid *sim* check of the wire, never evidence anyone looked |
+| **A32** | 09-02n | **Ship A20's universal links, then re-send the conversion note with something tappable in it** | OTA/web + OPS | Any in-app event attributable to an email recipient — currently zero | **half built 09-03, BLOCKED on a web deploy + founder approval** | Web half written and not deployed: AASA claims `/closet` (a **real app route**, so no binary and no OTA — the `applinks:cinchstyle.com` entitlement is host-scoped and already in build-47 source), `web/vercel.json` rewrites it, `web/api/open.js` answers for anyone without the app. Email half built: 29 personalised notes, two cohorts, one CTA at `https://cinchstyle.com/closet`, seeds delivered 12:07Z. **Live site still 404s on `/closet` and the live AASA still claims only `/i/*`.** Falsification of the 09-02 zero re-run 09-03 12:0xZ: 27 of the 29 recipients resolve as PostHog `distinct_id`s, 2894 events historically, **max timestamp 09-02 06:59:20Z — before the 14:00Z send.** Still 0 of 29 at 15h. |
+| **A37** | 09-03 | **`APP_LIVE` is not set in Vercel — every invite tap lands on a waitlist** | OPS (env) | The referral loop's CTA reaches the App Store instead of `/#waitlist` | **new — found while building A32, and it is the cheapest fix on this list** | `web/api/invite.js:56` gates the store link behind `process.env.APP_LIVE === '1'`. Fetched 09-03 with an iPhone UA, live `/i/<handle>` renders **"Join the list" → `cinchstyle.com/#waitlist`** while `itunes.apple.com/lookup?id=6798479578` returns `resultCount: 1`. A23 wants more invites; those invites have been pointing at a waitlist the whole time. |
+| **A38** | 09-03 | **No universal link has ever been verified opening the app on a real device** | OPS (5 minutes, one phone) | `/i/*` and `/closet` proven live, or the provisioning-profile gap found | **new — this is what makes A32 unprovable** | Entitlement, AASA, parser and routing are all source-verified and were in the build-47 source, but no doc records a real iPhone opening any `cinchstyle.com` link into the app. `invite_opened` (3 events / 3 persons / 60d) does not discriminate — it fires for the `cinch://` scheme and the landing-page re-tap too. `docs/design/www-redirect-directive.md:60-80` documents exactly how this fails silently on both halves. |
+| **A39** | 09-03 | **All three HTML templates overflow a 375px viewport** | OPS (copy) | Email renders inside the phone it is read on | **new — `reengage.html` fixed, the other three are not** | `dispatch.html`, `release.html` and `welcome.html` set `width="600"` with only `max-width:520px` and no `width:100%`, so the card is 520px wide on a 375px phone. Rendered and screenshotted 09-03 at 375×812. **Dispatch No. 01 was sent that way to 23 people on 09-01.** |
 
 ## Audit ship 2026-09-03 (engineering session, read after the 09-02 nightly)
 
@@ -117,6 +121,30 @@ hidden while the circle is empty (Invite lives in the ellipsis sheet), Reveal nu
 "Choose/Chosen" wording, the partner shelf stays ungated (founder-curated merchants), the QA closets need
 re-seeding under their own storage prefixes (service-role task). Marketing items 65–69 are assets/copy for the
 founder; only #39 (welcome line) was code.
+
+## Audit ship 3 — "like your closet" (2026-09-03 ~12:30Z)
+
+Founder question answered NO and fixed: the Explore shelf had matched only the KIND of garment and the
+closet's colours. `src/features/explore/closet-affinity.ts` (commit 0ed4df4; partner veto 30f86f0) now folds
+the wardrobe on the device into a profile — department (women / men / unisex, inferred from garments coded one
+way in retail, confident only on lopsided evidence, or from `profiles.gender_presentation` when set — it is
+null for all 51 today), mean formality, print share, fabrics, brands, palette — and scores every family
+from the merchant's own words (weights: gender .30 · formality .25 · palette .20 · fabric .10 · pattern .10 ·
+brand .05). A confident department mismatch is dropped; everything else is an order. The browse request is
+unchanged (nothing about the closet travels). The title veto now applies to partner rows too: CICYBELL's
+catalogue holds **428 concealed-carry bags** and one reached Explore as a "Backpack" on the boot-gate build.
+
+| runtime | OTA |
+|---|---|
+| 4e646ba0 (store) | `01a06727-4318-75bb-915b-4317e3f39dc1` |
+| c5f00773 | `01a06729-90fd-7fb4-a470-744bae5cb2ca` |
+| 813c6d34 | `01a0672b-c42f-77f9-8a11-4952e61e145f` |
+| ccfa8345 | `01a0672d-b95c-7fdb-9609-7ee88b0dba95` |
+
+All four manifest-verified. Device receipt of the overnight ship is now PROVEN on two fleets (b45 → 01a0657f
+at 10:00Z, b47 → 01a0657b at 04:54Z). Effect metric for the ranking: `explore_shop_product_opened` per
+`explore_shop_feed_loaded` (was 0 / 39 lifetime). No store build was needed at any point — every change was
+JS, edge function or database; the native fingerprint is still 4e646ba0.
 
 ## Predictions being scored
 
