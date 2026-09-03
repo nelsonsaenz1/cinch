@@ -488,6 +488,7 @@ export const NON_APPAREL_TITLE_WORDS: readonly string[] = [
   'knives',
   'taser',
   'pepper',
+  'concealed',
 ];
 
 /** Fold accents so "Décor" and "Decor" are one word (verification, UX-9). */
@@ -570,6 +571,12 @@ export function fashionCategoryLabel(category: string | null): string | null {
  * enough, which is the whole point — the shelf would rather be short than be
  * a hardware aisle.
  */
+/** An object nobody wears, anywhere in a title — the veto every shelf applies. */
+export function titleVetoed(title: string): boolean {
+  const words = wordsOf(title);
+  return NON_APPAREL_TITLE_WORDS.some((word) => containsWord(words, word));
+}
+
 export function isConfidentFashion(
   family: Pick<CatalogueFamily, 'title' | 'category' | 'productClass'>,
   slot: ShopFeedSlot,
@@ -784,6 +791,11 @@ export function partnerShelfCards(
   // confident department mismatch is dropped here too.
   for (const item of rankByAffinity(items, profile)) {
     if (!item.imageUrl || !item.pageUrl) continue;
+    // Curated merchants are not put through the category gate, but the
+    // title veto applies to everything a shelf can draw: the chosen
+    // fashion merchant's own catalogue holds 428 concealed-carry bags, and
+    // one reached Explore as a "Backpack" (2026-09-03).
+    if (titleVetoed(item.title)) continue;
     const slot = (item.slot ?? '') as ShopFeedSlot;
     const label = SLOT_LABEL[slot] ?? null;
     const title = isUsableTitle(item.title) ? item.title.trim() : label;

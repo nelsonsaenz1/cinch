@@ -342,6 +342,7 @@ export const NON_APPAREL_TITLE_WORDS: readonly string[] = [
   'knives',
   'taser',
   'pepper',
+  'concealed',
 ];
 
 /** Fold accents so "Décor" and "Decor" are one word (verification, UX-9). */
@@ -400,6 +401,12 @@ const HARD_NON_FASHION_WORDS: readonly string[] = [
  * on the same terms as every other kind, because the category grid in intake
  * reads this same browse and somebody adding a necklace is not shopping.
  */
+/** An object nobody wears, anywhere in a title — applied to partner rows too. */
+export function titleVetoed(title: string): boolean {
+  const words = wordsOf(title);
+  return NON_APPAREL_TITLE_WORDS.some((word) => containsWord(words, word));
+}
+
 export function isFashionFamily(family: GateableFamily, slot: BrowsableSlot): boolean {
   const verdict = categoryVerdict(family.category);
   if (verdict === 'non-fashion') return false;

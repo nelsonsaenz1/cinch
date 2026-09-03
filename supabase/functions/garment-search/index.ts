@@ -47,7 +47,7 @@ import {
 } from './import-batch.ts';
 import { parseQuery } from '../_shared/catalog-query.ts';
 import { BROWSE_TERM } from '../_shared/browse-slots.ts';
-import { isFashionFamily } from './fashion-gate.ts';
+import { isFashionFamily, titleVetoed } from './fashion-gate.ts';
 import { openRouterWebProvider } from './provider.ts';
 
 /**
@@ -812,6 +812,10 @@ async function partnerFeed(admin: SupabaseClient<Database>): Promise<Response> {
     const items: PartnerFeedItem[] = [];
     for (const row of rows ?? []) {
       if (!row.image_url || !row.product_url || !row.title) continue;
+      // The title veto applies to curated merchants too: the chosen fashion
+      // merchant's own catalogue holds hundreds of concealed-carry bags, and
+      // one reached Explore as a "Backpack" (2026-09-03).
+      if (titleVetoed(row.title)) continue;
       let pageUrl: string;
       try {
         pageUrl = trackingUrl('awin', merchant.external_id, row.product_url, ids);

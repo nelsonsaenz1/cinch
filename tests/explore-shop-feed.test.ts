@@ -526,3 +526,11 @@ test('weapon carry is not a bag, whatever the category says', () => {
   }
   assert.equal(categoryVerdict('Sporting Goods > Tactical > Holsters'), 'non-fashion');
 });
+
+test('partner rows keep their curation but not a weapon: the title veto applies to every shelf', () => {
+  const rows = [
+    { key: 'a', title: 'Concealed Carry Crossbody Purse', brand: 'Jessie & James', merchant: 'CICYBELL', imageUrl: 'https://i/a.jpg', pageUrl: 'https://p/a', slot: 'bag' },
+    { key: 'b', title: 'Leather Crossbody Bag', brand: 'CicyBell', merchant: 'CICYBELL', imageUrl: 'https://i/b.jpg', pageUrl: 'https://p/b', slot: 'bag' },
+  ];
+  assert.deepEqual(partnerShelfCards(rows).map((c) => c.key), ['partner:b']);
+});
