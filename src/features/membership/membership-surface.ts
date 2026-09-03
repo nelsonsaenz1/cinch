@@ -68,6 +68,8 @@ export type MembershipSurfaceKind = 'reading' | 'unconfirmed' | 'paid' | 'triali
 export type MembershipSurfaceInput = {
   readonly plan: Plan;
   readonly paid: boolean;
+  /** `PlanState.ownedPlan` — the tier owned, never the folded maximum. */
+  readonly ownedPlan?: Plan;
   readonly trialing: boolean;
   readonly trialEndsAt: Date | null;
   readonly currentPeriodEnd: Date | null;
@@ -110,7 +112,7 @@ export type MembershipSurface = {
 export function membershipSurface(input: MembershipSurfaceInput): MembershipSurface {
   const base = {
     plan: input.plan,
-    owned: input.paid ? input.plan : 'free',
+    owned: input.paid ? (input.ownedPlan ?? input.plan) : 'free',
     copy: PLANS[input.plan],
     manageable: false,
     comparison: false,
@@ -250,9 +252,13 @@ export function upgradeSurface(input: MembershipSurfaceInput): {
         // so it waits rather than guessing which of the three it is looking at.
         'reading'
       : surface.kind === 'paid'
-        ? surface.upgradable
-          ? 'delta'
-          : 'at-top'
+        ? // "Already on Pro" is a fact about what is OWNED — a trial folded up
+          // to Pro over a Standard purchase still has Pro to buy (V2-5).
+          surface.upgradable && surface.owned !== 'pro'
+            ? 'delta'
+            : surface.owned === 'pro'
+              ? 'at-top'
+              : 'delta'
         : 'plans';
 
   return {

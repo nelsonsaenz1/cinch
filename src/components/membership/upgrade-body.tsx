@@ -98,6 +98,8 @@ export type UpgradeBodyProps = {
   plan: Plan;
   /** A live subscription, as against access. `usePlan().paid`, unmodified. */
   paid: boolean;
+  /** `PlanState.ownedPlan`; defaults to `plan` for fixtures that predate it. */
+  ownedPlan?: Plan;
   trialing: boolean;
   trialEndsAt: Date | null;
   /** The vendor sheet is being summoned. Both controls lock. */
@@ -116,6 +118,7 @@ export function UpgradeBody(props: UpgradeBodyProps) {
   const surface = upgradeSurface({
     plan,
     paid: props.paid,
+    ownedPlan: props.ownedPlan ?? props.plan,
     trialing: props.trialing,
     trialEndsAt: props.trialEndsAt,
     currentPeriodEnd: null,

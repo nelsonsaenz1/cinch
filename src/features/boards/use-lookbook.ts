@@ -50,6 +50,7 @@ export function useLookbook() {
      * skeletons — the page would blink every time a plate is kept.
      */
     loading: plates.isLoading || boards.isLoading,
+    fetching: plates.isFetching || boards.isFetching,
     /**
      * Either query failing is a failure of the page. Half a lookbook — plates
      * with no board names, or chips with no plates — is a screen that states

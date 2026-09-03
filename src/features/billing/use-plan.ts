@@ -54,6 +54,14 @@ export interface PlanState {
    */
   readonly paid: boolean;
   /**
+   * The tier the account OWNS — the paid row's plan (or the StoreKit
+   * entitlement's) when `paid`, else 'free'. NOT the folded `plan`: the fold
+   * takes the max of a trial and a purchase, so a gifted-trial account that
+   * buys Standard reads `plan: 'pro'` while it owns Standard (verification,
+   * V2-5). Comparisons, receipts and "already on Pro" read this.
+   */
+  readonly ownedPlan: Plan;
+  /**
    * When the current billing period renews — MB-06's Renews row.
    *
    * NULL UNTIL THE WEBHOOK FILLS IT (`supabase/functions/superwall-webhook`),
@@ -201,6 +209,8 @@ export function usePlan(): PlanState {
   // lifting a free row to `pro` contributes nothing here, which is the
   // distinction the whole field exists for.
   const paid = (rowPlan !== 'free' && !paidLapsed) || sdkPlan !== null;
+  const ownedPlan: Plan =
+    rowPlan !== 'free' && !paidLapsed ? rowPlan : sdkPlan !== null ? sdkPlan : 'free';
 
   return {
     plan,
@@ -208,6 +218,7 @@ export function usePlan(): PlanState {
     trialing,
     trialEndsAt,
     paid,
+    ownedPlan,
     // Unconditional on `trialing` because there is only one kind of server
     // trial left — see the field's own note. When (if) StoreKit intro offers
     // ever write trials of their own, this is the line that learns to tell

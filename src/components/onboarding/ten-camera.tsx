@@ -220,8 +220,14 @@ export function TenCamera({
     }
   }, [live, cameraReady, commitGuarded, takePhoto]);
 
+  // A Library entry that came back with nothing. Until then the ask is
+  // skipped for that door (the picker needs no permission); after it the
+  // reader would be looking at a viewfinder with a dead shutter and no route
+  // to the system prompt (verification, UX-22) — so the ask card takes over.
+  const [libraryDismissed, setLibraryDismissed] = useState(false);
   const library = useCallback(() => {
     void pickFromLibrary().then((assets) => {
+      if (assets.length === 0) setLibraryDismissed(true);
       commitGuarded(assets);
     });
   }, [pickFromLibrary, commitGuarded]);
@@ -274,7 +280,7 @@ export function TenCamera({
   // `start === 'library'` never reaches here: the effect above auto-picks the
   // library on mount and this component never opens a viewfinder for that
   // door, so there is nothing to ask permission for.
-  if (access === 'unasked' && start !== 'library') {
+  if (access === 'unasked' && (start !== 'library' || libraryDismissed)) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas">
         <StatusBar style="dark" />

@@ -77,15 +77,19 @@ export function useBoundedLoad({
   const retry = useCallback(() => {
     setExpired(false);
     setAttempt((n) => n + 1);
-    // A read that is still out is left alone — `refetch()` would cancel it
-    // and restart the wait from zero. The clock is what restarts.
-    if (fetching && !error) return;
+    // The FIRST tap on a read that is still out leaves it alone — `refetch()`
+    // would cancel it and restart the wait from zero; the clock restarts
+    // instead. A second tap, with the read still not back, re-issues it: by
+    // then the socket is more likely dead than slow (verification, V2-6).
+    if (fetching && !error && attempt === 0) return;
     onRetry?.();
-  }, [onRetry, fetching, error]);
+  }, [onRetry, fetching, error, attempt]);
 
+  // An error whose retry is out keeps its page (the button reads "Trying…")
+  // until the clock runs out, then becomes a timeout the reader can act on.
   const state = boundedState({
-    loading: loading || retryOut,
-    error: error && !fetching,
+    loading: loading || (retryOut && expired),
+    error: error && !(retryOut && expired),
     empty,
     expired,
   });

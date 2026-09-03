@@ -51,6 +51,7 @@ export default function SavedScreen() {
    */
   const load = useBoundedLoad({
     loading: lookbook.loading,
+    fetching: lookbook.fetching,
     error: lookbook.error,
     retrying: lookbook.retrying,
     onRetry: lookbook.refetch,

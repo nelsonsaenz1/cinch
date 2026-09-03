@@ -117,6 +117,8 @@ export type MembershipBodyProps = {
    * is not the same question.
    */
   paid: boolean;
+  /** `PlanState.ownedPlan`; defaults to `plan` for fixtures that predate it. */
+  ownedPlan?: Plan;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
 
@@ -167,6 +169,7 @@ export function MembershipBody(props: MembershipBodyProps) {
   const surface = membershipSurface({
     plan,
     paid: props.paid,
+    ownedPlan: props.ownedPlan ?? props.plan,
     trialing: props.trialing,
     trialEndsAt: props.trialEndsAt,
     currentPeriodEnd: props.currentPeriodEnd,

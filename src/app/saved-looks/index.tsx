@@ -126,9 +126,10 @@ export default function SavedLooksScreen() {
     () =>
       resolveSavedListState({
         loading: load.state === 'skeleton',
-        // The screen's own `error` state only — a timeout is a wait, not a
-        // failure, and `saved_state_shown` counts failures (verification, UX-32).
-        failed: load.state === 'error',
+        // A timeout IS a failed list for the screen (the timed-out copy
+        // needs the error branch to draw); analytics below keeps it out of
+        // the error count (verification, UX-32, V2-2).
+        failed: load.failed,
         // Offline only counts as offline once the read has actually failed or
         // is empty; a successful read over a connection the device believes is
         // down is still a successful read, and banners it does not need are
@@ -136,7 +137,7 @@ export default function SavedLooksScreen() {
         offline: !online && (saves.isError || rows.length > 0),
         saves: rows,
       }),
-    [load.state, saves.isError, online, rows],
+    [load.state, load.failed, saves.isError, online, rows],
   );
 
   const counts = useMemo(() => collectionCounts(rows), [rows]);
@@ -184,8 +185,8 @@ export default function SavedLooksScreen() {
   useEffect(() => {
     if (state.kind === 'loading') track(SAVED_EVENTS.stateShown, stateShownProps('loading'));
     if (state.kind === 'offline') track(SAVED_EVENTS.stateShown, stateShownProps('offline'));
-    if (state.kind === 'error') track(SAVED_EVENTS.stateShown, stateShownProps('error'));
-  }, [state.kind]);
+    if (state.kind === 'error' && !load.timedOut) track(SAVED_EVENTS.stateShown, stateShownProps('error'));
+  }, [state.kind, load.timedOut]);
 
   const refresh = useCallback(() => {
     void saves.refetch();

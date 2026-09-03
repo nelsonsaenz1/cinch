@@ -66,6 +66,7 @@ export default function BoardScreen() {
    */
   const load = useBoundedLoad({
     loading: lookbook.loading,
+    fetching: lookbook.fetching,
     error: lookbook.error,
     retrying: lookbook.retrying,
     onRetry: lookbook.refetch,

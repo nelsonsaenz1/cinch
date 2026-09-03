@@ -475,14 +475,17 @@ test('the client gate and the Edge Function gate hold the same words', () => {
   assert.match(index, /nearMiss\.filter\(\(f\) => isFashionFamily\(f, request\.slot\)\)/);
 });
 
-test('a title that names a garment must be that garment — the head noun rules', () => {
-  // Found live 2026-09-03: a shoe rack on the shelf, labelled "Shoes" because
-  // its category said shoes and its title's veto word was not in the list.
+test('an object nobody wears is refused wherever it sits in the title', () => {
+  // Found live 2026-09-03: a "Rotating Shoe Rack Tower" reached the shelf
+  // labelled "Shoes". A head-noun rule fixed it and broke every "Chelsea
+  // Boots Black Leather" (verification, V2-3); the rule is the veto list,
+  // anywhere in the title, plural-aware.
   for (const title of [
     'Rotating Shoe Rack Tower',
-    'Shoe Care Kit',
+    'Shoe Care Kit Stand',
     'Sock Ornaments Set',
     'Canvas Tote for Laptop',
+    'Water Bottles 3-Pack',
   ]) {
     assert.equal(
       isConfidentFashion({ title, productClass: 'footwear', category: 'Shoes' }, 'footwear'),
@@ -490,12 +493,25 @@ test('a title that names a garment must be that garment — the head noun rules'
       title,
     );
   }
-  // …while trailing colours, sizes and pack words are not the head noun.
-  for (const title of ['Chelsea Boot Black', 'Silk Blouse in Navy', 'Merino Sweater - Oatmeal, M']) {
+  for (const title of [
+    'Chelsea Boots Black Leather',
+    'Denim Jacket Mid Wash',
+    'Merino Sweater Crew Neck',
+    'Silk Scarf 90cm',
+    'Bottle Green Merino Coat',
+    'Magnet Buckle Leather Belt',
+  ]) {
     assert.equal(
       isConfidentFashion({ title, productClass: 'footwear', category: 'Shoes' }, 'footwear'),
       true,
       title,
     );
   }
+});
+
+test('pet clothes are pet supplies, whatever the breadcrumb says', () => {
+  assert.equal(categoryVerdict('Pet Supplies > Dog Apparel'), 'non-fashion');
+  assert.equal(categoryVerdict('Kitchen & Chef Apparel'), 'fashion');
+  assert.equal(categoryVerdict('House of Sunny'), 'unknown');
+  assert.equal(categoryVerdict('Home & Away Collection'), 'fashion');
 });

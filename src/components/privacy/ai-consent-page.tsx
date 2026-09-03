@@ -138,8 +138,8 @@ export function AiConsentPage({
     ? 'Reading your setting…'
     : granted
       ? grantedAt
-        ? `You agreed to this on ${fullDate(grantedAt)}. The wording below is the same wording you saw then.`
-        : 'You have agreed to this. The wording below is the same wording you saw.'
+        ? `You agreed to this on ${fullDate(grantedAt)}. A short summary first; the exact wording you saw then follows it, unchanged.`
+        : 'You have agreed to this. A short summary first; the exact wording you saw follows it, unchanged.'
       : revokedAt
         ? `You have not given this. Nothing has been sent since you withdrew it on ${fullDate(revokedAt)}. Here is what it would cover.`
         : 'You have not given this, so nothing is being sent. Here is what it would cover.';

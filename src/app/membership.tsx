@@ -112,6 +112,7 @@ export default function MembershipScreen() {
       copy={plan.copy}
       trialing={plan.trialing}
       paid={plan.paid}
+      ownedPlan={plan.ownedPlan}
       trialEndsAt={plan.trialEndsAt}
       currentPeriodEnd={plan.currentPeriodEnd}
       // `useCapacity` returns 0 while its count is in flight, which is a claim

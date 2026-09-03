@@ -52,6 +52,7 @@ export default function MembershipUpgradeScreen() {
       unconfirmed={plan.unconfirmed}
       plan={plan.plan}
       paid={plan.paid}
+      ownedPlan={plan.ownedPlan}
       trialing={plan.trialing}
       trialEndsAt={plan.trialEndsAt}
       opening={opening}

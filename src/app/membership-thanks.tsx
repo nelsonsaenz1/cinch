@@ -102,7 +102,7 @@ export default function MembershipThanksScreen() {
           verified={verified}
           loading={plan.loading}
           planKnown={planKnown}
-          planName={`Cinch ${PLANS[plan.plan].name}`}
+          planName={`Cinch ${PLANS[plan.ownedPlan].name}`}
           renewsOn={
             plan.currentPeriodEnd
               ? plan.currentPeriodEnd.toLocaleDateString(undefined, {
