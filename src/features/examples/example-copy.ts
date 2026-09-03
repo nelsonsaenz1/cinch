@@ -209,6 +209,17 @@ export const PL_C1 = {
  */
 export const PL_C2 = {
   title: 'Events with looks',
+  /**
+   * AUDIT 100 #63. The badge and the caption already said this was fiction
+   * twice — `ExampleCard`'s own "Example" badge, then this line — but the
+   * badge itself was the generic word alone, at eyebrow scale, next to two
+   * fully-detailed occasions with named people, real-reading dates and
+   * venues. `badgeSuffix` is the same mechanism PR-C1 already uses for
+   * exactly this ("not a real person"); the events get their own version so
+   * the badge itself — not only the caption beneath the card — says
+   * unmistakably that a signed-in reader is looking at fiction.
+   */
+  badgeSuffix: 'not a real event',
   caption: 'Example events and people. None of these are real.',
   events: [
     {

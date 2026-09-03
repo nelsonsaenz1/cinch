@@ -133,25 +133,28 @@ export const CREATE = {
   actionSpoken: 'Create group',
   cancel: 'Cancel',
   /**
-   * PC-02's second half: the three facts, in a card, before anybody commits.
+   * PC-02's second half: what a group IS, before anybody commits — and only
+   * that. Audit 100 #57 caught this card repeating platform rules the reader
+   * has no use for yet: the shipped three lines named the member cap, the
+   * mutual-friend gate, AND the owner's removal/delete authority, all before
+   * a single person has been invited. Ownership policy is a fact about
+   * MANAGING a group, and it is stated there, in `MANAGE.ownerTitle`'s
+   * subtitle and the remove/delete controls themselves — repeating it here
+   * is the redundant platform-rules recital the finding names, not a second
+   * disclosure the reader needs. What is left is the two facts that explain
+   * why the box above behaves the way it does: how big a group can get, and
+   * who can end up in it.
    *
-   * ── ONE DEVIATION FROM THE FRAME, AND IT IS DELIBERATE ─────────────────────
+   * ── THE EARLIER DEVIATION FROM THE FRAME STAYS DEVIATED ─────────────────
    *
-   * The atlas's third line reads "You own it. You can rename, remove, or delete
-   * it." Renaming has no surface in the shipped app — `useRenameCircle` is
-   * wired to nothing, by the accepted record's own decision — so printing the
-   * word here would be the create screen promising a control the owner then
-   * cannot find. The clause is dropped rather than the line, because the other
-   * two facts (ownership, and the two things an owner really can do) are the
-   * ones that make the following screens legible. Restore the word in the same
-   * commit that ships the rename surface, and not before.
+   * The atlas's own third line read "You own it. You can rename, remove, or
+   * delete it." Renaming has no surface in the shipped app —
+   * `useRenameCircle` is wired to nothing, by the accepted record's own
+   * decision — so that clause was already dropped before this pass; #57 is
+   * why the rest of the line goes with it rather than staying trimmed.
    */
   aboutHeading: 'What a group is',
-  about: [
-    'Two to twelve people.',
-    'Only friends you both added can be invited.',
-    'You own it. You can remove people, or delete it.',
-  ],
+  about: ['Two to twelve people.', 'Only friends you both added can be invited.'],
 } as const;
 
 // ---------------------------------------------------------------------------

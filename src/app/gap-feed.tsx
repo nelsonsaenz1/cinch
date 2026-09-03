@@ -164,23 +164,16 @@ export default function GapFeedScreen() {
               gloss
               onPress={() => openDetail(gain.kind)}
               footer={
-                // The limit is stated ONCE, on the leading card, and it takes
-                // the tray footer that would otherwise hold merchants: a screen
-                // that cannot accept a new piece has no business leading with
-                // where to buy one.
-                ceiling ? (
-                  <GapLimitFooter
-                    ceiling={ceiling}
-                    used={ceiling === 'active' ? model.capacity.used : model.capacity.stored}
-                    limit={ceiling === 'active' ? model.capacity.limit : model.capacity.storedLimit}
-                    onChooseToStore={
-                      ceiling === 'active'
-                        ? () => router.push(`/wall-swap?add=${gain.kind}`)
-                        : undefined
-                    }
-                    onSeeStored={() => router.push('/storage')}
-                  />
-                ) : (
+                // AUDIT 100 #31. The capacity notice no longer takes this
+                // slot: a full multi-paragraph panel with two buttons, inset
+                // inside the card that is also leading with the gap and its
+                // arithmetic, pushed everything below it — the second and
+                // third gaps included — out of the first screenful. A screen
+                // that cannot accept a new piece still has no business
+                // leading with where to buy one, so the merchant tray is
+                // still withheld at the ceiling; the capacity explanation
+                // itself moves to its own card below the ranked gaps.
+                ceiling ? undefined : (
                   <GapShopFooter
                     slot={SLOT_FOR_GAP_KIND[gain.kind]}
                     onOpenProduct={(product) => setSheet({ product, gain })}
@@ -205,6 +198,31 @@ export default function GapFeedScreen() {
 
         {model.dominant ? (
           <DominantFootnote label={gapLabelLower(model.tally, nextWeakestKind(model))} />
+        ) : null}
+
+        {/*
+          AUDIT 100 #31 — the capacity notice, now a SECONDARY card rather
+          than the leading card's own footer. It still says everything it
+          said before (the exact figures, both remedies), but a reader now
+          reaches the gap and its quantified benefit first and finds this
+          explanation after the ranked list rather than before it. It is
+          drawn once, still keyed to whichever gap is leading, because
+          `router.push(/wall-swap?add=...)` needs a kind to pre-select.
+        */}
+        {ceiling ? (
+          <View className="overflow-hidden bg-tray" style={{ borderRadius: CARD.radius }}>
+            <GapLimitFooter
+              ceiling={ceiling}
+              used={ceiling === 'active' ? model.capacity.used : model.capacity.stored}
+              limit={ceiling === 'active' ? model.capacity.limit : model.capacity.storedLimit}
+              onChooseToStore={
+                ceiling === 'active'
+                  ? () => router.push(`/wall-swap?add=${cards[0].kind}`)
+                  : undefined
+              }
+              onSeeStored={() => router.push('/storage')}
+            />
+          </View>
         ) : null}
       </View>
     );

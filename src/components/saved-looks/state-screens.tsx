@@ -58,15 +58,25 @@ export function SavedEmptyState() {
     <View className="flex-1">
       <EmptyState symbol={EMPTY.symbol} title={EMPTY.title} body={EMPTY.body} />
       <View className="px-gutter pb-8">
+        {/*
+          AUDIT 100 #29. This used to sit in a `bg-tray` chip, `rounded-md`,
+          padded like a control, with the label in `text-accent` — which is
+          exactly what a disabled button looks like in this design language,
+          and the hint is not a button: it does nothing on tap, and there is
+          no affordance here to press. It is instructional copy pointing at a
+          control that lives on a different screen, so it is drawn as plain
+          caption text with the glyph it is captioning — no fill, no accent
+          ink, nothing that invites a tap that would not do anything.
+        */}
         <View
-          className="flex-row items-center gap-2 self-start rounded-md bg-tray px-4 py-3"
+          className="flex-row items-center gap-2 self-start"
           // One stop, one sentence: the glyph is the thing being described, so
           // it is part of the label rather than a second element to swipe to.
           accessible
           accessibilityRole="text"
           accessibilityLabel={`${EMPTY.hint}. A bookmark.`}>
-          <SymbolView name="bookmark.fill" size={15} tintColor={theme.accent} />
-          <Text variant="label" className="text-accent">
+          <SymbolView name="bookmark.fill" size={14} tintColor={theme.muted} />
+          <Text variant="note" className="text-muted">
             {EMPTY.hint}
           </Text>
         </View>

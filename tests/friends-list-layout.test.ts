@@ -393,7 +393,7 @@ test('every door on the page leads where it always did', () => {
 
 test('the invite footer is a designed card and routes to page 10', () => {
   assert.equal(INVITE_TITLE, 'Invite a friend');
-  assert.equal(INVITE_MUTUAL_NOTE, 'Cinch only shows people you’re both friends with.');
+  assert.equal(INVITE_MUTUAL_NOTE, 'Cinch only shows mutual friends — people who follow you back.');
   assert.match(PAGE, /function InviteFooter/);
   assert.match(PAGE, /accessibilityHint="Opens your invite link"/);
 });
@@ -409,7 +409,7 @@ test('the free-plan note carries no price, no trial and no upgrade button', () =
 
 test('the empty circle offers two honest routes and no stranger suggestions', () => {
   assert.equal(NOBODY_YET_TITLE, 'Nobody here yet');
-  assert.match(NOBODY_YET_BODY, /only ever shows people you’re both friends with/);
+  assert.match(NOBODY_YET_BODY, /only shows mutual friends/);
   assert.doesNotMatch(PAGE, /contacts|address book|suggested|people you may know/i);
 });
 

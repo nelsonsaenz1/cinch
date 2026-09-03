@@ -73,20 +73,22 @@ export const SCREEN_STATE_OWNS_GUTTER = ['no_groups', 'offline'] as const;
  */
 export function NoGroupsState({ onCreate }: { onCreate: () => void }) {
   return (
-    <View className="flex-1">
+    <View>
       {/*
-        The explanation is the centred block and the action is NOT part of it —
-        which is PC-01's own composition, and the reason is legibility rather
-        than taste. The frame floats "No groups yet." with its body in the
-        middle of the page and pins the oxblood Create with its footnote to the
-        foot, so the two sentences that describe the thing are read together and
-        the commitment sits under the thumb with the promise about
-        discoverability attached to it. `EmptyState` renders its own action
-        directly beneath the body; here it is asked for the composition only.
+        AUDIT 100 #28. This used to be `flex-1 justify-center` — the
+        explanation dead-centred in whatever height the screen happened to
+        have, with the button pinned to the very foot below it. On a
+        Pro-sized phone with a short "No groups yet." body, that reads as a
+        wall of empty canvas: the reader lands on a nearly blank page. The
+        block now sits where a reader's eye already is, right under the
+        masthead, and the button follows immediately after it rather than
+        anchoring to the bottom safe area. `compact` drops `EmptyState`'s own
+        flex-centring; the action stays this screen's own so it can keep the
+        primary/oxblood treatment `EmptyState`'s ink default would not give it.
       */}
-      <EmptyState symbol={NO_GROUPS.symbol} title={NO_GROUPS.title} body={NO_GROUPS.body} />
+      <EmptyState symbol={NO_GROUPS.symbol} title={NO_GROUPS.title} body={NO_GROUPS.body} compact />
 
-      <View className="px-gutter pb-2">
+      <View className="px-gutter">
         {/*
           `primary`, not `EmptyState`'s ink default. The house rule is one
           oxblood commitment per screen and empty-state ways forward are
@@ -100,7 +102,7 @@ export function NoGroupsState({ onCreate }: { onCreate: () => void }) {
           onPress={onCreate}
           haptic
           accessibilityLabel={NO_GROUPS.action}
-          className="self-stretch"
+          className="mt-2 self-stretch"
         />
         {/* Centred under the button, where the frame sets it: it is a caption
             on the act, not a paragraph of the page. */}

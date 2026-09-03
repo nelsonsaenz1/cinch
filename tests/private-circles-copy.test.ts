@@ -327,20 +327,25 @@ test('PC-01 is transcribed exactly', () => {
   );
 });
 
-test('PC-02 is transcribed exactly, minus the one clause the app cannot keep', () => {
+test('PC-02 is transcribed exactly, minus the clauses that belong on management instead', () => {
   assert.equal(CREATE.title, 'New group');
   assert.equal(CREATE.fieldLabel, 'Name');
   assert.equal(CREATE.helper, 'Only members see this name.');
   assert.equal(CREATE.action, 'Create');
   assert.equal(CREATE.aboutHeading, 'What a group is');
+  assert.equal(CREATE.about.length, 2);
   assert.equal(CREATE.about[0], 'Two to twelve people.');
   assert.equal(CREATE.about[1], 'Only friends you both added can be invited.');
-  // The frame's third line offers renaming. `useRenameCircle` is wired to no
-  // surface, so the word is dropped rather than printed as a promise the owner
-  // then cannot find a control for. THIS ASSERTION IS THE REMINDER: restoring
-  // the word and restoring the surface are one commit.
+  // The frame's third line offered renaming. `useRenameCircle` is wired to no
+  // surface, so the word was already dropped rather than printed as a promise
+  // the owner then cannot find a control for.
   assert.doesNotMatch(CREATE.about.join(' '), /renam/i);
-  assert.match(CREATE.about[2], /^You own it\./);
+  // Audit 100 #57: the create screen was reciting platform rules — cap,
+  // mutual-friend gate, AND ownership/removal authority — before the reader
+  // has made anything. Ownership and removal are facts about MANAGING a
+  // group, stated on that surface instead (`MANAGE.ownerTitle` and its
+  // remove/delete controls), so the create card no longer carries them.
+  assert.doesNotMatch(CREATE.about.join(' '), /own it|remove|delete/i);
 });
 
 test('PC-03 is transcribed exactly, and the send button counts', () => {

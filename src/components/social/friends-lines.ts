@@ -233,8 +233,8 @@ export const OFFLINE_BODY =
 
 export const NOBODY_YET_TITLE = 'Nobody here yet';
 export const NOBODY_YET_BODY =
-  'Cinch only ever shows people you’re both friends with. Find someone you already know, or ' +
-  'send them an invitation.';
+  'Cinch only shows mutual friends — people who follow you back. Find someone you already know, ' +
+  'or send them an invitation.';
 export const FIND_SOMEONE = 'Find someone';
 
 // ── Search ─────────────────────────────────────────────────────────────────
@@ -262,7 +262,7 @@ export const BLOCKED_RESULT_LINE =
 export const MANAGE_BLOCKED = 'Manage blocked';
 
 export const INVITE_TITLE = 'Invite a friend';
-export const INVITE_MUTUAL_NOTE = 'Cinch only shows people you’re both friends with.';
+export const INVITE_MUTUAL_NOTE = 'Cinch only shows mutual friends — people who follow you back.';
 export const INVITE_BETTER_NOTE = 'Cinch is better with a few of yours in it.';
 export const INVITE_LINK_NOTE = 'Send a link — they choose whether to accept.';
 export const SHARE_YOUR_LINK = 'Share your link';

@@ -100,7 +100,11 @@ export function ExampleEvents() {
   const theme = useTheme();
   return (
     <View className="px-gutter pb-8 pt-3">
-      <ExampleCard id="PL-C2" title={PL_C2.title} caption={PL_C2.caption}>
+      <ExampleCard
+        id="PL-C2"
+        title={PL_C2.title}
+        caption={PL_C2.caption}
+        badgeSuffix={PL_C2.badgeSuffix}>
         {PL_C2.events.map((event, i) => (
           <View
             key={event.name}

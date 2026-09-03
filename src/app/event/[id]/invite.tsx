@@ -192,13 +192,23 @@ export default function InviteScreen() {
           ) : null}
         </View>
 
+        {/*
+          AUDIT 100 #58. This used to run a multi-line explanation, TWO
+          actions that both landed on `/friends` under different labels
+          ("Add a friend" and "Share your username"), and a footer about
+          contacts and link-sharing that nobody asked at this moment — four
+          things stacked over one recovery. What is worth saying here is the
+          reason ("invitations go to friends") and one way to fix it; the
+          rest was either a duplicate control or detail that belongs where
+          somebody is actually wondering about it, not printed under every
+          empty invite list.
+        */}
         <View className="flex-1 items-center justify-center px-10">
           <Text variant="title" trim className="text-center">
             Nobody to invite yet
           </Text>
           <Text variant="body" className="mt-2.5 text-center" style={{ color: theme.muted }}>
-            Invitations go to friends on Cinch. Add someone by their username, and once they add
-            you back you can put them on the list.
+            Invitations go to friends on Cinch.
           </Text>
           <Button
             title="Add a friend"
@@ -207,25 +217,7 @@ export default function InviteScreen() {
             className="mt-5"
             onPress={() => router.push('/friends')}
           />
-          <Pressable
-            onPress={() => router.push('/friends')}
-            hitSlop={8}
-            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-            className="mt-3.5 active:opacity-60">
-            <Text variant="label" style={{ color: theme.accent }}>
-              Share your username
-            </Text>
-          </Pressable>
         </View>
-
-        {/* `caption` already carries `text-muted` — real content, not
- `faint`, which fails AA on canvas. */}
-        <Text
-          variant="noteSmall"
-          className="px-10 text-center"
-          style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
-          Cinch doesn’t read your contacts, and an occasion can’t be shared as a link.
-        </Text>
       </SafeAreaView>
     );
   }

@@ -68,7 +68,17 @@ export function BoardPage({
   now,
 }: BoardPageProps) {
   const { width } = useWindowDimensions();
-  const column = Math.floor((width - GUTTER * 2 - COLUMN_GAP) / 2);
+  // AUDIT 100 #61. The `- 2` is the card's own hairline border, and it is
+  // load-bearing — `saved-page.tsx` (KP-01/02) already carries the same
+  // adjustment and its own comment names the mechanism exactly: `PlateCard`
+  // carries `border border-rule` with no explicit width, so its OUTER width
+  // is the tile plus two pixels. Without it, `2 × (column + 2) + COLUMN_GAP`
+  // overflows the measure by four points and `flex-wrap` does not shrink to
+  // fit, it wraps — which is how this screen was rendering one plate per
+  // row, with the whole right half of a Pro-sized phone sitting empty next
+  // to it, and no visual cue that anything was wrong. This screen (KP-03)
+  // had the same `PlateCard` grid and had never been given the same fix.
+  const column = Math.floor((width - GUTTER * 2 - COLUMN_GAP) / 2) - 2;
 
   // SV-02's line: `5 plates · started in March`, or the trip's dates when the
   // board has them. The distinct-piece total moved off this line — it is a
@@ -109,10 +119,20 @@ export function BoardPage({
           {/* `note` — 13px regular in `muted`. The atlas sets this line in
               #8A8578, which is the `faint` token: ~3.5:1 on canvas and an AA
               failure. It carries the plate count, the dates and the piece
-              count, so it is content and takes the darker step. */}
-          <Text variant="note" className="mt-2">
-            {summary}
-          </Text>
+              count, so it is content and takes the darker step.
+
+              AUDIT 100 #61 — gated on `!loading`, matching `saved-page.tsx`'s
+              own masthead. `plates` reads `[]` before the read has answered,
+              so `summary` was printing "No plates yet" — a claim about the
+              data — directly above the loading skeletons beneath it, which
+              is the exact "empty state or still loading?" ambiguity the
+              finding names. An unread board has an unknown plate count; this
+              line says nothing until it actually knows one. */}
+          {!loading && !error ? (
+            <Text variant="note" className="mt-2">
+              {summary}
+            </Text>
+          ) : null}
         </View>
 
         {error ? (
