@@ -33,6 +33,27 @@
 
 const APP_STORE_LISTING = 'https://apps.apple.com/app/id6798479578';
 
+/**
+ * The custom-scheme door, for the people this page exists to catch.
+ *
+ * iOS fetches a domain's AASA at app INSTALL/UPDATE time and otherwise only on
+ * a slow periodic schedule; an OTA update is not an install. So every phone
+ * that installed Cinch before `/closet` was claimed (2026-09-03) still holds a
+ * cached AASA without it, and the universal link will NOT fire for them — they
+ * land here instead. Build 47's signed entitlements do carry
+ * `applinks:cinchstyle.com`, so this is a cache lifetime, not a defect.
+ *
+ * `cinch://closet` resolves through expo-router's default path matching to
+ * `src/app/(tabs)/closet.tsx`. It is the only way this page can reach the app
+ * for someone who already has it.
+ *
+ * It is deliberately NOT the sole action: a custom-scheme link is inert when
+ * the app is absent, and silently doing nothing is the worst outcome on a page
+ * whose whole job is to be a door. Both doors are shown, and the copy says
+ * which is which rather than guessing at install state we cannot detect.
+ */
+const APP_SCHEME_URL = 'cinch://closet';
+
 function esc(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -52,11 +73,10 @@ function page({ onApplePhone }) {
     'Cinch is a closet you actually use — what you own, what you wore, and what to wear today.';
 
   const note = onApplePhone
-    ? `If Cinch is already on this iPhone, this link opens it straight to your
-       closet. If it is not, the App Store is one tap away and your closet is
-       exactly as you left it when you sign back in.`
-    : `Cinch is an iPhone app. Open this link on your iPhone and it goes
-       straight to your closet.`;
+    ? `Your closet is exactly as you left it, and it is waiting when you sign
+       back in.`
+    : `Cinch is an iPhone app &mdash; open this link on your iPhone to get to
+       your closet.`;
 
   return `<!doctype html>
 <html lang="en">
@@ -84,7 +104,8 @@ function page({ onApplePhone }) {
       Everything you photographed — the pieces, the tags, the wear history — is
       still there, and the ten-piece closet is free for good.
     </p>
-    <a class="invite-action" href="${esc(APP_STORE_LISTING)}">Get Cinch</a>
+    <a class="invite-action" href="${esc(APP_SCHEME_URL)}">Open in Cinch</a>
+    <p class="invite-secondary"><a href="${esc(APP_STORE_LISTING)}">Don&rsquo;t have Cinch on this phone? Get it free on the App&nbsp;Store</a></p>
     <p class="invite-note">${note}</p>
   </main>
     <footer class="invite-foot">

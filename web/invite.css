@@ -134,6 +134,30 @@ body.invite {
   opacity: 0.9;
 }
 
+/* The secondary door on /closet. `.invite-action` is the custom-scheme link
+   (the only way to reach the app for a phone whose cached AASA predates the
+   /closet component); this is the App Store fallback under it, deliberately
+   quieter but a full-width tap target, not a footnote. */
+.invite-secondary {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  text-align: center;
+  margin: 0.85rem 0 0;
+}
+
+.invite-secondary a {
+  display: inline-block;
+  padding: 0.4rem 0.2rem;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.invite-secondary a:hover,
+.invite-secondary a:focus-visible {
+  color: var(--stamp-ink);
+}
+
 .invite-note {
   font-size: 0.8125rem;
   line-height: 1.55;
