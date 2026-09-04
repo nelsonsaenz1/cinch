@@ -191,8 +191,15 @@ Rows moved:
   Effect metric: `push_tokens > 0` — and now a denominator (`push_ask_shown`) to read it against.
   **APNs key verified 13:5xZ** (EAS GraphQL, `iosAppCredentials.pushKey`): key `7C8C7X2U76`,
   team `THR27ADF4P`, uploaded 2026-08-10, App Store profile active to 2027-08-06. Sends are not
-  blocked on credentials; the first real `push_sends` row is now purely a function of a real
-  person tapping Turn on before their local 07:30.
+  blocked on credentials. **Test push 13:5xZ** to the QA simulator's token through Expo's push
+  API: ticket `ok`, receipt `BadDeviceToken` (APNs 400). That is the expected answer for a
+  simulator token — APNs accepted Expo's provider JWT (a key problem would read
+  `InvalidProviderToken` / 403) and rejected the token itself, because a simulator mints a
+  sandbox token and the app ships to the production gateway. End-to-end delivery on a real
+  device is the one thing this session cannot prove; it needs a phone. The QA account's
+  `push_tokens` and `notification_prefs` rows were deleted afterwards so both tables read 0 —
+  the nightly's first nonzero is a real person, not the fixture. The first real `push_sends`
+  row is now purely a function of someone tapping Turn on before their local 07:30.
 - **A42 ✅ SHIPPED** — the code path has three beats now: `auth_address_refused
   {invalid|offline}` (the address screen's own refusals), `auth_code_sent {resend}` (the server
   accepted; with `shouldCreateUser` this is also the moment the account row appears — which is
