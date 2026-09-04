@@ -1,6 +1,8 @@
 import Constants from 'expo-constants';
 
+import { pushTokenRegisteredProps } from '@/features/push/ask-spec';
 import { PUSH_AVAILABLE, push } from '@/features/push/native';
+import { track } from '@/lib/posthog';
 import { getUserId, supabase } from '@/lib/supabase';
 
 /**
@@ -48,7 +50,10 @@ export async function registerPushToken(): Promise<string | null> {
   } catch {
     // No APNs entitlement yet, no network, a simulator with no push support —
     // all the same outcome: this device cannot be reached, and saying so in the
-    // database would be worse than saying nothing.
+    // database would be worse than saying nothing. Said in analytics instead
+    // (A14): a grant followed by `ok: false, reason: 'mint'` is the one
+    // signature that means the entitlement or the Expo project id is wrong.
+    track('push_token_registered', pushTokenRegisteredProps({ ok: false, reason: 'mint' }));
     return null;
   }
 
@@ -59,6 +64,10 @@ export async function registerPushToken(): Promise<string | null> {
       { onConflict: 'token' },
     );
 
-  if (error) return null;
+  if (error) {
+    track('push_token_registered', pushTokenRegisteredProps({ ok: false, reason: 'write' }));
+    return null;
+  }
+  track('push_token_registered', pushTokenRegisteredProps({ ok: true }));
   return token;
 }

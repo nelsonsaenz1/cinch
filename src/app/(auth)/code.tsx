@@ -61,6 +61,7 @@ import {
 import { formatPhoneForDisplay } from '@/features/auth/phone';
 import { describeThrownSignInError } from '@/features/auth/sign-in-errors';
 import { haptics } from '@/lib/haptics';
+import { track } from '@/lib/posthog';
 
 /**
  * Redesign 19, step two — the six digits.
@@ -99,8 +100,14 @@ export default function CodeScreen() {
     () => (viaPhone ? sendPhoneCode(phone) : sendEmailCode(email)),
     [viaPhone, phone, email],
   );
+  // `attempt` is 1-based within the code that was sent, from the same counter
+  // the refusal line quotes — so "wrong on the third try" and "never typed"
+  // are two different rows in the funnel.
   const verifyCode = useCallback(
-    (code: string) => (viaPhone ? verifyPhoneCode(phone, code) : verifyEmailCode(email, code)),
+    (code: string, attempt: number) =>
+      viaPhone
+        ? verifyPhoneCode(phone, code, { attempt })
+        : verifyEmailCode(email, code, { attempt }),
     [viaPhone, phone, email],
   );
 
@@ -146,7 +153,7 @@ export default function CodeScreen() {
     async (code: string) => {
       setVerifying(true);
       try {
-        const result = await verifyCode(code);
+        const result = await verifyCode(code, MAX_ATTEMPTS - attemptsLeft + 1);
         if (result.ok) {
           haptics.success();
           if (result.isNew) {
@@ -207,6 +214,10 @@ export default function CodeScreen() {
       // A fresh signInWithOtp invalidates the previous code server-side.
       const result = await sendCode();
       if (result.ok) {
+        // Every send from THIS screen is a resend — the first send is the
+        // address screen's, and that is the one that pushed here. (A42: the
+        // funnel keeps the two apart.)
+        track('auth_code_sent', { method: viaPhone ? 'phone' : 'email', resend: true });
         setValue('');
         setErrorValue('');
         setWrong(false);
@@ -224,7 +235,7 @@ export default function CodeScreen() {
     } finally {
       setResending(false);
     }
-  }, [cooldown, sendCode, resending]);
+  }, [cooldown, sendCode, resending, viaPhone]);
 
   const boxTone: BoxTone = wrong ? 'refused' : verifying ? 'busy' : 'active';
   const activeIndex = !errored && !exhausted && !verifying ? value.length : -1;

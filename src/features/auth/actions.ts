@@ -217,6 +217,14 @@ export async function signOut(): Promise<void> {
  * all) is deliberately NOT caught here — the screens surface it via
  * `describeThrownSignInError` and no failure is ever silent.
  */
+/**
+ * Which try this is against the code that was sent — 1..MAX_ATTEMPTS. The
+ * code screen owns the count; this only forwards it. Analytics only.
+ */
+export interface VerifyCodeOptions {
+  attempt?: number;
+}
+
 export async function sendEmailCode(email: string): Promise<SignInResult> {
   const address = normalizeEmail(email);
 
@@ -253,6 +261,10 @@ export async function sendEmailCode(email: string): Promise<SignInResult> {
     return reportAuth('email', { ok: false, reason: 'failed', message: error.message });
   }
 
+  // `auth_code_sent` (A42) is NOT emitted here: the address screens race this
+  // call against an 8-second ceiling, and a send that lands after the screen
+  // has already said "didn't send" must not count as a code the person can
+  // type. The screens emit it on the branch that actually moves them on.
   return { ok: true };
 }
 
@@ -268,7 +280,16 @@ export async function sendEmailCode(email: string): Promise<SignInResult> {
  * `(auth)/sign-in.tsx` already opened this attempt at the beat the method was
  * chosen, which is where the two methods are comparable.
  */
-export async function verifyEmailCode(email: string, token: string): Promise<SignInResult> {
+export async function verifyEmailCode(
+  email: string,
+  token: string,
+  options: VerifyCodeOptions = {},
+): Promise<SignInResult> {
+  // The third beat (A42), BEFORE the request: a submission that never gets an
+  // answer (the app backgrounded mid-verify) still counts as typed. Never the
+  // digits — `attempt` is a small integer from the screen's own counter.
+  track('auth_code_entered', { method: 'email', attempt: options.attempt ?? 1 });
+
   const { data, error } = await supabase.auth.verifyOtp({
     email: normalizeEmail(email),
     token: token.trim(),
@@ -363,7 +384,11 @@ export async function sendPhoneCode(phone: string): Promise<SignInResult> {
  * same expired-versus-wrong reading, because Supabase answers both channels
  * with the same ambiguous sentence.
  */
-export async function verifyPhoneCode(phone: string, token: string): Promise<SignInResult> {
+export async function verifyPhoneCode(
+  phone: string,
+  token: string,
+  options: VerifyCodeOptions = {},
+): Promise<SignInResult> {
   const number = normalizePhone(phone);
   if (!number) {
     return reportAuth('phone', {
@@ -372,6 +397,8 @@ export async function verifyPhoneCode(phone: string, token: string): Promise<Sig
       message: 'That does not look like a phone number.',
     });
   }
+
+  track('auth_code_entered', { method: 'phone', attempt: options.attempt ?? 1 });
 
   const { data, error } = await supabase.auth.verifyOtp({
     phone: number,

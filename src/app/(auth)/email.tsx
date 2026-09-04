@@ -41,6 +41,7 @@ import { useConnectivity } from '@/features/auth/use-connectivity';
 import { isValidEmail, normalizeEmail } from '@/features/auth/email';
 import { describeThrownSignInError } from '@/features/auth/sign-in-errors';
 import { haptics } from '@/lib/haptics';
+import { track } from '@/lib/posthog';
 
 /**
  * Redesign 19, step one — the address.
@@ -111,6 +112,10 @@ export default function EmailScreen() {
     if (sending || rateLimitLeft > 0) return;
     if (!isValidEmail(email)) {
       setInvalid(true);
+      // A42: the two refusals this screen decides on its own, so the gap
+      // between `auth_started` and `auth_code_sent` has names. Never the
+      // address.
+      track('auth_address_refused', { method: 'email', reason: 'invalid' });
       return;
     }
     haptics.selection();
@@ -121,6 +126,7 @@ export default function EmailScreen() {
     if (!online) {
       haptics.warning();
       setTrouble(offlineTrouble());
+      track('auth_address_refused', { method: 'email', reason: 'offline' });
       return;
     }
 
@@ -136,6 +142,10 @@ export default function EmailScreen() {
         ),
       ]);
       if (result.ok) {
+        // A42, the second beat: emitted on the branch that moves the person
+        // to the code screen, so a send that beats the 8-second race late
+        // (and a second press after it) cannot count as a code they saw.
+        track('auth_code_sent', { method: 'email', resend: false });
         setSending(false);
         router.push({ pathname: '/(auth)/code', params: { email: normalizeEmail(email) } });
         return;

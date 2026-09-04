@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { pushPermissionResultProps } from '@/features/push/ask-spec';
 import { PUSH_AVAILABLE, push } from '@/features/push/native';
 import { registerPushToken } from '@/features/push/token';
+import { track } from '@/lib/posthog';
 
 /**
  * The system permission — read, and asked for **in context**.
@@ -64,13 +66,24 @@ export async function askPushPermission(): Promise<PushPermission> {
 
   const current = await push.getPermissionsAsync();
   if (current.status === 'granted') {
+    track('push_permission_result', pushPermissionResultProps('granted', false));
     await registerPushToken();
     return 'granted';
   }
-  if (!current.canAskAgain) return 'denied';
+  if (!current.canAskAgain) {
+    track('push_permission_result', pushPermissionResultProps('denied', false));
+    return 'denied';
+  }
 
   const asked = await push.requestPermissionsAsync();
   const result = toPermission(asked.status);
+  // `undetermined` after a prompt is a dismissal without an answer — iOS
+  // reports it as a denial the next time it is read, so it is one here too.
+  // A14: whichever surface asked, the system's answer is one number.
+  track(
+    'push_permission_result',
+    pushPermissionResultProps(result === 'granted' ? 'granted' : 'denied', true),
+  );
   if (result === 'granted') await registerPushToken();
   return result;
 }

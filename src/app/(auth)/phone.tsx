@@ -42,6 +42,7 @@ import { isValidPhone, normalizePhone } from '@/features/auth/phone';
 import { describeThrownSignInError } from '@/features/auth/sign-in-errors';
 import { useConnectivity } from '@/features/auth/use-connectivity';
 import { haptics } from '@/lib/haptics';
+import { track } from '@/lib/posthog';
 
 /**
  * The phone run, step one — the number. `email.tsx` with the channel swapped.
@@ -98,6 +99,8 @@ export default function PhoneScreen() {
     const number = normalizePhone(phone);
     if (!number) {
       setInvalid(true);
+      // A42, as on the email screen. Never the number.
+      track('auth_address_refused', { method: 'phone', reason: 'invalid' });
       return;
     }
     haptics.selection();
@@ -108,6 +111,7 @@ export default function PhoneScreen() {
     if (!online) {
       haptics.warning();
       setTrouble(offlineTrouble());
+      track('auth_address_refused', { method: 'phone', reason: 'offline' });
       return;
     }
 
@@ -123,6 +127,7 @@ export default function PhoneScreen() {
         ),
       ]);
       if (result.ok) {
+        track('auth_code_sent', { method: 'phone', resend: false });
         setSending(false);
         router.push({ pathname: '/(auth)/code', params: { phone: number } });
         return;

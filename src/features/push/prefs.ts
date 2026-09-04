@@ -21,24 +21,33 @@ import { getUserId, supabase } from '@/lib/supabase';
 
 export const notificationPrefsKey = ['notification-prefs'] as const;
 
+/**
+ * The read, on its own so a caller that must compose a FULL-SET write from
+ * the truth on the server (the Today ask, `use-push-ask.ts`) can fetch it at
+ * the moment of writing via `queryClient.fetchQuery` rather than trust a
+ * render's closure — a stale `undefined` here becomes a row of defaults
+ * written over somebody's choices.
+ */
+export async function readNotificationPrefs(): Promise<NotificationPrefs> {
+  const userId = await getUserId();
+  if (!userId) return DEFAULT_NOTIFICATION_PREFS;
+
+  const { data, error } = await supabase
+    .from('notification_prefs')
+    .select(
+      'morning_edit, morning_edit_at, friend_activity, borrow_requests, event_reminders, votes_comments',
+    )
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return prefsFromRow(data);
+}
+
 export function useNotificationPrefs() {
   return useQuery({
     queryKey: notificationPrefsKey,
-    queryFn: async (): Promise<NotificationPrefs> => {
-      const userId = await getUserId();
-      if (!userId) return DEFAULT_NOTIFICATION_PREFS;
-
-      const { data, error } = await supabase
-        .from('notification_prefs')
-        .select(
-          'morning_edit, morning_edit_at, friend_activity, borrow_requests, event_reminders, votes_comments',
-        )
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) throw error;
-      return prefsFromRow(data);
-    },
+    queryFn: readNotificationPrefs,
   });
 }
 

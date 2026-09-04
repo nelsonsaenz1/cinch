@@ -709,6 +709,68 @@ export type AppEvent =
    * Still never a sentence.
    */
   | 'auth_failed'
+  /**
+   * THE CODE PATH, IN THREE BEATS (ledger A42, 2026-09-04). `auth_started`
+   * opens an email or phone attempt and `auth_completed` / `auth_failed`
+   * close it — but between those two the flow has four screens, and on
+   * 2026-09-03 the day's only real signup left an account row with
+   * `last_sign_in_at = NULL` while the funnel could only say "started, then
+   * nothing". These three name where inside the flow a person stops.
+   *
+   * `auth_address_refused` — the address screen would not send: `reason` is
+   * 'invalid' (the shape check) or 'offline' (the connectivity card). The
+   * server-side refusals (rate limit, network, failure) already arrive as
+   * `auth_failed`, so this is only the two the screen decides on its own.
+   * `method` is 'email' | 'phone'.
+   */
+  | 'auth_address_refused'
+  /**
+   * A code was sent — the server accepted the address and (with
+   * `shouldCreateUser`) created the account row. `resend` marks the code
+   * screen's "Send again" as opposed to the address screen's first send.
+   * The gap between this and `auth_code_entered` is "the code never came,
+   * or they never came back for it" — the loss that had no name.
+   */
+  | 'auth_code_sent'
+  /**
+   * Six digits were submitted. `attempt` is 1..MAX_ATTEMPTS within one sent
+   * code. Its outcome is the existing `auth_completed` or `auth_failed`
+   * (`wrong-code` / `expired-code` / `network`), so wrong-versus-never-typed
+   * is finally two different numbers. Never the digits.
+   */
+  | 'auth_code_entered'
+  // ── Push (ledger A14, 2026-09-04) ─────────────────────────────────────────
+  //
+  // The store binary has carried `expo-notifications` and the
+  // `aps-environment` entitlement since build 43, and the Notifications screen
+  // has been reachable from Settings the whole time — `push_tokens` stayed at
+  // zero because nobody was ever ASKED. These four make the ask, its answer,
+  // the system's answer and the token write four separate numbers, so the
+  // nightly can tell "nobody saw it" from "everybody said no" from "iOS said
+  // no" from "the mint failed".
+  /**
+   * The morning-edit card was on a focused Today. `trackOnce`, so a person
+   * who saw it on three launches before answering is one impression — the
+   * denominator the `turn_on` rate is read against.
+   */
+  | 'push_ask_shown'
+  /** `action` is 'turn_on' | 'not_now'. */
+  | 'push_ask_answered'
+  /**
+   * What iOS said, from whichever surface asked (the Today card or the
+   * Settings switch). `result` is 'granted' | 'denied'; `prompted` is whether
+   * the system sheet was actually raised (an already-granted read and a
+   * hard denial answer without one). Never fires on a binary without the
+   * module — no ask is made there.
+   */
+  | 'push_permission_result'
+  /**
+   * Whether a token reached `push_tokens`. `ok: false` carries `reason`:
+   * 'mint' (Expo/APNs refused a token — an entitlement or project-id
+   * problem) or 'write' (the upsert). After a grant, `mint` is the one row
+   * worth a look.
+   */
+  | 'push_token_registered'
   // ── Daily Social (docs/design/daily-social-contract.md §5.6) ──────────────
   //
   // THE FIRST SOCIAL EVENTS THIS TAXONOMY HAS EVER HAD. The 47 that precede

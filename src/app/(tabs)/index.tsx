@@ -122,6 +122,8 @@ import {
 } from '@/lib/styling';
 import { describeWeather, formatTemp, weatherSymbol } from '@/features/context/weather';
 import { useTripReminder } from '@/features/today/use-trip-reminder';
+import { PushAskCard } from '@/components/today/push-ask-card';
+import { usePushAsk } from '@/features/push/use-push-ask';
 import { askForRatingAfterWear } from '@/features/rating/ask-for-rating';
 import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
@@ -1431,6 +1433,12 @@ export default function TodayScreen() {
   // never flashes at somebody who already dismissed it.
   const tripReminder = useTripReminder(tripSoon?.id ?? null);
 
+  // The morning-edit ask (A14) — drawn once the closet can dress the reader,
+  // once per install, and never on a binary without the module. See
+  // `features/push/ask-spec.ts` for why the ask lives here and not only in
+  // Settings.
+  const pushAsk = usePushAsk(!wardrobe.isLoading && !wardrobe.isError && canGenerate(items));
+
   const myEvents = useMyEvents();
   const interrupt = useMemo(() => {
     const today = new Date().toDateString();
@@ -1904,7 +1912,7 @@ export default function TodayScreen() {
                   onPress={tripReminder.dismiss}
                   fill
                   style={{ minHeight: ax ? 56 : 44, minWidth: MIN_TAP_TARGET }}
-                  contentStyle={{ justifyContent: 'center', alignItems: 'center' }}
+                  contentStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
                   className="mt-1 px-2">
                   <Text variant="label" className="text-muted">
                     {TODAY_COPY.tripAheadDismiss}
@@ -1912,6 +1920,22 @@ export default function TodayScreen() {
                 </PressableSurface>
               </View>
             </View>
+          ) : null}
+
+          {/* The morning-edit ask (A14). `hidden` on the refusal for the trip
+              card's reason: a closet that could not be dressed has a
+              different next action. Either answer retires it for good; the
+              card reports its own impression, because only its mount knows
+              every gate above this line passed. */}
+          {!nothingWorks && pushAsk.show ? (
+            <PushAskCard
+              visited={visited}
+              ax={ax}
+              accent={theme.accent}
+              busy={pushAsk.busy}
+              onTurnOn={() => void pushAsk.turnOn()}
+              onNotNow={pushAsk.notNow}
+            />
           ) : null}
 
           {/* An explicit pull always gets an answer, even when the answer is
