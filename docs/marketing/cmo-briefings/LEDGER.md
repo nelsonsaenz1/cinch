@@ -189,9 +189,10 @@ Rows moved:
   make the ask scoreable: `push_ask_shown` → `push_ask_answered {turn_on|not_now}` →
   `push_permission_result {granted|denied, prompted}` → `push_token_registered {ok, reason?}`.
   Effect metric: `push_tokens > 0` — and now a denominator (`push_ask_shown`) to read it against.
-  **One thing still unverified:** whether the APNs `.p8` is uploaded to Expo. That gates SENDS,
-  not token capture; the signature if it is missing is `push_token_registered {ok:false,
-  reason:'mint'}` after a grant. Founder: `eas credentials --platform ios` → push key.
+  **APNs key verified 13:5xZ** (EAS GraphQL, `iosAppCredentials.pushKey`): key `7C8C7X2U76`,
+  team `THR27ADF4P`, uploaded 2026-08-10, App Store profile active to 2027-08-06. Sends are not
+  blocked on credentials; the first real `push_sends` row is now purely a function of a real
+  person tapping Turn on before their local 07:30.
 - **A42 ✅ SHIPPED** — the code path has three beats now: `auth_address_refused
   {invalid|offline}` (the address screen's own refusals), `auth_code_sent {resend}` (the server
   accepted; with `shouldCreateUser` this is also the moment the account row appears — which is
