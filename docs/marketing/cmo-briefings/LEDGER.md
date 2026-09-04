@@ -157,6 +157,74 @@ at 10:00Z, b47 → 01a0657b at 04:54Z). Effect metric for the ranking: `explore_
 `explore_shop_feed_loaded` (was 0 / 39 lifetime). No store build was needed at any point — every change was
 JS, edge function or database; the native fingerprint is still 4e646ba0.
 
+## Audit ship 4 — the ask (engineering session, read after the 09-03 nightly, 2026-09-04 13:33Z main · side-cuts after)
+
+Commit `3d82f94` on main. Published to all four live runtimes and manifest-verified:
+
+| runtime | fleet | OTA | branch |
+|---|---|---|---|
+| 4e646ba0 | 1.2.3 / b47 (store) | `01a06c9f-e32e-744e-bcf6-458b0b018946` | main |
+| c5f00773 | 1.2.0 / b43-44 | `01a06ca2-a6ca-7c97-9335-d5dc047026ba` | ota/c5f00773-push |
+| 813c6d34 | 1.2.1 / b45 | `01a06ca4-b963-78fe-97bf-d21ce01fd4b8` | ota/813c-push |
+| ccfa8345 | 1.2.2 / b46 | `01a06ca6-8112-7dd0-b4f0-98cbd6def808` | ota/ccfa8345-push |
+
+**The correction that reorders the ledger: A14 was never BINARY.** Build 47's signed IPA
+(`codesign -d --entitlements` on the Mach-O; `security cms -D` on the embedded profile) carries
+`aps-environment: production`, and `expo-notifications` has been in package.json and the plugin
+list since 2026-08-09 (bc50051) — i.e. in every build from 43 on. `PUSH_AVAILABLE` is true on all
+four fleets, Settings → Notifications has been reachable the whole time, and the pg_cron senders
+(morning edit every 15 min, receipts, prunes) are active in production. `push_tokens = 0` for six
+nights because the only ask lived behind a settings switch that 51 people did not find. The
+08-09 comment the lane came from ("the module is only in the binary once a store build has been
+cut") was true when written and stale by build 43. Six nights of the #1 row were spent waiting
+for a review cycle that was never required.
+
+Rows moved:
+- **A14 ✅ SHIPPED (OTA, not BINARY)** — a once-per-install card on Today, drawn only once
+  `canGenerate` passes and iOS still reads `undetermined`: "MORNING EDIT — Tomorrow’s look, ready
+  when you wake up. One note at 7:30am, nothing else." Turn on = the same `askPushPermission` the
+  Settings switch calls (registers the token on a grant) + a full-set `notification_prefs` upsert
+  with `morning_edit: true`, because `push_claim_morning_edit` JOINS that table and a person with
+  no row is invisible to the sender. Either answer retires the card for that install. Four events
+  make the ask scoreable: `push_ask_shown` → `push_ask_answered {turn_on|not_now}` →
+  `push_permission_result {granted|denied, prompted}` → `push_token_registered {ok, reason?}`.
+  Effect metric: `push_tokens > 0` — and now a denominator (`push_ask_shown`) to read it against.
+  **One thing still unverified:** whether the APNs `.p8` is uploaded to Expo. That gates SENDS,
+  not token capture; the signature if it is missing is `push_token_registered {ok:false,
+  reason:'mint'}` after a grant. Founder: `eas credentials --platform ios` → push key.
+- **A42 ✅ SHIPPED** — the code path has three beats now: `auth_address_refused
+  {invalid|offline}` (the address screen's own refusals), `auth_code_sent {resend}` (the server
+  accepted; with `shouldCreateUser` this is also the moment the account row appears — which is
+  exactly `ef579e79`'s state), `auth_code_entered {attempt}` (six digits submitted, BEFORE the
+  request). Outcomes stay `auth_completed` / `auth_failed {wrong-code|expired-code|network}`.
+  Tomorrow's loss has a name. Note for the nightly: today's arrival `070c10b5` (iOS 26.6.1, b46)
+  cancelled the Apple sheet FOUR times in 105 s and entered the email door three times without
+  ever submitting an address — the same 26.6.1 that produced every `apple/failed` lockout on
+  08-30. `canceled` ×4 in under two minutes is not a person changing their mind; it may be the
+  sheet failing and reporting a cancel. `auth-apple-diagnosis.test.ts` deliberately keeps
+  cancels out of the "use email instead" escalation; worth revisiting with one more day of data.
+- **A41 ✅ DONE (data half) / falsified (code half)** — the 20 QA rows (`simtestf31`,
+  `sim-test+j00`) now point at objects copied under their own prefixes (40 uploads via
+  `supabase --experimental storage cp`, rows rewritten 13:0xZ). `image_sign_failed` last fired
+  12:58Z. **The "uncapped retry loop" framing was wrong:** nothing retries — `createSignedUrls`
+  reports per-path failures inline and never throws, so react-query's retry never engages. The
+  168 events over 33 h are the designed 50-minute renewal across ~4 subscriptions on one
+  simulator (the booted "Cinch iPhone 17 Pro", `$app_build='1'`, signed in as fay) that was left
+  running on this Mac. 1,146 signing requests in 33 h is not a bill. No cap added; the fixture
+  was the defect and it is fixed.
+- **A39 ✅ DONE** — `dispatch.html`, `release.html`, `welcome.html` now `width="520"` +
+  `style="width:100%; max-width:520px"`, the shape `reengage.html` already had.
+- **A27b — closed by the clock.** `bef15daf`'s trial ended at 13:34:42Z on its own: `effective_plan` read `pro` at 13:34:34Z and `free` at 13:34:49Z. She holds 10 garments, is now askable, and was told Sep 3 — one customer's date was a day early in the note, nobody was clamped. No further action.
+
+Device receipt of audit ship 3 — the nightly's open question — is now proven on a THIRD fleet:
+`070c10b5` (b46) installed at 03:57:32Z on the embedded bundle and fired `Application Opened` on
+`01a0672d` twenty seconds later. b45 and b47 were proven yesterday; c5f00773 (b43/44) remains the
+one fleet with no observed receipt of any 09-03 ship.
+
+Keyed-Release boot gate: PASSED twice on the final bundle (xcodebuild Release + production Superwall key into the scratchpad, installed over the sideloaded "Cinch iPhone 17 Pro" app). First run: cover → email door → OTP via Resend read-back → returning-free paywall fired (note: its default button already reads "Try 7 days free — then $39.99/yr" on Standard annual, so **A12's premise that the default tap cannot start a trial may be stale**; worth one look in the Superwall editor) → Today with the reseeded closet's photographs on the plate → Morning Edit card → Turn on → iOS sheet → Allow → `push_tokens` row (an `ExponentPushToken`, minted on the simulator) + `notification_prefs` row (`morning_edit=true`, 07:30) at 13:29:02Z → card retired. Second run (fresh install, final bundle): card drawn with both actions on one baseline → Not now → retired. PostHog carries the whole chain from both runs: `auth_started` → `auth_code_sent {resend:false}` → `auth_code_entered {attempt:1}` → `auth_completed` → `push_ask_shown` → `push_ask_answered {turn_on}` → `push_permission_result {granted, prompted:true}` → `push_token_registered {ok:true}`; and `push_ask_shown` → `push_ask_answered {not_now}`. Gotcha for the next gate: a sim build with `CODE_SIGNING_ALLOWED=NO` cannot reach the keychain, so SecureStore refuses the sign-in before a code is sent ("this build can't reach the device's keychain") — build with the default ad-hoc signing.
+
+Verifier pass (Opus, adversarial, read-only) on the diff before publish: five CONFIRMED defects in the first cut of the hook, all fixed before the gate: (1) `push_ask_shown` fired off `show` alone while the card sits behind the activation floor, offline and "nothing works" gates, and latched so it never fired when the card later drew; (2) no `useTabVisited` gate, the bug `use-tab-visited.ts` exists to prevent; (3) once-per-mount, not once-per-install; (4) the grant path composed the prefs write from a render closure that could be `undefined` and would have written defaults over an existing row; (5) a failed prefs write silently retired the card with a granted permission the sender could never see. The card now reports its own mount (`trackOnce`, visited only), the write is composed from the server via `fetchQuery` at the moment of writing, and a failed write is recorded under a pending key and retried on the next mount. Also moved `auth_code_sent` from `actions.ts` to the screens' `result.ok` branch, because the address screens race the send against an 8-second ceiling and a late success would have double-counted.
+
 ## Predictions being scored
 
 | id | made | prediction | falsifier | due | verdict |
