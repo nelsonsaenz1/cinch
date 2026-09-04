@@ -285,6 +285,65 @@ coverage, and verify each via a `u.expo.dev` manifest fetch *and* a production
 `Application Opened` carrying the new update id. Persons whose `update_id` does not start
 `01a0…` are running the embedded bundle (first-launch-only installs) — not an OTA failure.
 
+## ASC has two distinct failures — 410 and 401 (2026-09-03, nightly)
+
+The 09-01 correction taught "stop writing *logged out*, the endpoint is 410." Tonight the
+session **was** genuinely logged out, and the distinction matters because the unblocks differ:
+
+- `POST /analytics/api/v1/data/time-series → 410 Gone` — permanent. Only an **App Store
+  Connect API key** fixes it (ledger A21). Write *unread — no API key*.
+- Any `/iris/v1/...` call returning **`401 NOT_AUTHORIZED`**, or a navigation landing on
+  `appstoreconnect.apple.com/login?...&authResult=FAILED` — the **browser session** has
+  expired. Nelson must re-authenticate with 2FA. Write *unread — session expired*.
+
+Probe both every night; do not infer one from the other. When the session is 401, build
+state, the review queue, agreement banners, promo-text verification and featuring status
+are all unread, and the briefing must say so rather than reprinting last night's values.
+
+Unauthenticated fallbacks that still work and should be used when ASC is 401:
+`itunes.apple.com/lookup?id=6798479578&country=us` (live version, release moment, rating,
+rating count, screenshot count, description, release notes) and
+`itunes.apple.com/us/rss/customerreviews/id=6798479578/sortBy=mostRecent/json`
+(full written review text and version — but **not** whether a developer reply exists).
+
+## The competitor list must be verified by track id, not by search term (2026-09-03)
+
+Searching iTunes for a competitor by **name** silently returns the wrong app. "Alta"
+returned *CoreX-ROBOT* (id 6739418161, 0 ratings, 2024) on every prior run, so every "Alta"
+line in every prior briefing described an unrelated app. The rotation also omitted the
+category's largest players entirely.
+
+**Pin these track ids and look them up directly:**
+
+| app | id |
+|---|---|
+| Dressly: AI Outfit Maker | 6738174180 |
+| Alta Daily: Digital AI Closet | 6481705400 |
+| Whering | 1519461680 |
+| Stylebook | 335709058 |
+| Fits — Outfit Planner & Closet | 6447482321 |
+| Acloset | 1542311809 |
+| Indyx | 1599179405 |
+| Cladwell | 1140550878 |
+| Pureple | 1076555394 |
+| Combyne | 1224833673 |
+| StyleDNA | 1439466895 |
+| **Cinch** | **6798479578** |
+
+Rank the table by **rating count**, not by familiarity. When a new name appears in a search
+result above one of these, add it to the table rather than discarding it.
+
+## Establish the denominator for the *business*, not only for the step (2026-09-03)
+
+Six consecutive briefings led with monetization while the arrival rate fell 15 → 3 real
+daily actives. Each individual claim was denominator-checked; the *framing* was not. Every
+conversion rate in this document has a denominator of about three people a day, which
+makes all of them unfalsifiable noise.
+
+Before choosing what a briefing leads with, print the top-of-funnel absolute number
+(installs, real DAU) and ask whether any downstream rate could move the business at that
+volume. If it could not, the lead is distribution, whatever else broke that day.
+
 ## `paywall_eligible` is a denominator, not a success (2026-09-02)
 
 `presentPromo` fires `paywall_eligible` on **every** call, offered or not
