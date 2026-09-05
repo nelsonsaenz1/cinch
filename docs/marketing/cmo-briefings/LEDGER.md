@@ -59,16 +59,16 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 | **A40** | 09-03 | **Give the `/closet` fallback page a `cinch://` door** — a recipient who already owns Cinch was being shown "Get Cinch" | OTA/web | A recipient with the app installed reaches their closet, not the App Store listing | **✅ SHIPPED + verified live 09-03** | Found by reasoning through A38's cache finding: with a stale AASA, every installed recipient lands on the fallback and the page's only action told them to install an app they already have. Page now leads with `cinch://closet` (resolves via expo-router default matching to `src/app/(tabs)/closet.tsx`; scheme `cinch` at `app.config.ts:139`, no `+native-intent` to intercept) and keeps the App Store as an explicit secondary, because a custom-scheme link is inert when the app is absent and must never be the sole action. |
 | **A39** | 09-03 | **All three HTML templates overflow a 375px viewport** | OPS (copy) | Email renders inside the phone it is read on | **new — `reengage.html` fixed, the other three are not** | `dispatch.html`, `release.html` and `welcome.html` set `width="600"` with only `max-width:520px` and no `width:100%`, so the card is 520px wide on a 375px phone. Rendered and screenshotted 09-03 at 375×812. **Dispatch No. 01 was sent that way to 23 people on 09-01.** |
 
-## Audit ship 5 — the floor, the second door, the ledger row and the shelf's own numbers (engineering session, read after the 09-05 nightly, 2026-09-05 __PUBLISH_TIME__)
+## Audit ship 5 — the floor, the second door, the ledger row and the shelf's own numbers (engineering session, read after the 09-05 nightly, 2026-09-05 17:39Z main · side-cuts 17:48Z / 17:55Z / 18:03Z)
 
 Commits `ee8e651` + `067651c` on main. Published to all four live runtimes and manifest-verified:
 
 | runtime | fleet | OTA | branch |
 |---|---|---|---|
-| 4e646ba0 | 1.2.3 / b47 (store) | `__OTA_MAIN__` | main |
-| c5f00773 | 1.2.0 / b43-44 | `__OTA_C5__` | ota/c5f00773-a44 |
-| 813c6d34 | 1.2.1 / b45 | `__OTA_813C__` | ota/813c-a44 |
-| ccfa8345 | 1.2.2 / b46 | `__OTA_CCFA__` | ota/ccfa8345-a44 |
+| 4e646ba0 | 1.2.3 / b47 (store) | `01a072a7-3706-7f29-885f-7d170272c9ea` | main |
+| c5f00773 | 1.2.0 / b43-44 | `01a072af-9d67-7315-b2e0-aa754cf7ee8a` | ota/c5f00773-a44 |
+| 813c6d34 | 1.2.1 / b45 | `01a072b5-f164-700c-aa57-34f22cdf831a` | ota/813c-a44 |
+| ccfa8345 | 1.2.2 / b46 | `01a072bd-7efa-736f-853e-baa13ce43f6e` | ota/ccfa8345-a44 |
 
 **The gate on A4 is answered, and it says ship.** The Source Type breakdown the 09-05 nightly
 could not capture reads by URL — the parameter is `groupByDimensionKey=source`, not
