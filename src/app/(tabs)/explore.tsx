@@ -329,11 +329,23 @@ export default function ExploreScreen() {
     track('explore_shop_shelf_shown', { cards: 0, paid: 0 });
   }, [shelfSettled, shelf.cards.length]);
 
-  // Where the shelf sits in the scroll content, and whether the reader has
-  // scrolled that far. Same shape as the day's-end measurement below: a ref
-  // for the y, one boolean, and nothing re-renders once it is true.
+  // Where the shelf sits in the scroll content, how tall the viewport is, how
+  // far the reader has scrolled, and whether the three have ever met. Same
+  // shape as the day's-end measurement below — refs, one boolean, nothing
+  // re-renders once it is true — with one addition the gate run taught: on a
+  // near-empty page the shelf lays out INSIDE the first viewport and no scroll
+  // event ever arrives, so the check runs from every measurement, not only
+  // from the scroll.
   const shelfTop = useRef<number | null>(null);
+  const viewportHeight = useRef<number | null>(null);
+  const scrollOffset = useRef(0);
   const shelfReached = useRef(false);
+  const maybeShelfReached = () => {
+    if (shelfReached.current || shelfTop.current === null || viewportHeight.current === null) return;
+    if (scrollOffset.current + viewportHeight.current < shelfTop.current) return;
+    shelfReached.current = true;
+    track('explore_shop_shelf_reached');
+  };
 
   // Variant A plus the device-local mute, both at the read edge — before the
   // day grouping and the signed-URL work, so a hidden row simply never exists
@@ -693,10 +705,9 @@ export default function ExploreScreen() {
     const bottom = contentOffset.y + layoutMeasurement.height;
     // A46: the shelf's top edge entered the viewport. `visited` is implied —
     // a scroll event is a focused page.
-    if (!shelfReached.current && shelfTop.current !== null && bottom >= shelfTop.current) {
-      shelfReached.current = true;
-      track('explore_shop_shelf_reached');
-    }
+    scrollOffset.current = contentOffset.y;
+    viewportHeight.current = layoutMeasurement.height;
+    maybeShelfReached();
     if (dailyEndSeen || !showsDaily || looks.length === 0) return;
     if (bottom >= dailyBottom.current) setDailyEndSeen(true);
   };
@@ -783,6 +794,10 @@ export default function ExploreScreen() {
         // exactly the screen where "try again" matters most.
         contentContainerStyle={{ flexGrow: 1 }}
         onScroll={onScroll}
+        onLayout={(e) => {
+          viewportHeight.current = e.nativeEvent.layout.height;
+          maybeShelfReached();
+        }}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
@@ -947,6 +962,7 @@ export default function ExploreScreen() {
             onSeeMore={() => router.push('/shop')}
             onLayout={(y) => {
               shelfTop.current = y;
+              maybeShelfReached();
             }}
           />
         ) : null}

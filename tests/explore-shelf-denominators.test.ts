@@ -56,16 +56,26 @@ test('the shelf reports itself when it draws, and the page reports the zero it c
   );
 });
 
-test('reached is measured by the page from the shelf’s own y, once, before the day’s-end check', () => {
+test('reached is measured by the page from the shelf’s own y, once, from every measurement', () => {
   assert.match(SHELF, /onLayout\?: \(y: number\) => void;/);
   assert.match(SHELF, /onLayout=\{onLayout \? \(e: LayoutChangeEvent\) => onLayout\(e\.nativeEvent\.layout\.y\) : undefined\}/);
-  assert.match(EXPLORE, /onLayout=\{\(y\) => \{\s*shelfTop\.current = y;\s*\}\}/);
-  const onScroll = EXPLORE.slice(EXPLORE.indexOf('const onScroll = ('), EXPLORE.indexOf('/** Will anything print an ending?'));
+  // One decision, three callers. The gate run of 09-05 found the shelf inside
+  // the FIRST viewport of a near-empty page — no scroll ever happened and a
+  // scroll-only check never fired — so the shelf's layout, the viewport's
+  // layout and the scroll all re-run the same comparison.
   assert.match(
-    onScroll,
-    /if \(!shelfReached\.current && shelfTop\.current !== null && bottom >= shelfTop\.current\) \{\s*shelfReached\.current = true;\s*track\('explore_shop_shelf_reached'\);\s*\}/,
+    EXPLORE,
+    /const maybeShelfReached = \(\) => \{\s*if \(shelfReached\.current \|\| shelfTop\.current === null \|\| viewportHeight\.current === null\) return;\s*if \(scrollOffset\.current \+ viewportHeight\.current < shelfTop\.current\) return;\s*shelfReached\.current = true;\s*track\('explore_shop_shelf_reached'\);\s*\};/,
   );
+  assert.match(EXPLORE, /onLayout=\{\(y\) => \{\s*shelfTop\.current = y;\s*maybeShelfReached\(\);\s*\}\}/);
+  assert.match(
+    EXPLORE,
+    /onLayout=\{\(e\) => \{\s*viewportHeight\.current = e\.nativeEvent\.layout\.height;\s*maybeShelfReached\(\);\s*\}\}/,
+  );
+  const onScroll = EXPLORE.slice(EXPLORE.indexOf('const onScroll = ('), EXPLORE.indexOf('/** Will anything print an ending?'));
+  assert.match(onScroll, /scrollOffset\.current = contentOffset\.y;\s*viewportHeight\.current = layoutMeasurement\.height;\s*maybeShelfReached\(\);/);
   // The existing day's-end early return must not sit ABOVE the shelf check,
   // or a page with no daily looks would never report the shelf.
-  assert.ok(onScroll.indexOf("track('explore_shop_shelf_reached')") < onScroll.indexOf('if (dailyEndSeen'));
+  assert.ok(onScroll.indexOf('maybeShelfReached()') < onScroll.indexOf('if (dailyEndSeen'));
+  assert.equal((EXPLORE.match(/track\('explore_shop_shelf_reached'\)/g) ?? []).length, 1);
 });
