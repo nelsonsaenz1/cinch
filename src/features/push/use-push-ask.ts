@@ -7,6 +7,7 @@ import {
   PUSH_ASK_PENDING_WRITE_KEY,
   pushAskAnsweredProps,
   shouldOfferPushAsk,
+  type PushAskCloset,
 } from '@/features/push/ask-spec';
 import { PUSH_AVAILABLE } from '@/features/push/native';
 import {
@@ -53,16 +54,16 @@ import { track } from '@/lib/posthog';
  * ── WHAT THIS HOOK DOES NOT DO ────────────────────────────────────────────
  *
  * It does not report the impression. `show` is one gate of several the card
- * sits behind on Today (the activation floor, offline, "nothing works today",
- * the tab having been focused), and a hook above those early returns cannot
- * see them. The card component reports its own mount, once per person.
+ * sits behind on Today (offline, "nothing works today", the pending-consent
+ * floor, the tab having been focused), and a hook above those early returns
+ * cannot see them. The card component reports its own mount, once per person.
  *
  * Starts hidden until both reads (the permission and the answered flag)
  * resolve, on `use-trip-reminder.ts`'s reasoning: late costs nothing, a flash
  * shows a card to somebody who already answered it. A failed storage read is
  * treated as answered for the same asymmetry — Settings still exists.
  */
-export function usePushAsk(closetUsable: boolean) {
+export function usePushAsk(closet: PushAskCloset) {
   const qc = useQueryClient();
   const permission = usePushPermission();
   const save = useSetNotificationPrefs();
@@ -115,7 +116,7 @@ export function usePushAsk(closetUsable: boolean) {
   const show = shouldOfferPushAsk({
     available: PUSH_AVAILABLE,
     permission: permission.data,
-    closetUsable,
+    closet,
     answered,
   });
 

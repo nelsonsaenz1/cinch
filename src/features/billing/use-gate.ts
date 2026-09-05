@@ -9,6 +9,7 @@ import { contextLineFor, type ContextLineOpts } from './context-lines';
 import { usePlan } from './use-plan';
 import type { PlacementName } from './placements';
 import { recordPaywallOrigin } from './paywall-origin';
+import { recordImpression } from './promo-caps-io';
 import { PAYWALLS_ENABLED } from './superwall';
 
 /**
@@ -430,6 +431,10 @@ function useSuperwallGate(): Gate {
       const target = owned(ownerId);
       if (!target) return;
       track('paywall_presented', { placement: target.placement });
+      // The server-side twin of that event (ledger A19): one row in
+      // `paywall_impressions` per sheet that appeared, whichever placement
+      // asked. Best-effort by contract — the insert swallows its own failure.
+      recordImpression(target.placement);
       // Presented is not the same as rendered. Restart the clock against the
       // sheet that comes up and then does nothing at all.
       if (!target.alive) arm(target, SILENT_RENDER_TIMEOUT_MS, 'unavailable', 'silent_render');

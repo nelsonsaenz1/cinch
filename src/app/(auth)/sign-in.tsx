@@ -66,6 +66,18 @@ const TOAST_DID_NOT_FINISH = 'Sign-in didn’t finish. Nothing was sent.';
 const TOAST_APPLE_KEEPS_FAILING =
   'Apple sign-in isn’t finishing on this phone. Use email instead — a six-digit code, no password.';
 
+/**
+ * Under the Apple button after the FIRST cancel (ledger A45, 2026-09-05).
+ * The 09-05 nightly counted 11 of 39 sign-in starters hitting
+ * `auth_failed {canceled}` in fourteen days; eight completed seconds later on
+ * their own, three left — two of them inside six seconds. A cancel is not a
+ * failure (the count above stays untouched by it), but the reader who backed
+ * out of Apple's sheet is looking at the same screen with the same single
+ * door, and the other door is one line away. Named as a question, not a
+ * diagnosis: the sheet may simply have been dismissed.
+ */
+const CANCEL_HINT = 'Trouble with Apple sign-in? Use your email instead.';
+
 type Toast = { message: string; retry: boolean } | null;
 
 /**
@@ -134,6 +146,8 @@ export default function SignInScreen() {
    * failure gets.
    */
   const appleFailures = useRef(0);
+  /** The Apple sheet was dismissed at least once this visit — draws the second door. */
+  const [appleCancelled, setAppleCancelled] = useState(false);
 
   /**
    * Whether Sign in with Apple can actually run in THIS build. `Platform.OS`
@@ -197,6 +211,10 @@ export default function SignInScreen() {
       switch (result.reason) {
         case 'canceled':
           showToast(TOAST_DID_NOT_FINISH, true);
+          // Not a failure — the count stays out of this branch — but the
+          // second door draws from here on. Once: a state, not a counter.
+          if (!appleCancelled) track('auth_cancel_hint_shown');
+          setAppleCancelled(true);
           break;
         case 'unavailable':
           showToast(
@@ -228,7 +246,7 @@ export default function SignInScreen() {
     } finally {
       setBusy(false);
     }
-  }, [busy, router, showToast]);
+  }, [appleCancelled, busy, router, showToast]);
 
   const onEmail = useCallback(() => {
     // Here rather than on the address screen's Continue. The two methods have
@@ -470,6 +488,30 @@ export default function SignInScreen() {
                     color: atlas.ink,
                   }}>
                   Sign in with Apple
+                </RNText>
+              </Pressable>
+            ) : null}
+            {appleAvailable && appleCancelled ? (
+              <Pressable
+                onPress={() => {
+                  track('auth_cancel_hint_taken');
+                  onEmail();
+                }}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityLabel={CANCEL_HINT}
+                hitSlop={6}
+                style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}>
+                <RNText
+                  maxFontSizeMultiplier={MAX_TEXT_SCALE}
+                  style={{
+                    textAlign: 'center',
+                    fontFamily: 'HelveticaNeue',
+                    fontSize: 13,
+                    lineHeight: 18,
+                    color: atlas.warm,
+                  }}>
+                  {CANCEL_HINT}
                 </RNText>
               </Pressable>
             ) : null}

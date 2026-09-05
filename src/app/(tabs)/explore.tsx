@@ -277,6 +277,15 @@ export default function ExploreScreen() {
   // Explore visited or not (2026-09-02 audit; the same trap
   // `use-tab-visited.ts` was written for).
   const visited = useTabVisited();
+  // The visit itself, once per mount and only when focused — Explore had no
+  // opened-event of its own, so the shelf's reads were standing in as the
+  // page's denominator (A46).
+  const openedRef = useRef(false);
+  useEffect(() => {
+    if (!visited || openedRef.current) return;
+    openedRef.current = true;
+    track('explore_opened');
+  }, [visited]);
   const showWhereToBuy = useShowWhereToBuy();
   const wardrobeForFeed = useWardrobe();
   const shopFeed = useShopFeed(
@@ -299,6 +308,32 @@ export default function ExploreScreen() {
     () => exploreShelf(shopFeed.data ?? [], partnerShelfCards(partnerFeed.data ?? [], feedProfile)),
     [shopFeed.data, partnerFeed.data, feedProfile],
   );
+
+  // A46 — the shelf that drew NOTHING still has to be counted, and the
+  // component cannot count itself when it renders null. Fired here once both
+  // reads have settled on a focused page with the switch on; the component
+  // fires the same event itself when it does draw, so this branch reports
+  // only the zero. "Settled" is `fetchStatus === 'idle'`, not `isSuccess`:
+  // the closet read disables itself for a closet with no slots
+  // (`use-shop-feed.ts`), and an empty closet — the commonest real case —
+  // must still count as a shelf that drew nothing, not as one still loading.
+  const shelfSettled =
+    visited &&
+    showWhereToBuy.data === true &&
+    shopFeed.fetchStatus === 'idle' &&
+    partnerFeed.fetchStatus === 'idle';
+  const emptyShelfReported = useRef(false);
+  useEffect(() => {
+    if (!shelfSettled || shelf.cards.length > 0 || emptyShelfReported.current) return;
+    emptyShelfReported.current = true;
+    track('explore_shop_shelf_shown', { cards: 0, paid: 0 });
+  }, [shelfSettled, shelf.cards.length]);
+
+  // Where the shelf sits in the scroll content, and whether the reader has
+  // scrolled that far. Same shape as the day's-end measurement below: a ref
+  // for the y, one boolean, and nothing re-renders once it is true.
+  const shelfTop = useRef<number | null>(null);
+  const shelfReached = useRef(false);
 
   // Variant A plus the device-local mute, both at the read edge — before the
   // day grouping and the signed-URL work, so a hidden row simply never exists
@@ -654,9 +689,16 @@ export default function ExploreScreen() {
    * scroll after that.
    */
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (dailyEndSeen || !showsDaily || looks.length === 0) return;
     const { contentOffset, layoutMeasurement } = e.nativeEvent;
-    if (contentOffset.y + layoutMeasurement.height >= dailyBottom.current) setDailyEndSeen(true);
+    const bottom = contentOffset.y + layoutMeasurement.height;
+    // A46: the shelf's top edge entered the viewport. `visited` is implied —
+    // a scroll event is a focused page.
+    if (!shelfReached.current && shelfTop.current !== null && bottom >= shelfTop.current) {
+      shelfReached.current = true;
+      track('explore_shop_shelf_reached');
+    }
+    if (dailyEndSeen || !showsDaily || looks.length === 0) return;
+    if (bottom >= dailyBottom.current) setDailyEndSeen(true);
   };
 
   /** Will anything print an ending? One page, one full stop. */
@@ -903,6 +945,9 @@ export default function ExploreScreen() {
             cards={shelf.cards}
             total={shelf.total}
             onSeeMore={() => router.push('/shop')}
+            onLayout={(y) => {
+              shelfTop.current = y;
+            }}
           />
         ) : null}
 

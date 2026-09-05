@@ -192,22 +192,41 @@ test('unparseable and future timestamps are ignored rather than wedging the caps
 
 const src = (path: string) => readFileSync(`src/${path}`, 'utf8');
 
-test('presentPromo records the impression on granted and declined, never on unavailable', () => {
+test('A19 — the ledger row is written where paywall_presented fires, for every placement', () => {
+  // The seam moved (2026-09-05). `presentPromo` used to write the row off the
+  // resolved outcome, which reached only the general promos; the contextual
+  // gates never pass through it, so `paywall_impressions` was blind to every
+  // tap-driven ask. Now use-gate's `onPresent` — Superwall's own "a sheet is
+  // on screen" — writes the row beside the event, and nothing else does.
+  const gate = src('features/billing/use-gate.ts');
   const promo = src('features/billing/present-promo.ts');
-  // The seam: 'granted' | 'declined' both mean a sheet visibly presented;
-  // 'unavailable' never committed a frame and must not spend the allowance.
-  assert.match(
-    promo,
-    /outcome === 'granted' \|\| outcome === 'declined'/,
-    'the impression must key off the two outcomes that mean a real presentation',
-  );
-  const calls = promo.match(/recordImpression\(/g) ?? [];
+  assert.equal((promo.match(/recordImpression\(/g) ?? []).length, 0, 'presentPromo must not write the ledger');
+  assert.doesNotMatch(promo, /import \{[^}]*recordImpression/);
+  const calls = gate.match(/recordImpression\(/g) ?? [];
   assert.equal(calls.length, 1, 'exactly one call site — a second could double-spend the caps');
-  assert.doesNotMatch(
-    promo,
-    /'unavailable'[\s\S]{0,120}recordImpression/,
-    "an 'unavailable' outcome must never record an impression",
-  );
+  // Beside the event, inside onPresent, on the same placement.
+  const onPresent = gate.indexOf('onPresent:');
+  const onDismiss = gate.indexOf('onDismiss:');
+  const emit = gate.indexOf("track('paywall_presented'");
+  const record = gate.indexOf('recordImpression(target.placement)');
+  assert.ok(onPresent !== -1 && onDismiss !== -1 && emit !== -1 && record !== -1);
+  assert.ok(emit > onPresent && record > emit && record < onDismiss, 'the row is written right after the event, inside onPresent');
+  // A gate that is not the owner records nothing — `owned` guards the handler.
+  assert.match(gate.slice(onPresent, onDismiss), /const target = owned\(ownerId\);\s*if \(!target\) return;/);
+});
+
+test('the caps ignore the contextual rows the wider seam now lands', () => {
+  // Every tap-driven placement is outside GENERAL_PROMO_PLACEMENTS, so its
+  // rows change no verdict — that is what makes A19 safe for the promos.
+  const rows = [
+    { placement: 'add_garment_over_limit', shownAtIso: '2026-09-05T10:00:00Z' },
+    { placement: 'open_stylist', shownAtIso: '2026-09-05T11:00:00Z' },
+    { placement: 'packing_access', shownAtIso: '2026-09-05T12:00:00Z' },
+  ];
+  assert.deepEqual(evaluatePromoCaps('2026-09-05T13:00:00Z', rows, 'returning_free'), {
+    allowed: true,
+    reason: 'ok',
+  });
 });
 
 test('paywall_eligible is the denominator: fired before the eligibility branch returns', () => {

@@ -15,11 +15,13 @@ import {
   PUSH_ASK_ANSWERED_KEY,
   PUSH_ASK_COPY,
   pushAskAnsweredProps,
+  pushAskShownProps,
   pushPermissionResultProps,
   pushTokenRegisteredProps,
   shouldOfferPushAsk,
   type PushAskInput,
 } from '../src/features/push/ask-spec';
+import { TODAY_ACTIVATION_FLOOR } from '../src/features/today/today-spec';
 
 const SPEC = readFileSync('src/features/push/ask-spec.ts', 'utf8');
 const HOOK = readFileSync('src/features/push/use-push-ask.ts', 'utf8');
@@ -36,7 +38,7 @@ const POSTHOG = readFileSync('src/lib/posthog.tsx', 'utf8');
 const OPEN: PushAskInput = {
   available: true,
   permission: 'undetermined',
-  closetUsable: true,
+  closet: 'usable',
   answered: false,
 };
 
@@ -48,15 +50,59 @@ test('the card draws only when every gate is open', () => {
   assert.equal(shouldOfferPushAsk({ ...OPEN, permission: 'granted' }), false);
   assert.equal(shouldOfferPushAsk({ ...OPEN, permission: 'denied' }), false);
   assert.equal(shouldOfferPushAsk({ ...OPEN, permission: 'unsupported' }), false);
-  // The morning edit has nothing to say to a closet that cannot be dressed.
-  assert.equal(shouldOfferPushAsk({ ...OPEN, closetUsable: false }), false);
   // Once, ever.
   assert.equal(shouldOfferPushAsk({ ...OPEN, answered: true }), false);
+});
+
+test('A44 — the activation floor is not a gate, only an unread closet is', () => {
+  // Three real people on the push build, zero garments each, zero asks:
+  // the floor used to be the gate. Now the floor draws the card too …
+  assert.equal(shouldOfferPushAsk({ ...OPEN, closet: 'floor' }), true);
+  // … and only a closet the screen has not read yet holds it back, because
+  // the sentence depends on the verdict and must never be the wrong one.
+  assert.equal(shouldOfferPushAsk({ ...OPEN, closet: 'unread' }), false);
 });
 
 test('an unresolved read is "not yet", never "yes"', () => {
   assert.equal(shouldOfferPushAsk({ ...OPEN, permission: undefined }), false);
   assert.equal(shouldOfferPushAsk({ ...OPEN, answered: undefined }), false);
+});
+
+test('two closets, two sentences — and the floor one is conditional', () => {
+  const floor = PUSH_ASK_COPY.line('floor');
+  const usable = PUSH_ASK_COPY.line('usable');
+  assert.notEqual(floor, usable);
+  // The floor promise names the condition in the word every other floor
+  // sentence on Today uses, spelled, never a numeral.
+  assert.match(floor, /^Once your ten are in, /);
+  // The hour is the only numeral either sentence carries.
+  assert.doesNotMatch(floor.replace('7:30am', ''), /\d/);
+  assert.doesNotMatch(usable, /Once your ten/);
+  // Both keep the channel's own promise: one note, at the hour.
+  for (const line of [floor, usable]) {
+    assert.match(line, /One note at 7:30am, nothing else\.$/);
+    assert.doesNotMatch(line, /!/);
+  }
+  assert.deepEqual(pushAskShownProps('floor'), { closet: 'floor' });
+  assert.deepEqual(pushAskShownProps('usable'), { closet: 'usable' });
+});
+
+test('the sender keeps the floor sentence: the claim counts to the same ten', () => {
+  // The card says "once your ten are in"; the note says "the day's look is
+  // ready" and opens Today. The claim function is what makes the first true
+  // of the second — nobody under the floor is claimed.
+  const migration = readFileSync(
+    'supabase/migrations/20260905000000_morning_edit_needs_a_closet.sql',
+    'utf8',
+  );
+  const guard = migration.match(
+    /\(select count\(\*\) from public\.items i where i\.user_id = n\.user_id\) >= (\d+)/,
+  );
+  assert.ok(guard, 'the claim has lost its closet guard');
+  assert.equal(Number(guard[1]), TODAY_ACTIVATION_FLOOR);
+  assert.equal(TODAY_ACTIVATION_FLOOR, 10);
+  // The guard sits inside the `due` CTE, before the claim is written.
+  assert.ok(migration.indexOf('>= 10') < migration.indexOf('insert into public.push_sends'));
 });
 
 // ---------------------------------------------------------------------------
@@ -80,8 +126,8 @@ test('the spec is pure and the key is per install', () => {
   assert.equal(PUSH_ASK_ANSWERED_KEY, 'cinch.push.morning-ask.answered');
   // Taste bar of the Today card: no numeral in the headline, no urgency.
   assert.doesNotMatch(PUSH_ASK_COPY.kicker, /\d|!/);
-  assert.doesNotMatch(PUSH_ASK_COPY.line(), /!/);
-  assert.match(PUSH_ASK_COPY.line(), /7:30am/);
+  assert.doesNotMatch(PUSH_ASK_COPY.line('usable'), /!/);
+  assert.match(PUSH_ASK_COPY.line('usable'), /7:30am/);
 });
 
 // ---------------------------------------------------------------------------
@@ -138,15 +184,35 @@ test('the system\'s answer and the token write are reported from the shared path
   for (const call of calls) assert.doesNotMatch(call.slice(call.indexOf(',')), /token/);
 });
 
-test('Today draws the card behind the closet gate and the refusal gate, and the card reports its own mount', () => {
-  assert.match(TODAY, /usePushAsk\(!wardrobe\.isLoading && !wardrobe\.isError && canGenerate\(items\)\)/);
-  assert.match(TODAY, /\{!nothingWorks && pushAsk\.show \? \(\s*<PushAskCard/);
+test('Today draws the card on both sides of the floor, and the card reports its own mount', () => {
+  // The verdict is the PRODUCT's floor — the same `belowActivationFloor`
+  // that picks the floor branch — never the engine's eight on its own.
+  assert.match(
+    TODAY,
+    /const pushAskCloset: PushAskCloset =\s*wardrobe\.isLoading \|\| wardrobe\.isError\s*\? 'unread'\s*: belowActivationFloor\(items\.length, canGenerate\(items\)\)\s*\? 'floor'\s*: 'usable';/,
+  );
+  assert.match(TODAY, /usePushAsk\(pushAskCloset\)/);
+  // The plate's card, behind the refusal gate, with the plain sentence.
+  assert.match(TODAY, /\{!nothingWorks && pushAsk\.show \? \(\s*<PushAskCard\s*closet="usable"/);
+  // The floor's card (A44): inside the floor branch, UNDER the doors — after
+  // `ClosetFloor`, before the consent sheet — hidden on the pending-consent
+  // floor, with the conditional sentence.
+  const floorBranch = TODAY.slice(
+    TODAY.indexOf('if (belowActivationFloor(items.length, canGenerate(items))) {'),
+    TODAY.indexOf('// T-09 · OFFLINE'),
+  );
+  assert.match(floorBranch, /\{!pendingConsentFloor && pushAsk\.show \? \(\s*<PushAskCard\s*closet="floor"/);
+  assert.ok(floorBranch.indexOf('<ClosetFloor') < floorBranch.indexOf('<PushAskCard'));
+  assert.ok(floorBranch.indexOf('<PushAskCard') < floorBranch.indexOf('<ConsentSheet'));
+  assert.equal((TODAY.match(/<PushAskCard/g) ?? []).length, 2);
   assert.match(TODAY, /visited=\{visited\}/);
   assert.match(TODAY, /onTurnOn=\{\(\) => void pushAsk\.turnOn\(\)\}/);
   assert.match(TODAY, /onNotNow=\{pushAsk\.notNow\}/);
   // The impression: once per person, and only on a focused tab — NativeTabs
-  // mounts every tab at launch, so an unfocused mount was not seen.
-  assert.match(CARD, /if \(visited\) trackOnce\('push_ask_shown'\)/);
+  // mounts every tab at launch, so an unfocused mount was not seen. It
+  // carries which sentence was on screen, so the floor audience is a number.
+  assert.match(CARD, /if \(visited\) trackOnce\('push_ask_shown', pushAskShownProps\(closet\)\)/);
+  assert.match(CARD, /\{PUSH_ASK_COPY\.line\(closet\)\}/);
   assert.doesNotMatch(CARD, /\btrack\(/);
   // The one import path rule from native.ts — nothing outside it names the package.
   for (const source of [HOOK, SPEC, TODAY, CARD]) assert.doesNotMatch(source, /'expo-notifications'/);

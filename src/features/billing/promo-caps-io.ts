@@ -24,12 +24,16 @@ const impressionsTable = () =>
   (supabase as unknown as { from: (table: string) => any }).from('paywall_impressions');
 
 /**
- * Record that a general promo VISIBLY presented. Fire-and-forget.
+ * Record that a paywall VISIBLY presented. Fire-and-forget.
  *
- * Called from `presentPromo()` exactly when `gate.present()` resolved
- * 'granted' or 'declined' — the two outcomes that mean a sheet committed a
- * frame — and never on 'unavailable', which means nothing was ever on screen
- * and must not spend the allowance (see the seam note in present-promo.ts).
+ * Called from `use-gate.ts`'s `onPresent` — Superwall's own "a sheet is on
+ * screen" callback, the same beat `paywall_presented` fires from — for EVERY
+ * placement (ledger A19, 2026-09-05). It used to be called from
+ * `presentPromo()` off the resolved outcome, which reached only the general
+ * promos and left the table blind to every tap-driven ask; a presentation that
+ * never commits a frame still records nothing, because `onPresent` never
+ * fires for it. The caps read only the general-promo rows
+ * (`GENERAL_PROMO_PLACEMENTS`), so the contextual rows change no verdict.
  *
  * ERRORS ARE SWALLOWED, deliberately. This runs on paths (the post-Ten beat,
  * the Reveal) that are forbidden to block or throw, and a failed insert costs

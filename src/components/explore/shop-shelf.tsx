@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
-import { Linking, Pressable, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Linking, Pressable, View, type LayoutChangeEvent } from 'react-native';
 
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
@@ -33,17 +34,47 @@ import { MIN_TAP_TARGET } from '@/theme/tokens';
  * Renders nothing without cards — absent, not greyed — and the caller gates it
  * on the person's own "Show where to buy" switch (C-03), so turning that off
  * removes this the way it removes every other shop surface.
+ *
+ * ── THE SHELF'S OWN DENOMINATORS (ledger A46, 2026-09-05) ─────────────────
+ *
+ * `explore_shop_product_opened` had never fired, lifetime — not from a
+ * customer, and not from the harness that loaded 979 cards on 09-01/03 —
+ * and the only other number was `explore_shop_feed_loaded`, which counts
+ * READS, not a grid on screen. Nothing could say whether the shelf was
+ * invisible (nothing drew, or it sat below the fold of a long page) or
+ * visible and unwanted. So the shelf now reports two facts about itself:
+ * `explore_shop_shelf_shown {cards, paid}` when it settles (the caller fires
+ * it, because a zero-card shelf renders nothing and cannot report), and
+ * `explore_shop_shelf_reached` when its top edge enters the viewport — the
+ * caller measures the scroll, this component only hands up its own y via
+ * `onLayout`. Both once per mount, both counts only.
  */
 export function ShopShelf({
   cards,
   total,
   onSeeMore,
+  onLayout,
 }: {
   cards: ShelfCard[];
   /** How many cards the door leads to. "See more" is absent when it is a lie. */
   total: number;
   onSeeMore: () => void;
+  /** The shelf's y within the scroll content, for the "reached" measurement. */
+  onLayout?: (y: number) => void;
 }) {
+  // The impression, from the one place that knows a grid actually drew.
+  // `cards.length` is the dependency so an empty-then-filled shelf reports
+  // once it fills; the ref keeps a refill from reporting twice.
+  const shown = useRef(false);
+  useEffect(() => {
+    if (shown.current || cards.length === 0) return;
+    shown.current = true;
+    track('explore_shop_shelf_shown', {
+      cards: cards.length,
+      paid: cards.filter((card) => card.paid).length,
+    });
+  }, [cards]);
+
   if (cards.length === 0) return null;
 
   const open = (card: ShelfCard) => {
@@ -58,7 +89,9 @@ export function ShopShelf({
   };
 
   return (
-    <View className="mt-10 px-gutter">
+    <View
+      className="mt-10 px-gutter"
+      onLayout={onLayout ? (e: LayoutChangeEvent) => onLayout(e.nativeEvent.layout.y) : undefined}>
       <SectionHeader title="From the shops" className="mb-1" />
       <Text variant="note" className="mb-3 text-muted">
         Picked from the kinds of pieces you already own. Each opens the shop’s own page.

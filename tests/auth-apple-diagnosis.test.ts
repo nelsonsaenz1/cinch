@@ -70,6 +70,33 @@ test('the second real apple failure names the email door', () => {
   assert.doesNotMatch(cancelBranch, /appleFailures/);
 });
 
+test('A45 — a cancelled Apple sheet draws the second door, and still is not a failure', () => {
+  // The line, as a question: the sheet may simply have been dismissed.
+  assert.match(SIGN_IN, /const CANCEL_HINT = 'Trouble with Apple sign-in\? Use your email instead\.';/);
+  const cancelBranch = SIGN_IN.slice(
+    SIGN_IN.indexOf("case 'canceled':"),
+    SIGN_IN.indexOf("case 'unavailable':"),
+  );
+  // The first cancel reports once and flips the state; the count of REAL
+  // failures is untouched (the earlier test), so the hint and the escalation
+  // stay two different sentences for two different facts.
+  assert.match(cancelBranch, /if \(!appleCancelled\) track\('auth_cancel_hint_shown'\);\s*setAppleCancelled\(true\);/);
+  assert.doesNotMatch(cancelBranch, /appleFailures/);
+  // Drawn under the Apple button, only where Apple was offered, and it IS the
+  // email door: the same `onEmail` the button below it calls, which fires
+  // `auth_started {method: 'email'}` on its own.
+  assert.match(
+    SIGN_IN,
+    /\{appleAvailable && appleCancelled \? \(\s*<Pressable\s*onPress=\{\(\) => \{\s*track\('auth_cancel_hint_taken'\);\s*onEmail\(\);/,
+  );
+  assert.ok(SIGN_IN.indexOf('Sign in with Apple\n') < SIGN_IN.indexOf('{CANCEL_HINT}'));
+  assert.ok(SIGN_IN.indexOf('{CANCEL_HINT}') < SIGN_IN.indexOf('Continue with email\n'));
+  // Both names are in the union.
+  const posthog = readFileSync('src/lib/posthog.tsx', 'utf8');
+  assert.match(posthog, /\| 'auth_cancel_hint_shown'/);
+  assert.match(posthog, /\| 'auth_cancel_hint_taken'/);
+});
+
 test('a thrown sign-in failure never shows provider text to the user', () => {
   const { describeThrownSignInError } = require('../src/features/auth/sign-in-errors');
   // The two honest classifications keep their sentences…

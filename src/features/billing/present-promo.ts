@@ -28,7 +28,7 @@ import type { Plan } from './plans';
 import type { ContextLineOpts } from './context-lines';
 import type { Gate, GateOutcome } from './use-gate';
 import { evaluatePromoCaps, type PromoCapReason } from './promo-caps';
-import { fetchRecentImpressions, recordImpression } from './promo-caps-io';
+import { fetchRecentImpressions } from './promo-caps-io';
 
 /**
  * Why a promo was or was not offered — the `reason` on `paywall_eligible`.
@@ -112,21 +112,23 @@ export interface PresentPromoOpts {
  * silently ate every ask would be indistinguishable from a funnel with no
  * traffic.
  *
- * THE IMPRESSION SEAM, stated once so the test can pin it: `paywall_presented`
- * fires from Superwall's own `onPresent`, and the ledger row must mean the
- * same thing — a sheet the user actually saw. This module has no access to
- * that callback, but it has the resolved outcome, and the mapping is exact:
- * 'granted' and 'declined' both require a presentation to have happened
- * (grant via purchase/close of a real sheet, or a skip — see below), while
- * 'unavailable' means no usable frame was ever committed and must NOT spend
- * the allowance — a broken campaign that burned the day's one ask would turn
- * a dashboard mistake into a silenced funnel. So `recordImpression` is called
- * exactly when `present()` resolves 'granted' or 'declined'.
+ * THE IMPRESSION SEAM MOVED (ledger A19, 2026-09-05). `paywall_impressions`
+ * used to be written HERE, off the resolved outcome ('granted' | 'declined'),
+ * which meant only the four general promos ever reached the table — the
+ * contextual gates (`add_garment_over_limit` and its siblings) go straight to
+ * `gate.present()` and never pass through this function, so the revenue
+ * ledger's only server-side check on the paywall was blind to every tap-driven
+ * ask. The 09-05 nightly read `paywall_presented` 5 against `paywall_eligible`
+ * 3 and a table that held only the promo rows.
  *
- * The known smudge on that seam: a campaign SKIP (audience filter, holdout)
- * also resolves 'granted' without drawing a sheet, so a skipped promo counts
- * against the caps. Accepted deliberately — the alternative double-asks users
- * in holdouts, and being quieter than necessary is the safe direction here.
+ * The row is now written by `use-gate.ts` from Superwall's own `onPresent`,
+ * beside `paywall_presented` — every placement, exactly when a sheet appears,
+ * so the table and the event mean the same thing by construction. The caps
+ * are unaffected: `evaluatePromoCaps` only ever counted rows whose placement
+ * is in `GENERAL_PROMO_PLACEMENTS`, so the contextual rows that now land are
+ * ignored by the arithmetic. One deliberate change of behaviour: a campaign
+ * SKIP (holdout, audience filter) used to resolve 'granted' and spend the
+ * allowance; a skip draws nothing and now records nothing.
  */
 export async function presentPromo(
   gate: Gate,
@@ -167,12 +169,8 @@ export async function presentPromo(
 
     const outcome = await gate.present(placement, opts.onGranted, opts.contextOpts);
 
-    if (outcome === 'granted' || outcome === 'declined') {
-      // The seam documented above: these two outcomes are the ones that mean
-      // a sheet visibly presented; the third never committed a frame and
-      // spends nothing.
-      recordImpression(placement);
-    }
+    // The impression is recorded by the gate's `onPresent` (see the seam note
+    // above), not here — nothing in this module writes the ledger.
     if (outcome === 'declined') {
       track('paywall_dismissed', { placement });
     }

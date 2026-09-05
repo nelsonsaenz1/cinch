@@ -318,6 +318,22 @@ export type AppEvent =
    * events share the same bound: counts and the shelf word, nothing else.
    */
   | 'explore_shop_product_opened'
+  // ── The shelf's own denominators (ledger A46, 2026-09-05) ─────────────────
+  //
+  // `explore_shop_product_opened` had never fired — not from a customer, not
+  // from the harness that loaded 979 cards — and nothing said whether the
+  // grid was ever on screen. These three make "invisible" and "unwanted"
+  // different numbers. Counts and booleans only, same bound as the pair above.
+  /** Explore was focused. Once per mount, gated on the visit, like `today_opened`. */
+  | 'explore_opened'
+  /**
+   * Both shelf reads settled on a focused Explore. `cards` (0–6) is what the
+   * grid drew, `paid` how many of those are partner stock; zero cards means
+   * the shelf rendered nothing and the reason is upstream of the tap.
+   */
+  | 'explore_shop_shelf_shown'
+  /** The grid scrolled into the viewport. Once per mount. Absent = below the fold. */
+  | 'explore_shop_shelf_reached'
   /**
    * A Pinterest OAuth attempt settled. `outcome` is one of the closed
    * connect codes (connected | canceled | denied | failed | not_configured).
@@ -739,6 +755,15 @@ export type AppEvent =
    * is finally two different numbers. Never the digits.
    */
   | 'auth_code_entered'
+  /**
+   * The line under the Apple button after a cancelled sheet was drawn
+   * (ledger A45, 2026-09-05) — once per visit, no properties. Its pair below
+   * is the tap. `auth_failed {canceled}` over these two says whether the
+   * second door catches the cancellers who did not self-recover.
+   */
+  | 'auth_cancel_hint_shown'
+  /** The hint was taken; `auth_started {method: 'email'}` follows from the door itself. */
+  | 'auth_cancel_hint_taken'
   // ── Push (ledger A14, 2026-09-04) ─────────────────────────────────────────
   //
   // The store binary has carried `expo-notifications` and the
@@ -751,7 +776,11 @@ export type AppEvent =
   /**
    * The morning-edit card was on a focused Today. `trackOnce`, so a person
    * who saw it on three launches before answering is one impression — the
-   * denominator the `turn_on` rate is read against.
+   * denominator the `turn_on` rate is read against. `closet` is 'floor' |
+   * 'usable' (ledger A44, 2026-09-05): the card is no longer gated on the
+   * activation floor, and the two audiences must stay separable — before
+   * A44 the denominator from real people was zero because all three real
+   * users on the push build held no garments.
    */
   | 'push_ask_shown'
   /** `action` is 'turn_on' | 'not_now'. */

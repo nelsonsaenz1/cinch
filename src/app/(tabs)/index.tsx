@@ -124,6 +124,7 @@ import { describeWeather, formatTemp, weatherSymbol } from '@/features/context/w
 import { useTripReminder } from '@/features/today/use-trip-reminder';
 import { PushAskCard } from '@/components/today/push-ask-card';
 import { usePushAsk } from '@/features/push/use-push-ask';
+import type { PushAskCloset } from '@/features/push/ask-spec';
 import { askForRatingAfterWear } from '@/features/rating/ask-for-rating';
 import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
@@ -1433,11 +1434,19 @@ export default function TodayScreen() {
   // never flashes at somebody who already dismissed it.
   const tripReminder = useTripReminder(tripSoon?.id ?? null);
 
-  // The morning-edit ask (A14) — drawn once the closet can dress the reader,
-  // once per install, and never on a binary without the module. See
-  // `features/push/ask-spec.ts` for why the ask lives here and not only in
-  // Settings.
-  const pushAsk = usePushAsk(!wardrobe.isLoading && !wardrobe.isError && canGenerate(items));
+  // The morning-edit ask (A14) — once per install, never on a binary without
+  // the module, and since A44 drawn on BOTH sides of the activation floor:
+  // the floor branch below carries it under the doors, with the conditional
+  // sentence; the plate carries it with the plain one. The verdict is the
+  // product's floor, not the engine's, so the card's "ten" and the floor's
+  // "ten" are the same ten. See `features/push/ask-spec.ts`.
+  const pushAskCloset: PushAskCloset =
+    wardrobe.isLoading || wardrobe.isError
+      ? 'unread'
+      : belowActivationFloor(items.length, canGenerate(items))
+        ? 'floor'
+        : 'usable';
+  const pushAsk = usePushAsk(pushAskCloset);
 
   const myEvents = useMyEvents();
   const interrupt = useMemo(() => {
@@ -1641,6 +1650,25 @@ export default function TodayScreen() {
               onDescribe={() => router.push('/walkthrough')}
             />
           )}
+
+          {/* The morning-edit ask (A44), under the doors and never above them
+              — the floor's one job is the first photograph, and the card is
+              the second thing on the page, not the first. Hidden on the
+              pending-consent floor for the trip card's reason: stuck pieces
+              have a different next action. Its sentence is the conditional
+              one ("once your ten are in"), which is what the sender does. */}
+          {!pendingConsentFloor && pushAsk.show ? (
+            <PushAskCard
+              closet="floor"
+              visited={visited}
+              ax={ax}
+              accent={theme.accent}
+              busy={pushAsk.busy}
+              onTurnOn={() => void pushAsk.turnOn()}
+              onNotNow={pushAsk.notNow}
+            />
+          ) : null}
+
           <ConsentSheet
             visible={consentSheetOpen}
             busy={grantConsent.isPending}
@@ -1929,6 +1957,7 @@ export default function TodayScreen() {
               every gate above this line passed. */}
           {!nothingWorks && pushAsk.show ? (
             <PushAskCard
+              closet="usable"
               visited={visited}
               ax={ax}
               accent={theme.accent}
