@@ -344,6 +344,51 @@ Before choosing what a briefing leads with, print the top-of-funnel absolute num
 (installs, real DAU) and ask whether any downstream rate could move the business at that
 volume. If it could not, the lead is distribution, whatever else broke that day.
 
+## ASC acquisition data IS readable — the path was wrong for five nights (2026-09-05)
+
+**Standing correction, and the most expensive one in this file.** Five briefings (08-30,
+08-31, 09-01-od, 09-01n, 09-03n) recorded impressions, page views and App Units as
+**"unread — no API key"**, and ledger row A21 (create an ASC API key) sat at or near the top
+of Tomorrow's Focus as the row that would unblock them. A21 was never required.
+
+- `POST /analytics/api/v1/data/time-series` — **hyphenated, deprecated, 410 Gone.** This is
+  the path every prior session called. The 09-01 correction correctly diagnosed the 410 and
+  then drew the wrong conclusion from it.
+- `POST /analytics/api/v1/data/timeseries` — **no hyphen, live, 200.** This is what the
+  dashboard itself calls. It returns real series. It is finicky under automation (it answers
+  reliably only in a short window right after the analytics route first loads, and 400s with
+  *"Make sure the URL is correct"* thereafter), so **do not depend on it.**
+- **Depend on the dashboard instead.** Whenever the ASC web session is alive, navigate and
+  read the rendered table — it is authoritative and it never 400s:
+
+```
+Overview (all 30-day totals in one page of text):
+  https://appstoreconnect.apple.com/analytics/app/d30/6798479578/overview
+
+Daily series, one measure at a time — the table under the chart carries every day:
+  https://appstoreconnect.apple.com/apps/6798479578/analytics/metrics
+    ?chartType=singleaxis&dateSpec=d30&frequency=day&measureId=<M>&measureKey=<M>
+  <M> ∈ impressionsTotal | pageViewCount | units | redownloads
+```
+
+Read it with `get_page_text` or `document.body.innerText` after a ~4 s settle; the
+`DATE … Total …` block is the full daily table.
+
+**Still genuinely unread:** the **source / campaign** breakdown. The URL parameter
+`dimensionKey=source` does **not** apply it; it needs the UI dropdown (*"By Date"* → **App
+Store** → **Source Type**), which did not open under automation on 09-05. Until someone
+captures it, write *source: unread — dimension breakdown not captured*, and say which two
+clicks would fix it. This one breakdown decides whether a low tap-through means the listing
+is underperforming (Search impressions) or performing normally (Browse impressions).
+
+**Three distinct ASC failures now, not two.** Probe each; never infer one from another:
+
+| symptom | meaning | what to write |
+|---|---|---|
+| `/analytics/api/v1/data/time-series` → 410 | wrong path, permanent | nothing — use `timeseries` or the dashboard |
+| any `/iris/v1/...` → 401, or a redirect to `login?...authResult=FAILED` | browser session expired; Nelson must re-auth with 2FA | *unread — session expired* |
+| session alive, dashboard renders | data is available | **read it** |
+
 ## `paywall_eligible` is a denominator, not a success (2026-09-02)
 
 `presentPromo` fires `paywall_eligible` on **every** call, offered or not
