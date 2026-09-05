@@ -12,12 +12,12 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 
 | id | issued | item | lane | predicted effect | status | measured effect |
 |---|---|---|---|---|---|---|
-| **A4** | 08-31 · **RESURRECTED 09-05** | **Re-cut the first screenshot + icon** (and consider subtitle candidate A, "Outfits from clothes you own") | ASC — **confirm lane**: editing a live version's screenshots/subtitle requires a new version submission; only promotional text is review-free | Impression→PPV 3.50% → ≥5% (total basis) within 7 days of the new set going live | **TONIGHT'S #1.** Killed 09-02 on effort grounds with the note "re-issue the row the night ASC reads." ASC read 09-05. | 30d: **7,139 impressions → 250 page views → 57 downloads**. Impression→PPV **3.50%** (09-04: 1.43%); PPV→download **22.8%** — the page converts fine, the tap does not. Screenshot set v3 untouched **9 nights**. **Gate: read the Source Type breakdown first** (09-05 §16.1) — if the impressions are Browse rather than Search, do not ship this. |
-| **A44** | 09-05 | **Ungate the push ask from the activation floor** — fire the Morning Edit card after `style_profile_saved`, not after `canGenerate` | OTA | First non-zero `push_tokens` row from a real user | **new — and the reason A14's ship reads as a zero** | OTA `01a06c9f` confirmed on **3 real devices** (`c61b8cb0` 09-04 16:42Z, `9504a3ed` 23:52Z, `590709c2` 09-05 04:49Z). `push_ask_shown` = **0** from all three, because all three hold **0 items** so `canGenerate` never passes. 14d denominators: `style_profile_saved` 23 persons vs `clothes_import_completed` 14. The ask is gated behind the step the funnel is losing. Scored by **P15**. |
-| **A45** | 09-05 | **Give a cancelled Apple sign-in a visible second door** — one line on the first cancel: "Trouble with Apple sign-in? Use your email instead" | OTA | A canceller who does not self-recover reaches the email door instead of leaving | **new — the surviving half of a falsified alert** | 11 of 39 auth starters fired `auth_failed{canceled}` in 14d. **8 of 11 completed seconds later** (table in 09-05 §8.3) — so this is friction, not a lockout, and the alert was withdrawn. The 3 who did not: `ab374450` (Stuart), `070c10b5` (4 cancels / 105 s / never signed in), `46451076` (Bismarck, gone in 6 s). `auth-apple-diagnosis.test.ts` deliberately keeps cancels out of the escalation — this is the revisit the 09-04 ledger asked for. |
-| **A46** | 09-05 | **Diagnose the Explore shelf's zero product opens** — is it invisible or are the products wrong? | OTA | `explore_shop_product_opened` > 0, or a written reason it never will be | **new — stop building on an unread surface** | 10 persons fired `explore_shop_feed_loaded` **43 times** in 14 days. `explore_shop_product_opened` does not appear in the 14-day event stream **at all — 0, lifetime**, across A29's shelf, A30's slot mapper and audit ship 3's closet-affinity ranking. Three ships, no reader. |
+| **A4** | 08-31 · **RESURRECTED 09-05** | **Re-cut the first screenshot + icon** (and consider subtitle candidate A, "Outfits from clothes you own") | ASC — **confirm lane**: editing a live version's screenshots/subtitle requires a new version submission; only promotional text is review-free | Impression→PPV 3.50% → ≥5% (total basis) within 7 days of the new set going live | **GATE ANSWERED 09-05 — SHIP.** Source Type read by URL (audit ship 5): **99.1% of impressions are Search** (7,074 of 7,139); Search's own impression→PPV is **2.77%**. The listing is underperforming for people who searched for it. Awaiting the founder's design afternoon. | 30d: **7,139 impressions → 250 page views → 57 downloads**. Impression→PPV **3.50%** (09-04: 1.43%); PPV→download **22.8%** — the page converts fine, the tap does not. Screenshot set v3 untouched **9 nights**. **Gate: read the Source Type breakdown first** (09-05 §16.1) — if the impressions are Browse rather than Search, do not ship this. |
+| **A44** | 09-05 | **Ungate the push ask from the activation floor** — fire the Morning Edit card after `style_profile_saved`, not after `canGenerate` | OTA + DB | First non-zero `push_tokens` row from a real user | **✅ SHIPPED 09-05 (audit ship 5) — card on the floor with a conditional sentence; claim guarded at ten; sim-proven end to end; QA rows cleared** | OTA `01a06c9f` confirmed on **3 real devices** (`c61b8cb0` 09-04 16:42Z, `9504a3ed` 23:52Z, `590709c2` 09-05 04:49Z). `push_ask_shown` = **0** from all three, because all three hold **0 items** so `canGenerate` never passes. 14d denominators: `style_profile_saved` 23 persons vs `clothes_import_completed` 14. The ask is gated behind the step the funnel is losing. Scored by **P15**. |
+| **A45** | 09-05 | **Give a cancelled Apple sign-in a visible second door** — one line on the first cancel: "Trouble with Apple sign-in? Use your email instead" | OTA | A canceller who does not self-recover reaches the email door instead of leaving | **✅ SHIPPED 09-05 (audit ship 5) — `auth_cancel_hint_shown/taken`; a true cancel is untestable on the sim (no Apple ID), wiring source-pinned** | 11 of 39 auth starters fired `auth_failed{canceled}` in 14d. **8 of 11 completed seconds later** (table in 09-05 §8.3) — so this is friction, not a lockout, and the alert was withdrawn. The 3 who did not: `ab374450` (Stuart), `070c10b5` (4 cancels / 105 s / never signed in), `46451076` (Bismarck, gone in 6 s). `auth-apple-diagnosis.test.ts` deliberately keeps cancels out of the escalation — this is the revisit the 09-04 ledger asked for. |
+| **A46** | 09-05 | **Diagnose the Explore shelf's zero product opens** — is it invisible or are the products wrong? | OTA | `explore_shop_product_opened` > 0, or a written reason it never will be | **INSTRUMENTED 09-05 (audit ship 5) — the wire is proven live (first-ever open, from the sim); `explore_opened` / `explore_shop_shelf_shown {cards,paid}` / `explore_shop_shelf_reached` decide invisible vs unwanted from the next real visits** | 10 persons fired `explore_shop_feed_loaded` **43 times** in 14 days. `explore_shop_product_opened` does not appear in the 14-day event stream **at all — 0, lifetime**, across A29's shelf, A30's slot mapper and audit ship 3's closet-affinity ranking. Three ships, no reader. |
 | **A21** | 09-01n | Create an App Store Connect API key | OPS | Source-attribution automation; ASC readable without a browser | **DEMOTED 09-05 — no longer blocking.** Kept for automation only. | **Its premise was wrong.** `/analytics/api/v1/data/time-series` (hyphen) is 410; the live path is `/analytics/api/v1/data/timeseries`, and the ASC Analytics **dashboard** renders impressions/PPV/downloads in a browser tab whenever the session is alive. Five briefings recorded acquisition as "unread — no API key." Full account in 09-05 §17.1; METHODOLOGY amended. |
-| **A19** | 09-01-od | Make `paywall_impressions` record every paywall, not just the promo path | OTA | Table matches PostHog `paywall_presented` | **open, night 5 — now demonstrably under-reporting** | 14d: `paywall_presented` **5** vs `paywall_eligible` **3**; the `add_garment_over_limit` path fires neither eligibility nor a table row. The table did correctly capture both real `trial_expired` impressions on 09-04 (`e931d02b` 01:52:19Z, `1b35b7b6` 16:42:59Z) — so the promo path works and the tap path is blind. |
+| **A19** | 09-01-od | Make `paywall_impressions` record every paywall, not just the promo path | OTA | Table matches PostHog `paywall_presented` | **✅ SHIPPED 09-05 (audit ship 5) — the row is written from use-gate's `onPresent` for every placement; caps unaffected** | 14d: `paywall_presented` **5** vs `paywall_eligible` **3**; the `add_garment_over_limit` path fires neither eligibility nor a table row. The table did correctly capture both real `trial_expired` impressions on 09-04 (`e931d02b` 01:52:19Z, `1b35b7b6` 16:42:59Z) — so the promo path works and the tap path is blind. |
 | **A14** | 09-01 | **Ship push permission + token capture** | ~~BINARY~~ → OTA | `push_tokens` > 0 | **night 6 — TONIGHT'S #1, and the only row that moves the 09-03 thesis** | `push_tokens` 0 · `notification_prefs` 0 · `push_sends` 0, re-verified 09-03. Proof of consequence: the 14:00Z trial wind-down freed 37 accounts and **reached one person in eleven hours** (`901a935d`, Grand Rapids, 13-second session, no auth). Also gates the daily-streak mechanic identified in 09-03n §9. |
 | **A42** | 09-03n | **Instrument and fix the email sign-in code path** — distinguish code-requested / code-entered / code-wrong | OTA | Tomorrow's first-screen loss has a name | **new** | Today's only real signup `ef579e79` (Salem, 04:55:16Z, provider `email`) has **`last_sign_in_at = NULL` and 0 items**; PostHog shows `auth_started` ×2 at 04:54:50 / 04:54:58 and the app backgrounded at 04:55:19 — 32-second session. The other two real installs (Fort Wayne 11:59Z, Grand Rapids 20:10Z) **never fired `auth_started` at all**, leaving in 21s and 13s. |
 | **A41** | 09-03n | **Reseed the QA closets under their own storage prefix, and cap the signing retry** | OPS (service-role) + OTA | `image_sign_failed` stops being the largest event stream in the product | **new — surfaced by the 09-02 audit as a service-role task and not done** | `image_sign_failed` **112 events, 768 of 768 requests failed**, 2026-09-03 03:30:29Z → 09-04 00:28:26Z, still looping at write time. One person, `$app_build='1'` (harness). Not a customer signal — but it is an uncapped retry loop against Supabase storage and it drowns the event stream. |
@@ -58,6 +58,103 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 | ~~**A38**~~ | 09-03 | **No universal link has ever been verified opening the app on a real device** | OPS | — | **RESOLVED 09-03 — and it was NOT the entitlement.** Build 47's signed IPA entitlements carry `com.apple.developer.associated-domains = ["applinks:cinchstyle.com"]` and its embedded provisioning profile allows associated-domains (`*`) — read from the binary by the engineering session, so the EAS capability-sync fear in `app.config.ts:180-198` never materialised. Apple's CDN also serves the `/closet` component (`app-site-association.cdn-apple.com/a/v1/cinchstyle.com`). | **The real constraint is the DEVICE-side AASA cache.** iOS fetches a domain's AASA at app **install/update** time and otherwise only on a slow periodic schedule; **an OTA update is not an install.** Every phone that installed Cinch before 09-03 still holds a cached AASA without `/closet`, so the universal link will not fire for them — they land on `web/api/open.js`. `/i/*` still deep-links for everyone because that component has been in every cached copy since 08-10. Clears itself on the next App Store build (every updater re-fetches). Mitigated meanwhile by the `cinch://closet` door added to the fallback page. |
 | **A40** | 09-03 | **Give the `/closet` fallback page a `cinch://` door** — a recipient who already owns Cinch was being shown "Get Cinch" | OTA/web | A recipient with the app installed reaches their closet, not the App Store listing | **✅ SHIPPED + verified live 09-03** | Found by reasoning through A38's cache finding: with a stale AASA, every installed recipient lands on the fallback and the page's only action told them to install an app they already have. Page now leads with `cinch://closet` (resolves via expo-router default matching to `src/app/(tabs)/closet.tsx`; scheme `cinch` at `app.config.ts:139`, no `+native-intent` to intercept) and keeps the App Store as an explicit secondary, because a custom-scheme link is inert when the app is absent and must never be the sole action. |
 | **A39** | 09-03 | **All three HTML templates overflow a 375px viewport** | OPS (copy) | Email renders inside the phone it is read on | **new — `reengage.html` fixed, the other three are not** | `dispatch.html`, `release.html` and `welcome.html` set `width="600"` with only `max-width:520px` and no `width:100%`, so the card is 520px wide on a 375px phone. Rendered and screenshotted 09-03 at 375×812. **Dispatch No. 01 was sent that way to 23 people on 09-01.** |
+
+## Audit ship 5 — the floor, the second door, the ledger row and the shelf's own numbers (engineering session, read after the 09-05 nightly, 2026-09-05 __PUBLISH_TIME__)
+
+Commits `ee8e651` + `067651c` on main. Published to all four live runtimes and manifest-verified:
+
+| runtime | fleet | OTA | branch |
+|---|---|---|---|
+| 4e646ba0 | 1.2.3 / b47 (store) | `__OTA_MAIN__` | main |
+| c5f00773 | 1.2.0 / b43-44 | `__OTA_C5__` | ota/c5f00773-a44 |
+| 813c6d34 | 1.2.1 / b45 | `__OTA_813C__` | ota/813c-a44 |
+| ccfa8345 | 1.2.2 / b46 | `__OTA_CCFA__` | ota/ccfa8345-a44 |
+
+**The gate on A4 is answered, and it says ship.** The Source Type breakdown the 09-05 nightly
+could not capture reads by URL — the parameter is `groupByDimensionKey=source`, not
+`dimensionKey` (METHODOLOGY amended with the URL and the keyboard recipe for the dropdown).
+30 days to 09-04:
+
+| source | impressions | product page views | first-time downloads |
+|---|---|---|---|
+| App Store Search | **7,074** | 196 | 48 |
+| App Referrer | 32 | 32 | 8 |
+| App Store Browse | 32 | 21 | 1 |
+| Web Referrer | 1 | 1 | 0 |
+
+**99.1% of impressions are Search**, and Search's own impression→PPV is **2.77%** — lower than
+the blended 3.50%, because the referrer traffic converts at 100%. The listing is
+underperforming for people who searched for it, which is the one case §7's evidence-against
+paragraph said would make A4 the right call. PPV→download on Search is 24.5%, ordinary. A4 is
+unblocked; the design afternoon is the founder's.
+
+Rows moved:
+- **A44 ✅ SHIPPED (OTA) + migration applied.** The card no longer waits for `canGenerate`:
+  Today draws it under the floor's doors as well as on the plate, and the SENTENCE moves
+  instead of the gate — on the floor it reads "Once your ten are in, tomorrow's look is ready
+  when you wake up. One note at 7:30am, nothing else." The claim keeps that promise:
+  `push_claim_morning_edit` (migration `20260905000000_morning_edit_needs_a_closet`, applied
+  via MCP 16:5xZ) claims nobody with fewer than ten garments, so a grant made at zero pieces
+  produces its first note the morning after the tenth lands; `tests/push-ask.test.ts` holds
+  the literal against `TODAY_ACTIVATION_FLOOR`. `push_ask_shown` now carries `closet: floor |
+  usable`, so the floor audience is a number. **Proven on the keyed sim** as the zero-garment
+  QA account `sim-test+ja`: floor → card → Turn on → iOS sheet → Allow → `push_tokens` +
+  `notification_prefs` rows at 17:26:38Z → card retired; PostHog carries `push_ask_shown
+  {closet: floor}` → `push_ask_answered {turn_on}` → `push_permission_result {granted,
+  prompted}` → `push_token_registered {ok}`. The guard was then checked against that exact
+  row: token yes, prefs yes, items 0 → not claimable. **QA rows deleted afterwards; all three
+  push tables read 0 again** — the nightly's first nonzero is a real person. Effect metric
+  unchanged: `push_tokens > 0` from a non-internal user; P15's falsifier is now reachable.
+  **Open follow-on for the founder, not built:** a person who grants on the floor and never
+  adds a tenth piece receives nothing, by design — push is still not used to bring anyone
+  back. A "finish your ten" note would be a new channel with a new promise on the
+  preferences screen, and that is a product decision.
+- **A45 ✅ SHIPPED (OTA).** After the first cancelled Apple sheet the cover draws one line
+  under the button — "Trouble with Apple sign-in? Use your email instead." — which IS the
+  email door (same `onEmail`, so `auth_started {method: email}` follows). Two events:
+  `auth_cancel_hint_shown` (once per visit) and `auth_cancel_hint_taken`. The real-failure
+  count stays out of the cancel branch, pinned. **Gate limit, stated:** the simulator holds no
+  Apple ID, so Apple's sheet there is a system alert whose Close reports `failed /
+  ERR_REQUEST_UNKNOWN`, not a cancel — the second attempt correctly showed the existing
+  "isn't finishing on this phone" toast and the hint correctly stayed hidden. A true cancel
+  needs a phone; the wiring is held by `tests/auth-apple-diagnosis.test.ts`. Effect metric:
+  among persons with `auth_failed {canceled}`, the share who reach `auth_completed` (any
+  method) — baseline 8 of 11.
+- **A19 ✅ SHIPPED (OTA).** `paywall_impressions` is now written from `use-gate.ts`'s
+  `onPresent`, beside `paywall_presented`, for EVERY placement; `presentPromo` no longer
+  writes it. The caps only ever counted `GENERAL_PROMO_PLACEMENTS`, so the contextual rows
+  that now land change no verdict (pinned by a new promo-caps test). One deliberate change: a
+  campaign SKIP used to spend the allowance; a skip draws nothing and now records nothing.
+  Effect metric: `paywall_impressions` rows = `paywall_presented` events, per placement.
+  Not exercised on the sim tonight (the QA account under the floor reaches no paywall);
+  the call sits one line under the proven `track('paywall_presented')` and the seam is
+  source-pinned.
+- **A46 — diagnosed to the point the data allows, and instrumented for the rest.** Fact one:
+  `explore_shop_product_opened` was absent from PostHog's *taxonomy* — never fired, lifetime,
+  not even by the harness that loaded 979 cards on 09-01/03 (the 09-02 "40 → 24 → 24"
+  verifications were feed-load counts, never taps). Fact two, from the sim tonight: **the wire
+  is not dead** — the first `explore_shop_product_opened {shelf: partner}` in the project's
+  history fired at 17:27:19Z when a CICYBELL card was tapped on the keyed build and opened
+  the merchant page. So the zero is behavioural or visibility, not a broken event. Three new
+  events decide which: `explore_opened` (Explore had no opened-event; the shelf's reads were
+  standing in as the page's denominator), `explore_shop_shelf_shown {cards, paid}` (including
+  the zero, reported by the page when both reads settle — `fetchStatus === 'idle'`, so the
+  empty closet's self-disabled read counts as settled), and `explore_shop_shelf_reached`
+  (the grid's top edge inside the viewport, checked from the shelf's layout, the viewport's
+  layout and the scroll — the gate run found the shelf inside the first viewport of a
+  near-empty page with no scroll event at all). Sim run: `explore_opened` →
+  `explore_shop_feed_loaded {partner, 24}` → `explore_shop_shelf_shown {cards: 6, paid: 6}`
+  → `explore_shop_product_opened`. Real-user denominator to date is tiny: 3 real persons
+  loaded the feed since 09-02. Read next: `shelf_shown` with cards>0 and `shelf_reached`
+  against `product_opened` — if reached ≫ opened the products are wrong; if shown ≫ reached
+  the shelf is below the fold.
+
+Keyed-Release boot gate: PASSED on the final bundle (xcodebuild Release + production
+Superwall key into the scratchpad, fresh install on "Cinch iPhone 17 Pro"): cover → Apple
+(system alert, two real failures, escalation toast) → email door → OTP via Resend read-back
+→ Today floor with the card under the doors → Turn on → Allow → rows → card retired →
+Explore → shelf → card tap → merchant page → Stylist floor. Rebuilt incrementally after the
+shelf-reached fix and re-checked on Explore.
 
 ## Audit ship 2026-09-03 (engineering session, read after the 09-02 nightly)
 

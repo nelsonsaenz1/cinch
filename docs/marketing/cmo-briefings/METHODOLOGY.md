@@ -374,12 +374,23 @@ Daily series, one measure at a time — the table under the chart carries every 
 Read it with `get_page_text` or `document.body.innerText` after a ~4 s settle; the
 `DATE … Total …` block is the full daily table.
 
-**Still genuinely unread:** the **source / campaign** breakdown. The URL parameter
-`dimensionKey=source` does **not** apply it; it needs the UI dropdown (*"By Date"* → **App
-Store** → **Source Type**), which did not open under automation on 09-05. Until someone
-captures it, write *source: unread — dimension breakdown not captured*, and say which two
-clicks would fix it. This one breakdown decides whether a low tap-through means the listing
-is underperforming (Search impressions) or performing normally (Browse impressions).
+**The source / campaign breakdown IS readable by URL (captured 2026-09-05, engineering
+session).** The parameter is `groupByDimensionKey=source` — not `dimensionKey`, which is
+what the 09-05 nightly tried:
+```
+https://appstoreconnect.apple.com/apps/6798479578/analytics/metrics
+  ?chartType=singleaxis&dateSpec=d30&frequency=day&groupByDimensionKey=source
+  &measureId=<M>&measureKey=<M>
+```
+`get_page_text` after a ~6 s settle prints a `SOURCE TYPE … App Store Search N · App
+Referrer N · App Store Browse N · Web Referrer N` table. If the dropdown is ever needed
+under automation: it opens on a `find`-ref click of the *By Date* button, mouse clicks
+inside it close it, but **keyboard works** — `ArrowDown ArrowDown ArrowRight` opens the
+App Store submenu, six more `ArrowDown`s reach *Source Type*, `Enter` applies it (and
+rewrites the URL with the parameter above). 30 days to 09-04: impressions **Search 7,074 ·
+App Referrer 32 · Browse 32 · Web 1**; product page views **196 · 32 · 21 · 1**; first-time
+downloads **48 · 8 · 1 · 0**. 99% of impressions are Search, and Search's own
+impression→PPV is **2.77%** — the listing is underperforming, not the source mix.
 
 **Three distinct ASC failures now, not two.** Probe each; never infer one from another:
 
