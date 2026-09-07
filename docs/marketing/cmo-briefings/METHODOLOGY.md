@@ -392,6 +392,14 @@ App Referrer 32 · Browse 32 · Web 1**; product page views **196 · 32 · 21 ·
 downloads **48 · 8 · 1 · 0**. 99% of impressions are Search, and Search's own
 impression→PPV is **2.77%** — the listing is underperforming, not the source mix.
 
+**The version page's field counters are not field lengths (2026-09-07).** The 1.2.3
+version page rendered `Keywords ? 0` while the API (`appStoreVersionLocalizations`) carried a
+98-character keyword string on every live version — and its "What's New 3,641" was the
+description's length. Read keywords, description and What's New from the API, never from the
+page's counters. The live keyword string as of 09-07: `digital,stylist,organizer,clothes,what,
+wear,ootd,style,calendar,inventory,clothing,ai,travel,weather` — a version-locked field; changing
+it takes a new version and build.
+
 **Three distinct ASC failures now, not two.** Probe each; never infer one from another:
 
 | symptom | meaning | what to write |

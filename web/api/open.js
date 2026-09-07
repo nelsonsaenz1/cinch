@@ -91,7 +91,13 @@ function page({ onApplePhone }) {
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="https://cinchstyle.com/closet">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinchstyle.com/og.png">
+<meta property="og:image" content="https://cinchstyle.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cinch — ten pieces is a wardrobe. Free on iPhone.">
+<meta name="apple-itunes-app" content="app-id=6798479578, app-argument=https://cinchstyle.com/closet">
 <link rel="canonical" href="https://cinchstyle.com/closet">
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/invite.css">

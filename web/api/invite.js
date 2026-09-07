@@ -241,7 +241,13 @@ function page({ title, description, canonical, body }) {
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${esc(canonical)}">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinchstyle.com/og.png">
+<meta property="og:image" content="https://cinchstyle.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cinch — ten pieces is a wardrobe. Free on iPhone.">
+<meta name="apple-itunes-app" content="app-id=6798479578, app-argument=${esc(canonical)}">
 <link rel="canonical" href="${esc(canonical)}">
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/invite.css">

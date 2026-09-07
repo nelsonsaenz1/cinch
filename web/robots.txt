@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /i/
+Disallow: /closet
+
+Sitemap: https://cinchstyle.com/sitemap.xml
