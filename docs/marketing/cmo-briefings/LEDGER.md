@@ -63,16 +63,16 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 | **A40** | 09-03 | **Give the `/closet` fallback page a `cinch://` door** — a recipient who already owns Cinch was being shown "Get Cinch" | OTA/web | A recipient with the app installed reaches their closet, not the App Store listing | **✅ SHIPPED + verified live 09-03** | Found by reasoning through A38's cache finding: with a stale AASA, every installed recipient lands on the fallback and the page's only action told them to install an app they already have. Page now leads with `cinch://closet` (resolves via expo-router default matching to `src/app/(tabs)/closet.tsx`; scheme `cinch` at `app.config.ts:139`, no `+native-intent` to intercept) and keeps the App Store as an explicit secondary, because a custom-scheme link is inert when the app is absent and must never be the sole action. |
 | **A39** | 09-03 | **All three HTML templates overflow a 375px viewport** | OPS (copy) | Email renders inside the phone it is read on | **new — `reengage.html` fixed, the other three are not** | `dispatch.html`, `release.html` and `welcome.html` set `width="600"` with only `max-width:520px` and no `width:100%`, so the card is 520px wide on a 375px phone. Rendered and screenshotted 09-03 at 375×812. **Dispatch No. 01 was sent that way to 23 people on 09-01.** |
 
-## Audit ship 6 — seen not mounted, the moment not the timer, the bounce, and the ask (engineering session, read after the 09-06 nightly, 2026-09-07 — OTA ids in the row below once published)
+## Audit ship 6 — seen not mounted, the moment not the timer, the bounce, and the ask (engineering session, read after the 09-06 nightly, 2026-09-07 20:14Z main · side-cuts 20:23Z / 20:35Z / 20:45Z)
 
-Commit `__MAIN_COMMIT__` on main. Published to all four live runtimes and manifest-verified:
+Commit `20573e9` on main. Published to all four live runtimes and manifest-verified:
 
 | runtime | fleet | OTA | branch |
 |---|---|---|---|
-| 4e646ba0 | 1.2.3 / b47 (store) | `__OTA_MAIN__` | main |
-| c5f00773 | 1.2.0 / b43-44 | `__OTA_C5F0__` | ota/c5f00773-a48 |
-| 813c6d34 | 1.2.1 / b45 | `__OTA_813C__` | ota/813c-a48 |
-| ccfa8345 | 1.2.2 / b46 | `__OTA_CCFA__` | ota/ccfa8345-a48 |
+| 4e646ba0 | 1.2.3 / b47 (store) | `01a07d81-c9d9-7c1d-8536-388a3a9cabcd` | main |
+| c5f00773 | 1.2.0 / b43-44 | `01a07d8a-294d-7040-a95a-d7cb39c23144` | ota/c5f00773-a48 |
+| 813c6d34 | 1.2.1 / b45 | `01a07d95-c5d6-78e2-b5ca-da07495e311b` | ota/813c-a48 |
+| ccfa8345 | 1.2.2 / b46 | `01a07d9e-f4dd-7a2e-9926-457c5f1a32a9` | ota/ccfa8345-a48 |
 
 **A47 is not engineering work and is untouched:** App Store Connect still needs the founder's
 2FA. Nothing below reads ASC.
