@@ -400,6 +400,54 @@ impression→PPV is **2.77%** — the listing is underperforming, not the source
 | any `/iris/v1/...` → 401, or a redirect to `login?...authResult=FAILED` | browser session expired; Nelson must re-auth with 2FA | *unread — session expired* |
 | session alive, dashboard renders | data is available | **read it** |
 
+## A falsifier must carry its own population exclusions (2026-09-06)
+
+**Standing correction.** P3 read: *"No reconciled production purchase will exist by 2026-09-14.
+Falsifier: any `asc_notifications` row with `environment='Production'` + a subscription type."*
+On 09-05 a **founder-family** account (`jaysaenz99@`, one of the five `%saenz%` accounts) started a
+**7-day free trial** on `cinch.standard.annual`. That produced a Production `SUBSCRIBED` row with
+`outcome=applied` — satisfying the falsifier literally while collecting **$0** and proving nothing
+about demand.
+
+Every funnel query in this document carefully excludes internal accounts, family accounts, review
+devices and `$app_build='1'`. **Predictions had been exempt from that discipline, and should not
+be.** Rules:
+
+1. A prediction about *customer* behaviour must name its exclusions **inside the falsifier text**,
+   not rely on the reader applying them.
+2. A prediction about money must say whether a trial start counts. `period_type: TRIAL` on a
+   Superwall `initial_purchase` means $0 has changed hands; only a `DID_RENEW` / non-trial period
+   is revenue.
+3. A falsifier that has to be reinterpreted after the fact is not a falsifier. Score it against
+   what it said, record the specification error, and re-issue it correctly.
+
+## Do not name a binding constraint in a week the top-of-funnel number moved (2026-09-06)
+
+**Standing correction, from the Sunday retro.** The thesis has now been retracted three times in
+six nights: monetization-blocked (08-31) → distribution-starved (09-03) → listing/tap-through
+(09-05) → day-2 retention (09-06). Each retraction was correct that the *previous* stage had
+stopped binding. Each new thesis was named too fast, from a denominator too small to support it.
+
+Before writing "the binding constraint is X":
+
+1. Print the top-of-funnel absolute for the week **and** the prior week. If it moved more than
+   ~50%, every downstream rate is measured against a shifting denominator.
+2. In that case, label the thesis **provisional** in the text and say what stable denominator
+   would confirm it.
+3. A cohort of fewer than ~15 cannot support a strong retention claim. `0 of 8` is consistent with
+   a true rate as high as ~20%. Say so in the same paragraph as the claim.
+
+## ASC has a *third* mode: dark on the night it matters (2026-09-06)
+
+The 09-05 correction established the `timeseries` path and the dashboard URLs. Tonight the session
+was **401** (`login?...authResult=FAILED`) on the one night arrivals moved 6×, so the acquisition
+question of the week went unanswered.
+
+Operational consequence: **probe ASC first, not last.** If it returns 401, the briefing's top
+Tomorrow's-Focus row is "the founder re-authenticates with 2FA" — it is a two-minute OPS action
+that gates A4, source attribution and any impression-based prediction. Do not spend the run's
+effort elsewhere and discover the gap at write-up time.
+
 ## `paywall_eligible` is a denominator, not a success (2026-09-02)
 
 `presentPromo` fires `paywall_eligible` on **every** call, offered or not
