@@ -134,6 +134,8 @@ Rows moved:
   `stylist_opened`, `plan_opened`, `explore_opened` (A46). Feature-adoption for closet / packing /
   trips / events / voice / circles / saved looks is **unread, not zero**.
 
+**A49's read half went LIVE at 21:40Z — the founder set `RESEND_READ_API_KEY`; a fresh throwaway bounce (`cinchbounce0907b@gmail.com`, Resend `bounced` 21:40:37Z) answered `{ bounced: true }` from the deployed function ten seconds after the send, and a delivered address answered `false`. The paragraph below records the state before that and why it was not done from here.**
+
 **A49's read half is FAIL-CLOSED until the founder sets one secret.** The function log at
 20:03:27Z says why the sim's real bounce came back `false`: `auth-code-status: Resend list
 answered 401`. `RESEND_API_KEY` in Supabase is the send-only key the mail functions were
