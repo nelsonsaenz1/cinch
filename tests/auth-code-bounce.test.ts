@@ -66,13 +66,17 @@ test('the function answers `bounced` and nothing else, unauthenticated by necess
   const fn = readFileSync('supabase/functions/auth-code-status/index.ts', 'utf8');
   const config = readFileSync('supabase/config.toml', 'utf8');
   assert.match(config, /\[functions\.auth-code-status\]\nverify_jwt = false/);
-  // Every 200 body is exactly { bounced }.
+  // Every 200 body is exactly { bounced } — the literal false, or the rule's answer.
   const bodies = fn.match(/json\(\{ bounced[^}]*\}\)/g) ?? [];
   assert.ok(bodies.length >= 3);
-  for (const b of bodies) assert.match(b, /^json\(\{ bounced: (false|bouncedInWindow\(page, address, Date\.now\(\)\)) \}\)$/);
+  for (const b of bodies) assert.match(b, /^json\(\{ bounced(: false)? \}\)$/);
+  assert.match(fn, /const bounced = bouncedInWindow\(page, address, Date\.now\(\)\);/);
   assert.doesNotMatch(fn, /last_event/);
+  // A read-capable key first, the send-only key as a fallback — and no key answers false.
+  assert.match(fn, /Deno\.env\.get\('RESEND_READ_API_KEY'\) \?\? Deno\.env\.get\('RESEND_API_KEY'\)/);
   assert.match(fn, /if \(!key\) return json\(\{ bounced: false \}\)/);
-  assert.match(fn, /if \(!res\.ok\) return json\(\{ bounced: false \}\)/);
+  // A refused list call is logged (it is the pending signal for a missing key) and still answers false.
+  assert.match(fn, /if \(!res\.ok\) \{[\s\S]{0,400}console\.warn\(`auth-code-status: Resend list answered \$\{res\.status\}`\);\s*return json\(\{ bounced: false \}\);/);
   assert.match(fn, /catch \{\s*return json\(\{ bounced: false \}\);/);
   // Bounded input, one field.
   assert.match(fn, /readBoundedJson\(req\)/);

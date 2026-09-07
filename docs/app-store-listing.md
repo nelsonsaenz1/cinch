@@ -146,6 +146,89 @@ the least confident 15 characters in the field and the first thing to test.
 
 ---
 
+## Next build — keyword rewrite and storefront localisations (founder order, 2026-09-07)
+
+**Order:** "Do the keyword rewrite and localizations when you cut the next build." These fields
+are version-locked, so both land on the version the next build attaches to (1.2.4 or later)
+and go live with it. `scripts/asc-listing.mjs` does the work; this section is its input.
+
+### Why localisations first, and what they buy
+
+A localisation is a second 100-character keyword field. Apple indexes several localisations
+into one storefront — the widely reported map is **US ← en-US + es-MX**, **UK ← en-GB + en-US**,
+**Canada ← en-CA + fr-CA**, **Australia ← en-AU + en-US** (industry-observed behaviour,
+not Apple documentation; the sign it is working is App Store Search impressions rising
+without a US keyword change). Cinch is English-only and 5 of the 16 arrivals on 09-05/06
+were outside the US, so every added English localisation is pure additive reach, and
+**es-MX is the one that widens the US field itself**: the terms that did not fit en-US go
+there, in English, and the US storefront reads both.
+
+Each new localisation copies the en-US name, subtitle, description, promotional text and
+What's New verbatim (the script does this — never leave a localisation half-filled, Apple
+rejects the version) and carries its own keyword field. Screenshots are copied from en-US
+by the script too; a localisation without screenshots blocks submission.
+
+### The keyword fields
+
+`en-US` — the live field, 100/100, unchanged **until the Search Ads scores exist**:
+
+```
+digital,stylist,organizer,clothes,what,wear,ootd,style,calendar,inventory,clothing,ai,travel,weather
+```
+
+Ranked swap candidates for en-US, cheapest first — apply only against popularity scores
+from a free Apple Search Ads account (the doc above already names this as the gate, and it
+is still not done):
+
+| swap out | chars freed | swap in | why |
+|---|---|---|---|
+| `clothes` | 8 | `fashion` (8) | the doc's own flagged double with `clothing`; "fashion app / fashion planner" is a head query the field has nothing for |
+| `digital` | 8 | `lookbook` (9) | "digital closet" is real but the title already wins "closet"; "lookbook" is uncovered |
+| `what` | 5 | `daily` (6) | ONLY if the planner shows "what to wear" below the floor — it is likely above it, so this is last |
+
+Two constraints that do not change: nothing already in the name or subtitle, and no stop
+words. **If the subtitle moves to candidate A ("Outfits from clothes you own", 09-05
+nightly §11.5), `capsule`, `wardrobe`, `packing` and `list` fall out of the subtitle and 27
+characters of the keyword field must absorb them** — that trade is the reason to decide the
+subtitle and the keywords together, on the same version.
+
+`es-MX` — English terms, the second US field. Nothing that is in en-US, the name or the
+subtitle (repetition does not stack across localisations either):
+
+```
+outfits,lookbook,fashion,mix,match,virtual,dress,fit,daily,morning,laundry,worn,cost,per,jeans
+```
+(94 characters. "mix" + "match" assemble "mix and match" with the stop word stripped;
+"cost" + "per" join en-US's `wear` for the cost-per-wear query the app's own cover uses —
+`wear` is not repeated here because the US storefront reads both fields as one bag.)
+
+`en-GB` — British vocabulary the US field cannot carry, plus the head terms:
+
+```
+wardrobe,organiser,jumper,trainers,trousers,outfits,lookbook,fashion,mix,match,daily,dress,what,wear
+```
+(98 characters. `organiser` with an s; `wardrobe` repeats the subtitle only if the
+subtitle stays — drop it for `capsule`-free storefronts if candidate A ships.)
+
+`en-AU` and `en-CA` — same string as en-GB (Australia and Canada share the spellings and
+the head terms; Canada additionally reads fr-CA, which is not worth a French field for an
+English-only app yet).
+
+### What the script does, in order (`node scripts/asc-listing.mjs`)
+
+1. `read` — prints every version's localisations and the appInfo name/subtitle. Safe.
+2. `plan --version 1.2.4` — shows exactly what `apply` would create and patch. Safe.
+3. `apply --version 1.2.4` — on an EDITABLE version only (`PREPARE_FOR_SUBMISSION`,
+   `DEVELOPER_REJECTED`, `REJECTED`, `METADATA_REJECTED`): patches en-US keywords if the
+   doc's string differs, creates the missing appInfo localisations (name + subtitle),
+   creates the missing version localisations (description / promo / What's New copied from
+   en-US, keywords from this doc), and copies every en-US screenshot set into each new
+   localisation. Idempotent; re-running fills whatever is missing.
+
+The build session's checklist: bump `version` in app.config.ts → retake the fingerprint pins →
+EAS build with auto-submit (creates the ASC version) → `read` → decide the subtitle → edit the
+strings above → `plan` → `apply` → confirm in ASC → submit.
+
 ## Promotional text
 
 *170 characters. **The one field on this page that is editable at any time,
