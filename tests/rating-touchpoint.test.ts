@@ -10,6 +10,8 @@ import {
   touchpointStamp,
 } from '../src/features/rating/rating-touchpoint-core';
 import {
+  DWELL_MS,
+  PENDING_MOMENT_KEY,
   blockedByOtherSurface,
   markTouchpoint,
   promptEligible,
@@ -28,14 +30,17 @@ import {
  * native module) and then prove the shared touchpoint closes it: once any
  * surface fires, every other surface reads the same key and stands down
  * for the cooldown window, while each surface's own cadence (122-day
- * native cap, per-session card) is untouched once the window has passed.
+ * native cap, per-moment card) is untouched once the window has passed.
  */
 
 const NOW = new Date('2026-08-31T12:00:00.000Z');
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Every store carries a pending moment: since A50 the card is armed by a
+// moment, not a session count, and these tests are about the collision
+// guard, not the cadence.
 function sharedStore(seed: Record<string, string> = {}) {
-  return new Map(Object.entries(seed));
+  return new Map(Object.entries({ [PENDING_MOMENT_KEY]: 'ten', ...seed }));
 }
 
 function ratingIo(store: Map<string, string>): RatingAskIo {
@@ -58,10 +63,10 @@ test('REPRODUCTION: with no shared key, a fresh wear completion lets A and B bot
   // Two independent stores, exactly as ship today: A never reads B's keys
   // and B never reads A's. Nothing has fired yet for either.
   const aStore = sharedStore();
-  const bStore = sharedStore({ 'cinch.review.sessionCount.v1': '2' }); // session 2+, eligible
+  const bStore = sharedStore(); // a moment pending, eligible
 
   const aOutcome = await evaluateRatingAsk(NOW, ratingIo(aStore));
-  const bWouldFire = promptEligible(2, reviewIo(bStore)) && settledIn(30_000, 0);
+  const bWouldFire = promptEligible(reviewIo(bStore)) && settledIn(DWELL_MS);
 
   // This is the defect: both say yes, in the same completion window.
   assert.equal(aOutcome, 'requested');
@@ -89,7 +94,7 @@ test('FIX: once A fires it stamps the shared key, and B refuses within the coold
   // B, deciding a moment later in the same window, must see the stamp and
   // refuse — even though its own per-session cadence would otherwise say yes.
   const bIo = reviewIo(store);
-  assert.equal(promptEligible(2, bIo), true, 'B is otherwise eligible this session');
+  assert.equal(promptEligible(bIo), true, 'B is otherwise eligible this session');
   assert.equal(blockedByOtherSurface(NOW, bIo), true, 'B must defer to the touchpoint A just wrote');
 });
 
@@ -123,7 +128,7 @@ test('B still never asks twice once done, regardless of the touchpoint', () => {
   const bIo = reviewIo(store);
   markTouchpoint(new Date(NOW.getTime() - 5 * DAY_MS), bIo); // long stale, would not block
   bIo.write('cinch.review.done.v1', 'true');
-  assert.equal(promptEligible(5, bIo), false);
+  assert.equal(promptEligible(bIo), false);
 });
 
 // ── Source contracts ───────────────────────────────────────────────────────

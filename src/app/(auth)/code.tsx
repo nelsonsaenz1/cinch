@@ -32,9 +32,11 @@ import {
   verifyEmailCode,
   verifyPhoneCode,
 } from '@/features/auth/actions';
+import { CODE_BOUNCE_CHECKS_MS, signInCodeBounced } from '@/features/auth/code-status';
 import {
   AX_STACK_SCALE,
   BOX_BLEED,
+  bouncedTrouble,
   CODE_CHANGE,
   CODE_CHANGE_PHONE,
   CODE_CHECKING,
@@ -121,10 +123,25 @@ export default function CodeScreen() {
   const [verifying, setVerifying] = useState(false);
   const [cooldown, setCooldown] = useState<number | null>(null);
   const [resending, setResending] = useState(false);
+  /**
+   * The bounce watch (A49). Each send — the address screen's, and every
+   * resend from here — starts a fresh watch: a few checks in the first
+   * half-minute, stopped the moment the screen has anything else to say
+   * (a code typed, a card up, a verify in flight) or the send is superseded.
+   * `sendSerial` is that supersession: a resend bumps it, the old watch's
+   * closure sees a stale serial and stands down.
+   */
+  const [sendSerial, setSendSerial] = useState(0);
+  const [bounced, setBounced] = useState(false);
 
   const large = fontScale >= AX_STACK_SCALE;
   const exhausted = attemptsLeft <= 0;
-  const errored = wrong || trouble != null;
+  // The bounce outranks nothing typed and nothing else wrong — it is drawn
+  // only while the screen is still waiting, which is exactly when the
+  // person is waiting too. A code already typed means the mail arrived.
+  const shownTrouble: Trouble | null =
+    trouble ?? (bounced && value.length === 0 && !wrong && !verifying ? bouncedTrouble() : null);
+  const errored = wrong || shownTrouble != null;
   const shown = wrong ? errorValue : value;
 
   // The one shake: 8px horizontal, once, skipped under Reduce Motion. Driven by
@@ -142,6 +159,27 @@ export default function CodeScreen() {
     );
   }, [shakeTick, reduced, shakeX]);
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }] }));
+
+  useEffect(() => {
+    if (viaPhone || bounced) return;
+    let alive = true;
+    const timers = CODE_BOUNCE_CHECKS_MS.map((delay) =>
+      setTimeout(() => {
+        if (!alive) return;
+        void signInCodeBounced(email).then((yes) => {
+          if (!alive || !yes) return;
+          alive = false;
+          setBounced(true);
+          track('auth_code_bounced', { method: 'email' });
+        });
+      }, delay),
+    );
+    return () => {
+      alive = false;
+      for (const t of timers) clearTimeout(t);
+    };
+    // `sendSerial` is the dependency that restarts the watch on a resend.
+  }, [viaPhone, email, bounced, sendSerial]);
 
   useEffect(() => {
     if (cooldown == null || cooldown <= 0) return;
@@ -222,6 +260,8 @@ export default function CodeScreen() {
         setErrorValue('');
         setWrong(false);
         setTrouble(null);
+        setBounced(false);
+        setSendSerial((n) => n + 1);
         setAttemptsLeft(MAX_ATTEMPTS);
         setCooldown(RESEND_COOLDOWN_S);
         inputRef.current?.focus();
@@ -317,19 +357,21 @@ export default function CodeScreen() {
 
           {wrong ? <RunStatus tone="refused">{wrongCodeLine(attemptsLeft)}</RunStatus> : null}
 
-          {trouble ? (
+          {shownTrouble ? (
             <TroubleCard
-              trouble={trouble}
+              trouble={shownTrouble}
               large={large}
               busy={resending}
-              onAction={() => void resend()}
+              // The bounce card's door is the address screen (A49); every
+              // other card's is a fresh send.
+              onAction={shownTrouble.door === 'address' ? () => router.back() : () => void resend()}
             />
           ) : null}
 
           {/* The resend offer. Suppressed while a card is up, because that card
               already carries the send — two ways to ask for the same code on
               one screen is the "one CTA" rule broken by accretion. */}
-          {!verifying && trouble == null ? (
+          {!verifying && shownTrouble == null ? (
             cooldown != null ? (
               <RunStatus>{cooldownLine(cooldown)}</RunStatus>
             ) : resending ? (

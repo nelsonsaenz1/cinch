@@ -392,10 +392,17 @@ export type Trouble = {
   readonly body: string;
   /** The filled button inside the card. `null` when there is nothing to press. */
   readonly action: string | null;
+  /**
+   * Which door the button opens. Every card but one re-sends; the bounce
+   * card (A49) goes BACK to the address screen, because sending the same
+   * code to the same non-existent mailbox again is not a recovery.
+   */
+  readonly door?: 'resend' | 'address';
 };
 
 export const TRY_AGAIN = 'Try again';
 export const SEND_NEW_CODE = 'Send a new code';
+export const CHANGE_ADDRESS = 'Use a different email';
 
 /** The rate-limit window Supabase enforces, and the sentence has always named. */
 export const RATE_LIMIT_S = 300;
@@ -449,6 +456,22 @@ export function expiredTrouble(): Trouble {
     eyebrow: 'CODE EXPIRED',
     body: 'That code has run out. Send a fresh one and we’ll try again.',
     action: SEND_NEW_CODE,
+  };
+}
+
+/**
+ * The code bounced (ledger A49). Neutral, not amber: nothing out there
+ * failed — the address does not exist, and the honest sentence says the mail
+ * came back rather than "something went wrong". The one door is the address
+ * screen; "check your email" is the sentence this card exists to replace.
+ */
+export function bouncedTrouble(): Trouble {
+  return {
+    tone: 'neutral',
+    eyebrow: 'THAT EMAIL BOUNCED',
+    body: 'The code came straight back — that address doesn’t seem to exist. Check the spelling and try another.',
+    action: CHANGE_ADDRESS,
+    door: 'address',
   };
 }
 

@@ -392,6 +392,15 @@ export type AppEvent =
    */
   | 'invite_shared'
   /**
+   * The invite card on Today was on a focused Today (ledger A23,
+   * 2026-09-06) — drawn once the closet can be dressed, once per install.
+   * `trackOnce`, no properties: the denominator `invite_ask_answered` and
+   * `invite_shared` are read against.
+   */
+  | 'invite_ask_shown'
+  /** `action` is 'share' (the invite screen opened) | 'not_now'. */
+  | 'invite_ask_answered'
+  /**
    * The invite link actually reached the pasteboard.
    *
    * Fired only inside `copyText`'s success branch. It returns false when the
@@ -749,6 +758,14 @@ export type AppEvent =
    */
   | 'auth_code_sent'
   /**
+   * The code screen learned, from Resend's own log via `auth-code-status`,
+   * that the sign-in mail hard-bounced (ledger A49, 2026-09-06), and drew
+   * the "that email bounced" card with its door back to the address screen.
+   * `method` is 'email'. Before A49 this person sat on "check your email"
+   * forever and had no row anywhere.
+   */
+  | 'auth_code_bounced'
+  /**
    * Six digits were submitted. `attempt` is 1..MAX_ATTEMPTS within one sent
    * code. Its outcome is the existing `auth_completed` or `auth_failed`
    * (`wrong-code` / `expired-code` / `network`), so wrong-versus-never-typed
@@ -783,6 +800,14 @@ export type AppEvent =
    * users on the push build held no garments.
    */
   | 'push_ask_shown'
+  /**
+   * Enough of the card was actually on screen — its top 40pt inside the
+   * viewport above the tab bar (ledger A48, 2026-09-06; `pushAskSeen` in
+   * push/ask-spec.ts). `push_ask_shown` is the mount; this is the sighting.
+   * Same `closet` property, same `trackOnce`. Shown ≫ seen: the card sits
+   * below the fold. Seen ≈ shown and unanswered: looked at and declined.
+   */
+  | 'push_ask_seen'
   /** `action` is 'turn_on' | 'not_now'. */
   | 'push_ask_answered'
   /**
@@ -972,7 +997,11 @@ export type AppEvent =
    * the OS card. No properties.
    */
   | 'review_prompt_shown'
-  /** How the card was answered: rate | already | later. Nothing else. */
+  /**
+   * How the card was answered: rate | already | later. Since A50
+   * (2026-09-06) both events carry `moment` — 'ten' | 'reveal', the beat
+   * that armed the card — because the card no longer fires on a timer.
+   */
   | 'review_prompt_action'
   /** Whether the look was kept — never which look. */
   | 'favorite_set'

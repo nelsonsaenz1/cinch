@@ -8,6 +8,9 @@ import {
   ScrollView,
   View,
   useWindowDimensions,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -15,6 +18,7 @@ import Animated, {
   FadeOut,
   ReduceMotion,
   interpolate,
+  runOnJS,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
@@ -122,9 +126,12 @@ import {
 } from '@/lib/styling';
 import { describeWeather, formatTemp, weatherSymbol } from '@/features/context/weather';
 import { useTripReminder } from '@/features/today/use-trip-reminder';
+import { InviteAskCard } from '@/components/today/invite-ask-card';
 import { PushAskCard } from '@/components/today/push-ask-card';
 import { usePushAsk } from '@/features/push/use-push-ask';
-import type { PushAskCloset } from '@/features/push/ask-spec';
+import { useInviteAsk } from '@/features/invite/use-invite-ask';
+import { pushAskSeen, type PushAskCloset } from '@/features/push/ask-spec';
+import { noteReviewMoment } from '@/features/rating/review-moments';
 import { askForRatingAfterWear } from '@/features/rating/ask-for-rating';
 import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
@@ -900,6 +907,9 @@ export default function TodayScreen() {
   useEffect(() => {
     if (wardrobe.isLoading || wardrobe.isError || !canGenerate(items)) return;
     trackOnce('closet_ready', { route: 'capture', pieces: items.length });
+    // The same moment for the review card (A50), from whichever route saw
+    // the crossing first — and, once, for every closet already past it.
+    noteReviewMoment('ten');
   }, [wardrobe.isLoading, wardrobe.isError, items]);
 
   // OUTFITS GENUINELY ON SCREEN.
@@ -1448,6 +1458,73 @@ export default function TodayScreen() {
         : 'usable';
   const pushAsk = usePushAsk(pushAskCloset);
 
+  // ── SEEN, NOT MOUNTED (A48) ───────────────────────────────────────────────
+  //
+  // `push_ask_shown` is the card's mount; this is the card on screen. The
+  // shelf's arrangement on Explore, with one difference forced by the happy
+  // path: its scroll offset lives on the UI thread (`onHappyPathScroll`
+  // below, a worklet), so the card's y and the viewport's height are mirrored
+  // into shared values the worklet can read, and the worklet reports through
+  // `runOnJS` exactly once. The floor's plain ScrollView and every layout
+  // event check from JS. Whichever side sees it first wins; `trackOnce` makes
+  // the other a no-op, and the rule itself (`pushAskSeen`) is one pure
+  // function so both sides agree on what "seen" means.
+  const pushAskTop = useSharedValue(-1);
+  const pushAskViewport = useSharedValue(-1);
+  const pushAskSeenReported = useSharedValue(false);
+  const floorScrollOffset = useRef(0);
+  const pushAskClosetRef = useRef<PushAskCloset>(pushAskCloset);
+  useEffect(() => {
+    pushAskClosetRef.current = pushAskCloset;
+  }, [pushAskCloset]);
+  const reportPushAskSeen = () => {
+    const closet = pushAskClosetRef.current;
+    if (closet === 'unread') return;
+    pushAskSeenReported.value = true;
+    trackOnce('push_ask_seen', { closet });
+  };
+  /** The JS-side check — from every layout, and from the floor's scroll. */
+  const maybePushAskSeen = (scrollOffset: number) => {
+    if (pushAskSeenReported.value) return;
+    if (
+      pushAskSeen({
+        cardTop: pushAskTop.value,
+        viewportHeight: pushAskViewport.value,
+        scrollOffset,
+      })
+    ) {
+      reportPushAskSeen();
+    }
+  };
+  const onPushAskLayout = (y: number) => {
+    pushAskTop.value = y;
+    maybePushAskSeen(floorScrollOffset.current);
+  };
+  /** Both ScrollViews' `onLayout` — the viewport's height. */
+  const onScrollViewportLayout = (e: LayoutChangeEvent) => {
+    pushAskViewport.value = e.nativeEvent.layout.height;
+    maybePushAskSeen(floorScrollOffset.current);
+  };
+  /** The floor's `onScroll` — a plain handler; nothing on that branch needs the UI thread. */
+  const onFloorScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    floorScrollOffset.current = e.nativeEvent.contentOffset.y;
+    maybePushAskSeen(floorScrollOffset.current);
+  };
+  /** The floor ScrollView's three measurement props, as one spread. */
+  const floorSeenProps = {
+    onLayout: onScrollViewportLayout,
+    scrollEventThrottle: 100,
+    onScroll: onFloorScroll,
+  };
+
+  // The invite ask (A23) — the plate only, once per install, and only once
+  // the morning-edit card has been answered: one card at a time under the
+  // plate. See `features/invite/ask-spec.ts`.
+  const inviteAsk = useInviteAsk({
+    closetUsable: pushAskCloset === 'usable',
+    pushAskShowing: pushAsk.show,
+  });
+
   const myEvents = useMyEvents();
   const interrupt = useMemo(() => {
     const today = new Date().toDateString();
@@ -1536,6 +1613,18 @@ export default function TodayScreen() {
   const scrollY = useSharedValue(0);
   const onHappyPathScroll = useAnimatedScrollHandler((e) => {
     scrollY.value = e.contentOffset.y;
+    // A48 — the seen check on the UI thread; one JS hop, ever, per install.
+    if (
+      !pushAskSeenReported.value &&
+      pushAskSeen({
+        cardTop: pushAskTop.value,
+        viewportHeight: pushAskViewport.value,
+        scrollOffset: e.contentOffset.y,
+      })
+    ) {
+      pushAskSeenReported.value = true;
+      runOnJS(reportPushAskSeen)();
+    }
   });
 
   // --- States --------------------------------------------------------------
@@ -1627,7 +1716,8 @@ export default function TodayScreen() {
           // 96, matching Closet: below that the floating tab bar occludes this
           // branch's primary action, which is the whole reason the state
           // exists.
-          contentContainerStyle={{ paddingBottom: 96 }}>
+          contentContainerStyle={{ paddingBottom: 96 }}
+          {...floorSeenProps}>
           {pendingConsentFloor ? (
             // T-10b outranks the activation floor: pieces exist and are
             // stuck, so "add more" would be a misdiagnosis. The sheet and the
@@ -1666,6 +1756,7 @@ export default function TodayScreen() {
               busy={pushAsk.busy}
               onTurnOn={() => void pushAsk.turnOn()}
               onNotNow={pushAsk.notNow}
+              onLayout={onPushAskLayout}
             />
           ) : null}
 
@@ -1839,6 +1930,8 @@ export default function TodayScreen() {
           keyboardDismissMode="interactive"
           onScroll={onHappyPathScroll}
           scrollEventThrottle={16}
+          // A48 — the viewport's height, for the push card's "seen" check.
+          onLayout={onScrollViewportLayout}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
           }>
@@ -1964,6 +2057,21 @@ export default function TodayScreen() {
               busy={pushAsk.busy}
               onTurnOn={() => void pushAsk.turnOn()}
               onNotNow={pushAsk.notNow}
+              onLayout={onPushAskLayout}
+            />
+          ) : null}
+
+          {/* The invite ask (A23), in the same slot and never at the same
+              time: `inviteAsk.show` is already false while the push card
+              draws. `hidden` on the refusal for the same reason as the
+              cards above it. */}
+          {!nothingWorks && inviteAsk.show ? (
+            <InviteAskCard
+              visited={visited}
+              ax={ax}
+              accent={theme.accent}
+              onShare={inviteAsk.share}
+              onNotNow={inviteAsk.notNow}
             />
           ) : null}
 

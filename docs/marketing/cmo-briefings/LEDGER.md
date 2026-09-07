@@ -13,9 +13,9 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 | id | issued | item | lane | predicted effect | status | measured effect |
 |---|---|---|---|---|---|---|
 | **A47** | 09-06 | **Re-authenticate App Store Connect (2FA), then read the 09-05/09-06 Source Type breakdown** — `groupByDimensionKey=source`, 30d | OPS — two minutes of the founder's time | The 6× arrival discontinuity gets a name (Search / Browse / App Referrer / Web Referrer), A4 is gateable again, P14 becomes scoreable | **new — TONIGHT'S #1, and it is not engineering work** | ASC returns `login?...authResult=FAILED` on both `/analytics/…` and `/iris/…` — the 401 failure, not the 410 one. Impressions, PPV, downloads, source, build-in-review, agreement banners and review-answered status are ALL unread on the night arrivals moved 6×. Circumstantial evidence for a category/featuring placement: **5 of 16 arrivals are non-US** (Delhi, Baku, Dammam, Erbil, St Helens) against a 94%-US baseline; a Cupertino device browsed build 47 on 09-05 02:34Z with no submission in flight; Resend received a 09-03 PeerPush directory listing. All three are checkable the moment the session lives. |
-| **A48** | 09-06 | **Make the push card report visibility, not mount** — add the `explore_shop_shelf_reached` treatment to the Today card and emit `push_ask_seen` distinct from `push_ask_shown` | OTA | The 13→2 answer gap gets a cause; A44's effect becomes readable | **new — the exact defect A34 records for `explore_shop_feed_loaded`** | `push_ask_shown` 13 persons (11 floor / 2 usable) → `push_ask_answered` **2** → granted **2/2**. Falsified the session-length explanation: `c61b8cb0` stayed **15,907 s (4.4 h)** after the ask and answered nothing; `a2f996cb` stayed 3,790 s and imported **10** garments; `863a69ed` imported **14**. Full table in 09-06 §8.3. Two explanations remain — seen-and-ignored vs never-in-viewport — and this row is the instrument that separates them. |
-| **A49** | 09-06 | **Catch the bounced sign-in code, and stop minting an `auth.users` row per code request** | OTA + OPS | A user whose address hard-bounces is told, instead of waiting forever on "check your email" | **new — one real user, total silent loss, cheap fix** | 09-05 17:35:53Z a code to `sanasharifi@gmail.com` **bounced** (Resend). 83 s later the same person requested one at `sanasharifi179@gmail.com` — she found her own typo — and it delivered. She never signed in, holds 0 items. **Both attempts created `auth.users` rows** (`19ac8a5b`, `2b65f685`, both `last_sign_in_at = NULL`) because `shouldCreateUser` mints on send. `auth_address_refused` correctly did not fire — the address was syntactically valid. Orphan rows also inflate every signup denominator. |
-| **A50** | 09-06 | **Move the review prompt to a moment of delight** — fire after the first completed Reveal or the tenth garment, not on a timer | OTA | `review_prompt_action` stops being 100% "later"; the rating count moves off 6 | **new — a spent, capped resource being burned** | `review_prompt_shown` **6** → `review_prompt_action` **"later" 6 of 6** in four days. Rating count has been **6 for ten days**. Apple caps the native prompt at three per user per year, so every "later" destroys an impression that cannot be recovered. Six people built ten-piece closets this week and none was asked at a moment they had just been delighted. Competitive context: Cinch converts users better than apps with 1,000–30,000 ratings (09-06 §9) and has six. |
+| **A48** | 09-06 | **Make the push card report visibility, not mount** — add the `explore_shop_shelf_reached` treatment to the Today card and emit `push_ask_seen` distinct from `push_ask_shown` | OTA | The 13→2 answer gap gets a cause; A44's effect becomes readable | **✅ SHIPPED 2026-09-07 (audit ship 6)** — `push_ask_seen {closet}` from a 40pt-inside-the-usable-viewport rule, pure + worklet, both ScrollViews; read shown vs seen next | `push_ask_shown` 13 persons (11 floor / 2 usable) → `push_ask_answered` **2** → granted **2/2**. Falsified the session-length explanation: `c61b8cb0` stayed **15,907 s (4.4 h)** after the ask and answered nothing; `a2f996cb` stayed 3,790 s and imported **10** garments; `863a69ed` imported **14**. Full table in 09-06 §8.3. Two explanations remain — seen-and-ignored vs never-in-viewport — and this row is the instrument that separates them. |
+| **A49** | 09-06 | **Catch the bounced sign-in code, and stop minting an `auth.users` row per code request** | OTA + OPS | A user whose address hard-bounces is told, instead of waiting forever on "check your email" | **✅ SHIPPED 2026-09-07 (audit ship 6)** — bounce card on the code screen via the new `auth-code-status` edge read of Resend; `reap_unverified_signups()` hourly, **9 orphan rows reaped on the first run** (71 → 62 users) | 09-05 17:35:53Z a code to `sanasharifi@gmail.com` **bounced** (Resend). 83 s later the same person requested one at `sanasharifi179@gmail.com` — she found her own typo — and it delivered. She never signed in, holds 0 items. **Both attempts created `auth.users` rows** (`19ac8a5b`, `2b65f685`, both `last_sign_in_at = NULL`) because `shouldCreateUser` mints on send. `auth_address_refused` correctly did not fire — the address was syntactically valid. Orphan rows also inflate every signup denominator. |
+| **A50** | 09-06 | **Move the review prompt to a moment of delight** — fire after the first completed Reveal or the tenth garment, not on a timer | OTA | `review_prompt_action` stops being 100% "later"; the rating count moves off 6 | **✅ SHIPPED 2026-09-07 (audit ship 6)** — armed by `ten` / `reveal` moments only, timer retired, never over a paywall, `moment` on both events | `review_prompt_shown` **6** → `review_prompt_action` **"later" 6 of 6** in four days. Rating count has been **6 for ten days**. Apple caps the native prompt at three per user per year, so every "later" destroys an impression that cannot be recovered. Six people built ten-piece closets this week and none was asked at a moment they had just been delighted. Competitive context: Cinch converts users better than apps with 1,000–30,000 ratings (09-06 §9) and has six. |
 | **A4** | 08-31 · **RESURRECTED 09-05** | **Re-cut the first screenshot + icon** (and consider subtitle candidate A, "Outfits from clothes you own") | ASC — **confirm lane**: editing a live version's screenshots/subtitle requires a new version submission; only promotional text is review-free | Impression→PPV 3.50% → ≥5% (total basis) within 7 days of the new set going live | **GATE ANSWERED 09-05 — SHIP.** Source Type read by URL (audit ship 5): **99.1% of impressions are Search** (7,074 of 7,139); Search's own impression→PPV is **2.77%**. The listing is underperforming for people who searched for it. Awaiting the founder's design afternoon. | 30d: **7,139 impressions → 250 page views → 57 downloads**. Impression→PPV **3.50%** (09-04: 1.43%); PPV→download **22.8%** — the page converts fine, the tap does not. Screenshot set v3 untouched **9 nights**. **Gate: read the Source Type breakdown first** (09-05 §16.1) — if the impressions are Browse rather than Search, do not ship this. |
 | **A44** | 09-05 | **Ungate the push ask from the activation floor** — fire the Morning Edit card after `style_profile_saved`, not after `canGenerate` | OTA + DB | First non-zero `push_tokens` row from a real user | **✅ SHIPPED 09-05 (audit ship 5) — card on the floor with a conditional sentence; claim guarded at ten; sim-proven end to end; QA rows cleared** | OTA `01a06c9f` confirmed on **3 real devices** (`c61b8cb0` 09-04 16:42Z, `9504a3ed` 23:52Z, `590709c2` 09-05 04:49Z). `push_ask_shown` = **0** from all three, because all three hold **0 items** so `canGenerate` never passes. 14d denominators: `style_profile_saved` 23 persons vs `clothes_import_completed` 14. The ask is gated behind the step the funnel is losing. Scored by **P15**. |
 | **A45** | 09-05 | **Give a cancelled Apple sign-in a visible second door** — one line on the first cancel: "Trouble with Apple sign-in? Use your email instead" | OTA | A canceller who does not self-recover reaches the email door instead of leaving | **✅ SHIPPED 09-05 (audit ship 5) — `auth_cancel_hint_shown/taken`; a true cancel is untestable on the sim (no Apple ID), wiring source-pinned** | 11 of 39 auth starters fired `auth_failed{canceled}` in 14d. **8 of 11 completed seconds later** (table in 09-05 §8.3) — so this is friction, not a lockout, and the alert was withdrawn. The 3 who did not: `ab374450` (Stuart), `070c10b5` (4 cancels / 105 s / never signed in), `46451076` (Bismarck, gone in 6 s). `auth-apple-diagnosis.test.ts` deliberately keeps cancels out of the escalation — this is the revisit the 09-04 ledger asked for. |
@@ -54,7 +54,7 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 | **A19** | 09-01-od | Make `paywall_impressions` record every paywall, not just the capped promo path | OTA | Table matches PostHog `paywall_presented` | **new — measurement debt** | today's only production impression is in PostHog and absent from the table |
 | **A20** | 09-01-od | Add `/open`, `/closet`, `/membership` to the AASA components | OTA/web | Email CTAs land inside the app instead of the App Store page | **new** | universal links currently cover only `/i/*` |
 | **A21** | 09-01n | Create an App Store Connect API key (Users and Access → Integrations) so impressions/PPV/App Units/source attribution become readable again | OPS | ASC acquisition data readable; P1 re-issuable; A4 scoreable | **new — unblocks 4 dead rows** | `POST /analytics/api/v1/data/time-series` now returns **410 Gone**; the session was never the problem |
-| **A23** | 09-01n | Ask users to invite (one prompt after `closet_ready`, one after first `outfit_reacted`) | OTA | `invite_shared` > 4 | **new — highest-yield unused mechanic** | 4 shares ever, by 3 people, **3 converted (75%)**; the app's only 5-day-retained user came through it. K ≈ 0.10 |
+| **A23** | 09-01n | Ask users to invite (one prompt after `closet_ready`, one after first `outfit_reacted`) | OTA | `invite_shared` > 4 | **✅ SHIPPED 2026-09-07 (audit ship 6), night 6** — the `closet_ready` card on Today, after the push card; the `outfit_reacted` prompt deliberately not built (superset audience) | 4 shares ever, by 3 people, **3 converted (75%)**; the app's only 5-day-retained user came through it. K ≈ 0.10 |
 | **A24** | 09-01n | Gate or seed Daily Social so nobody opens an empty screen | ~~OTA~~ → **FOUNDER** | `daily_social_empty` / `daily_social_opened` < 1.0 | **REFRAMED 09-02n — this is not a defect** | audit F-DATA-6: every `daily_social_empty` carries `reason=nobody_sharing`; **1 of 50 profiles has sharing on, 6 follow rows, 0 reactions.** The surface already renders a "go first" hero. The only lever is the sharing DEFAULT, which the privacy constitution puts OFF. **Recommendation: do not flip it** — hide the Day section until ≥1 friend shares, and stop counting `nobody_sharing` as a defect |
 | **A34** | 09-02n | **`explore_shop_feed_loaded` fires ungated inside a react-query `queryFn`** (`use-shop-feed.ts:61`, `use-partner-feed.ts:48`) — gate on visit | OTA | The event counts shelf visits, not launches and refetches | **new — A29's baseline is contaminated by it** | audit F-AN-1. I used this event three times on 09-02 (40 → 24 → 24) as the shelf's verification instrument; it was a valid *sim* check of the wire, never evidence anyone looked |
 | **A32** | 09-02n | **Ship A20's universal links, then re-send the conversion note with something tappable in it** | OTA/web + OPS | Any in-app event attributable to an email recipient — currently zero | **half built 09-03, BLOCKED on a web deploy + founder approval** | Web half written and not deployed: AASA claims `/closet` (a **real app route**, so no binary and no OTA — the `applinks:cinchstyle.com` entitlement is host-scoped and already in build-47 source), `web/vercel.json` rewrites it, `web/api/open.js` answers for anyone without the app. Email half built: 29 personalised notes, two cohorts, one CTA at `https://cinchstyle.com/closet`, seeds delivered 12:07Z. **Live site still 404s on `/closet` and the live AASA still claims only `/i/*`.** Falsification of the 09-02 zero re-run 09-03 12:0xZ: 27 of the 29 recipients resolve as PostHog `distinct_id`s, 2894 events historically, **max timestamp 09-02 06:59:20Z — before the 14:00Z send.** Still 0 of 29 at 15h. |
@@ -62,6 +62,116 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 | ~~**A38**~~ | 09-03 | **No universal link has ever been verified opening the app on a real device** | OPS | — | **RESOLVED 09-03 — and it was NOT the entitlement.** Build 47's signed IPA entitlements carry `com.apple.developer.associated-domains = ["applinks:cinchstyle.com"]` and its embedded provisioning profile allows associated-domains (`*`) — read from the binary by the engineering session, so the EAS capability-sync fear in `app.config.ts:180-198` never materialised. Apple's CDN also serves the `/closet` component (`app-site-association.cdn-apple.com/a/v1/cinchstyle.com`). | **The real constraint is the DEVICE-side AASA cache.** iOS fetches a domain's AASA at app **install/update** time and otherwise only on a slow periodic schedule; **an OTA update is not an install.** Every phone that installed Cinch before 09-03 still holds a cached AASA without `/closet`, so the universal link will not fire for them — they land on `web/api/open.js`. `/i/*` still deep-links for everyone because that component has been in every cached copy since 08-10. Clears itself on the next App Store build (every updater re-fetches). Mitigated meanwhile by the `cinch://closet` door added to the fallback page. |
 | **A40** | 09-03 | **Give the `/closet` fallback page a `cinch://` door** — a recipient who already owns Cinch was being shown "Get Cinch" | OTA/web | A recipient with the app installed reaches their closet, not the App Store listing | **✅ SHIPPED + verified live 09-03** | Found by reasoning through A38's cache finding: with a stale AASA, every installed recipient lands on the fallback and the page's only action told them to install an app they already have. Page now leads with `cinch://closet` (resolves via expo-router default matching to `src/app/(tabs)/closet.tsx`; scheme `cinch` at `app.config.ts:139`, no `+native-intent` to intercept) and keeps the App Store as an explicit secondary, because a custom-scheme link is inert when the app is absent and must never be the sole action. |
 | **A39** | 09-03 | **All three HTML templates overflow a 375px viewport** | OPS (copy) | Email renders inside the phone it is read on | **new — `reengage.html` fixed, the other three are not** | `dispatch.html`, `release.html` and `welcome.html` set `width="600"` with only `max-width:520px` and no `width:100%`, so the card is 520px wide on a 375px phone. Rendered and screenshotted 09-03 at 375×812. **Dispatch No. 01 was sent that way to 23 people on 09-01.** |
+
+## Audit ship 6 — seen not mounted, the moment not the timer, the bounce, and the ask (engineering session, read after the 09-06 nightly, 2026-09-07 — OTA ids in the row below once published)
+
+Commit `__MAIN_COMMIT__` on main. Published to all four live runtimes and manifest-verified:
+
+| runtime | fleet | OTA | branch |
+|---|---|---|---|
+| 4e646ba0 | 1.2.3 / b47 (store) | `__OTA_MAIN__` | main |
+| c5f00773 | 1.2.0 / b43-44 | `__OTA_C5F0__` | ota/c5f00773-a48 |
+| 813c6d34 | 1.2.1 / b45 | `__OTA_813C__` | ota/813c-a48 |
+| ccfa8345 | 1.2.2 / b46 | `__OTA_CCFA__` | ota/ccfa8345-a48 |
+
+**A47 is not engineering work and is untouched:** App Store Connect still needs the founder's
+2FA. Nothing below reads ASC.
+
+Rows moved:
+- **A48 ✅ SHIPPED (OTA).** The push card now hands its own y up through `onLayout` (the shop
+  shelf's arrangement) and Today reports `push_ask_seen {closet}` — `trackOnce`, same property
+  as `push_ask_shown` — the first time enough of the card is on screen. "Enough" is stricter
+  than the shelf's top-edge rule on purpose: the card's top **40pt** inside the viewport
+  **above the 96pt tab-bar band** (`pushAskSeen` in `push/ask-spec.ts`, a pure function AND a
+  worklet, executed by `tests/push-ask.test.ts`). The floor's plain ScrollView checks from JS on
+  every layout and scroll; the happy path's Reanimated scroll handler checks on the UI thread and
+  hops to JS exactly once. Read next: `push_ask_shown` vs `push_ask_seen` per closet. Shown ≫
+  seen → the card sits below the fold (fix: move it up). Seen ≈ shown and still 2 of 13 → it was
+  looked at and declined (fix: the sentence).
+- **A50 ✅ SHIPPED (OTA) — the per-session timer is retired.** The review card is armed by a
+  MOMENT and nothing else: `ten` (the `closet_ready` predicate crossing, from either route — and,
+  once, for every closet already past it, so the twelve ten-piece closets get asked on their next
+  visit) and `reveal` (the Reveal's exit). Each moment arms the card once per install, ever; the
+  card draws on the next tab root after a 5-second settle and **never over a paywall** —
+  `use-gate.ts` stamps every sheet's present/dismiss into the same kv store and the card waits
+  while one is up or within 3s of it closing (a wait is never a spend). "Not now" consumes THAT
+  moment; the next one asks again; two asks is the ceiling. Rate / already still end it forever.
+  Both events now carry `moment: ten | reveal`. Session counting is gone. Effect metric: the
+  `later` share of `review_prompt_action` (was 6 of 6) and the rating count (6 for ten days).
+- **A49 ✅ SHIPPED (OTA + edge + DB).** *Client:* after a send the code screen asks
+  `auth-code-status` at 5s / 12s / 25s (restarted by a resend, stopped by a typed digit) and, on a
+  yes, draws "THAT EMAIL BOUNCED — the code came straight back — that address doesn't seem to
+  exist" with one door, **Use a different email → back to the address screen**, and fires
+  `auth_code_bounced {method: email}`. *Edge:* `auth-code-status` (deployed 2026-09-07 via
+  `--use-api`, `verify_jwt = false` because the asker has no session yet) reads Resend's own
+  list of sent mail and answers **only** `{ bounced }` — never delivered/opened, never an id —
+  for the newest sign-in-code mail to that address inside 15 minutes; every failure answers
+  `false` (a person with a working address must never be told it bounced). No webhook, no
+  table, no new standing configuration. Smoke: `{ bounced: false }` 200 for the 09-05 address
+  (outside the window), 400 for a non-string. *DB:* migration `20260907000000` —
+  `reap_unverified_signups()` deletes `auth.users` rows that are OTP-minted, never confirmed,
+  never signed in, older than 24h and garment-less (cascade = `delete-account`'s own path);
+  pg_cron `cinch-reap-unverified-signups` hourly at :43. **Run once by hand at ~19:2xZ: 9 rows
+  reaped** (both `san***` rows from the 09-05 typo-and-retry, `ef579e79` Salem, and six older
+  ones from 08-06 → 08-31), `auth.users` 71 → 62, `profiles` → 62, never-verified now 0. The
+  client cannot stop the mint (Supabase issues an OTP only to a user that exists), so the row is
+  kept no longer than the code is good for. **Nightly note:** signup denominators drop by 9 and
+  will keep dropping by the day's orphan count; a `last_sign_in_at IS NULL` row older than a day
+  is now always <24h old or an Apple account.
+- **A23 ✅ SHIPPED (OTA), night 6.** One card on Today, the morning-edit card's shape exactly,
+  drawn when the closet can be dressed (`pushAskCloset === 'usable'`) and **only once the push
+  card has been answered** (one card at a time under the plate; push first, because day-2 return
+  is the binding constraint). "Share your link" → the invite screen, which owns the share sheet
+  and `invite_shared`; "Not now" retires it for the install. Events: `invite_ask_shown`
+  (`trackOnce`) → `invite_ask_answered {share | not_now}` → the existing `invite_shared`. The
+  second prompt the 09-01 row named (after the first `outfit_reacted`) is NOT built — the plate
+  already draws this card for every usable closet, which is a superset of that audience.
+  Effect metric unchanged: `invite_shared` > 4.
+- **Data gap §16.6 answered by grep:** of the seven names the nightly could not verify,
+  **none exists** in `src/lib/posthog.tsx` — `closet_opened`, `packing_opened`, `trips_opened`,
+  `events_opened`, `voice_intake_started`, `circles_opened`, `saved_looks_opened` are all
+  not-instrumented. The tab-level opened events that DO exist are `today_opened`,
+  `stylist_opened`, `plan_opened`, `explore_opened` (A46). Feature-adoption for closet / packing /
+  trips / events / voice / circles / saved looks is **unread, not zero**.
+
+**A49's read half is FAIL-CLOSED until the founder sets one secret.** The function log at
+20:03:27Z says why the sim's real bounce came back `false`: `auth-code-status: Resend list
+answered 401`. `RESEND_API_KEY` in Supabase is the send-only key the mail functions were
+written against (support-mail/mail.ts says so), and Resend refuses its list call. Creating a
+new Resend key and storing it is a credential and a standing-config change, so it was not
+done from here. **Founder, two minutes:** Resend → API Keys → create with full access →
+`supabase secrets set RESEND_READ_API_KEY=re_…`. The function already prefers that name and
+needs no redeploy; until then every answer is `{ bounced: false }` — the pre-A49 screen,
+nothing worse — and the 401 line in the function log is the pending signal. The client half
+(the watch, the card, the door, `auth_code_bounced`) is source-pinned by
+`tests/auth-code-bounce.test.ts` and could not be drawn live for that reason. **Residue:** the
+gate's deliberate bounce minted `cinchbounce0907@gmail.com` (Resend: `bounced`, 20:02:34Z); the
+reaper deletes it at the first :43 after 20:02Z on 09-08.
+
+**Data gap §16.6 (nightly): none of the seven feature-adoption names exist in
+`src/lib/posthog.tsx`** (`closet_opened`, `packing_opened`, `trips_opened`, `events_opened`,
+`voice_intake_started`, `circles_opened`, `saved_looks_opened`). Only `today_opened`,
+`stylist_opened`, `plan_opened` and `explore_opened` exist as tab-level opens. Those seven
+features are **unread, not zero**.
+
+Keyed-Release boot gate: **PASSED** (xcodebuild Release + production Superwall key, fresh
+install on "Cinch iPhone 17 Pro", 20:02–20:08Z). Cover → email door → a deliberately
+nonexistent Gmail address → code screen (Resend recorded the hard bounce within seconds; the
+card stayed hidden for the reason above) → Change email → cover → `sim-test+ja` (0 garments)
+via Resend read-back → Today floor with the card at the fold → **`push_ask_shown {floor}`
+20:04:59Z, `push_ask_seen {floor}` 20:05:33Z on the scroll** (the rule held the card as
+unseen while only its eyebrow cleared the tab-bar band — conservative by design) → Not now →
+card retired. Fresh install → `sim-test+j00` (10 garments) → plate → **`push_ask_shown
+{usable}` 20:07:27.68Z, `closet_ready` .76Z, `push_ask_seen {usable}` 20:07:28.36Z (inside
+the first viewport), `review_prompt_shown {moment: ten}` 20:07:32.70Z — five seconds after
+`today_opened`, over the plate, no sheet in the way — `review_prompt_action {later, ten}`,
+`push_ask_answered {not_now}` 20:08:00.40Z, `invite_ask_shown` 20:08:00.45Z** (the invite
+card took the slot the instant the push card left it) → Share your link → the invite screen.
+**One thing the gate surfaced for the founder:** a profile with no handle lands on the invite
+screen's "Choose a handle first" step rather than a share sheet — the screen's own existing
+behaviour, now one tap from Today — and **8 of the 12 real ten-piece closets have no handle**
+(Supabase, family/internal excluded). Two thirds of A23's audience meet a second step before
+the share sheet. Worth a founder look: choose the handle inside the card's flow, or seed one.
 
 ## Audit ship 5 — the floor, the second door, the ledger row and the shelf's own numbers (engineering session, read after the 09-05 nightly, 2026-09-05 17:39Z main · side-cuts 17:48Z / 17:55Z / 18:03Z)
 

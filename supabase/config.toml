@@ -465,6 +465,13 @@ verify_jwt = false
 [functions.asc-notifications]
 verify_jwt = false
 
+# The code screen asks whether the sign-in mail it just triggered bounced, and
+# the person asking has no session yet by definition (ledger A49). The
+# function answers only `{ bounced }`, bounds its one field, and reads Resend's
+# own log — no table, no webhook, no auth data. See its docblock.
+[functions.auth-code-status]
+verify_jwt = false
+
 # ---------------------------------------------------------------------------
 # pinterest-oauth's /callback route is Pinterest's browser redirect, which
 # carries no Supabase session — superwall-webhook's reasoning exactly. The

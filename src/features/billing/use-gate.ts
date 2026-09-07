@@ -10,6 +10,8 @@ import { usePlan } from './use-plan';
 import type { PlacementName } from './placements';
 import { recordPaywallOrigin } from './paywall-origin';
 import { recordImpression } from './promo-caps-io';
+import { stampPaywallDismissed, stampPaywallPresented } from '@/features/rating/review-prompt-core';
+import { reviewPromptIo } from '@/features/rating/review-prompt-io';
 import { PAYWALLS_ENABLED } from './superwall';
 
 /**
@@ -435,11 +437,18 @@ function useSuperwallGate(): Gate {
       // `paywall_impressions` per sheet that appeared, whichever placement
       // asked. Best-effort by contract — the insert swallows its own failure.
       recordImpression(target.placement);
+      // And the device-side stamp the review card reads (ledger A50), so a
+      // Cinch card never slides up over a vendor sheet. A kv row, not a
+      // hook: the card stays free of SDK imports.
+      stampPaywallPresented(new Date(), reviewPromptIo);
       // Presented is not the same as rendered. Restart the clock against the
       // sheet that comes up and then does nothing at all.
       if (!target.alive) arm(target, SILENT_RENDER_TIMEOUT_MS, 'unavailable', 'silent_render');
     },
     onDismiss: (_info, result) => {
+      // Stamped before the ownership check: the review card waits on the
+      // sheet, whoever asked for it.
+      stampPaywallDismissed(new Date(), reviewPromptIo);
       const target = owned(ownerId);
       if (!target) return;
       // The only place a genuine purchase or restore is distinguishable from

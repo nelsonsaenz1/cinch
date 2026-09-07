@@ -16,6 +16,7 @@ import { RevealEmpty } from '@/components/reveal/reveal-empty';
 import { RevealStage } from '@/components/reveal/reveal-stage';
 import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { useMarkRevealSeen } from '@/features/onboarding/reveal-seen';
+import { noteReviewMoment } from '@/features/rating/review-moments';
 import {
   classifyZero,
   mayStampSeen,
@@ -361,6 +362,10 @@ export default function RevealScreen() {
   // never reconcile. A wrong dependency array that the compiler has stopped
   // trusting is worse than no array: it looks like a guarantee and is not one.
   const goToToday = async () => {
+    // The Reveal completing is the second moment the review card is armed
+    // by (A50). Noted BEFORE the membership moment below, so the card
+    // follows the sheet — the core refuses to draw while one is up.
+    noteReviewMoment('reveal');
     // ONE PATH, deliberately — no early return. Every outcome, and the two
     // cases that never ask for one, converge on the same two lines: report the
     // exit, replace to Today. Writing it as a branch with its own `replace`

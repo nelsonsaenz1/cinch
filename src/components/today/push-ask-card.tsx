@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { View, type LayoutChangeEvent } from 'react-native';
 
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
@@ -26,6 +26,13 @@ import { MIN_TAP_TARGET } from '@/theme/tokens';
  * floor and above it, and the two must stay one impression each and
  * separable in the numbers — the floor audience is the one the first cut
  * never reached.
+ *
+ * A mount is not a sighting (A48). The card hands its own y up through
+ * `onLayout`, the shop shelf's arrangement exactly, and Today — the only
+ * thing that can see the scroll and the viewport — reports `push_ask_seen`
+ * when enough of the card has actually been on screen (`pushAskSeen` in
+ * `ask-spec.ts`). Shown ≫ seen means the card sits below the fold; seen ≈
+ * shown and still unanswered means it was looked at and declined.
  */
 export function PushAskCard({
   closet,
@@ -35,6 +42,7 @@ export function PushAskCard({
   busy,
   onTurnOn,
   onNotNow,
+  onLayout,
 }: {
   closet: Exclude<PushAskCloset, 'unread'>;
   visited: boolean;
@@ -43,13 +51,18 @@ export function PushAskCard({
   busy: boolean;
   onTurnOn: () => void;
   onNotNow: () => void;
+  /** The card's y within the scroll content, for the "seen" measurement. */
+  onLayout?: (y: number) => void;
 }) {
   useEffect(() => {
     if (visited) trackOnce('push_ask_shown', pushAskShownProps(closet));
   }, [visited, closet]);
 
   return (
-    <View className="mx-gutter rounded-md bg-tray p-3.5" style={{ marginTop: 12 }}>
+    <View
+      className="mx-gutter rounded-md bg-tray p-3.5"
+      style={{ marginTop: 12 }}
+      onLayout={onLayout ? (e: LayoutChangeEvent) => onLayout(e.nativeEvent.layout.y) : undefined}>
       <Text variant="eyebrow">{PUSH_ASK_COPY.kicker}</Text>
       <Text variant="body" className="mt-1.5" numberOfLines={4}>
         {PUSH_ASK_COPY.line(closet)}

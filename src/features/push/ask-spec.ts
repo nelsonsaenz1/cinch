@@ -130,6 +130,51 @@ export function pushAskShownProps(
 }
 
 // ---------------------------------------------------------------------------
+// Seen, not mounted — ledger A48, 2026-09-06
+// ---------------------------------------------------------------------------
+
+/**
+ * `push_ask_shown` fires on the card's MOUNT (on a focused Today). The 09-06
+ * nightly read 13 people shown → 2 answered, and falsified "short sessions"
+ * as the cause: the longest post-ask session (4.4 h) answered nothing and the
+ * three heaviest importers ignored it. Two explanations were left standing —
+ * seen and uninteresting, or never in the viewport — and a mount event
+ * cannot tell them apart. It is the same defect A34 recorded for
+ * `explore_shop_feed_loaded`, and `explore_shop_shelf_reached` is the same
+ * fix: measure the card's own y against the scroll and the viewport, and
+ * report `push_ask_seen` the first time enough of it is on screen.
+ *
+ * "Enough" is {@link PUSH_ASK_SEEN_DEPTH} points of the card past the bottom
+ * of the USABLE viewport — the eyebrow and the first line of the sentence,
+ * not just a sliver of tray — and the usable viewport stops
+ * {@link PUSH_ASK_TAB_BAR_OCCLUSION} above the ScrollView's own bottom,
+ * because the floating tab bar covers that band (the same 96 both of Today's
+ * ScrollViews pad their content by for that reason). Stricter than the
+ * shelf's top-edge rule on purpose: a card that was "seen" only as a hidden
+ * strip under the tab bar would put the 11-person silence right back where
+ * it started.
+ *
+ * Pure, so `tests/push-ask.test.ts` executes it — and a worklet, so the
+ * happy path's UI-thread scroll handler can call it without a JS round trip
+ * per frame.
+ */
+export const PUSH_ASK_SEEN_DEPTH = 40;
+export const PUSH_ASK_TAB_BAR_OCCLUSION = 96;
+
+export function pushAskSeen(m: {
+  /** The card's y within the scroll content. */
+  cardTop: number;
+  /** The ScrollView's own height. */
+  viewportHeight: number;
+  scrollOffset: number;
+}): boolean {
+  'worklet';
+  if (m.cardTop < 0 || m.viewportHeight <= 0) return false;
+  const usableBottom = m.scrollOffset + m.viewportHeight - PUSH_ASK_TAB_BAR_OCCLUSION;
+  return usableBottom >= m.cardTop + PUSH_ASK_SEEN_DEPTH;
+}
+
+// ---------------------------------------------------------------------------
 // Event shapes — bounded enums and booleans, nothing else
 // ---------------------------------------------------------------------------
 

@@ -14,7 +14,10 @@ import { test } from 'node:test';
 import {
   PUSH_ASK_ANSWERED_KEY,
   PUSH_ASK_COPY,
+  PUSH_ASK_SEEN_DEPTH,
+  PUSH_ASK_TAB_BAR_OCCLUSION,
   pushAskAnsweredProps,
+  pushAskSeen,
   pushAskShownProps,
   pushPermissionResultProps,
   pushTokenRegisteredProps,
@@ -216,4 +219,51 @@ test('Today draws the card on both sides of the floor, and the card reports its 
   assert.doesNotMatch(CARD, /\btrack\(/);
   // The one import path rule from native.ts — nothing outside it names the package.
   for (const source of [HOOK, SPEC, TODAY, CARD]) assert.doesNotMatch(source, /'expo-notifications'/);
+});
+
+// ---------------------------------------------------------------------------
+// Seen, not mounted — ledger A48, 2026-09-06
+// ---------------------------------------------------------------------------
+
+test('"seen" is the card’s top 40pt inside the viewport above the tab bar — and a worklet', () => {
+  assert.equal(PUSH_ASK_SEEN_DEPTH, 40);
+  assert.equal(PUSH_ASK_TAB_BAR_OCCLUSION, 96);
+  // A 800pt viewport: the usable bottom is 704. A card at y=600 is seen
+  // (600 + 40 ≤ 704); one at y=680 is only a strip under the tab bar.
+  assert.equal(pushAskSeen({ cardTop: 600, viewportHeight: 800, scrollOffset: 0 }), true);
+  assert.equal(pushAskSeen({ cardTop: 680, viewportHeight: 800, scrollOffset: 0 }), false);
+  assert.equal(pushAskSeen({ cardTop: 680, viewportHeight: 800, scrollOffset: 16 }), true);
+  // A long floor page: the card at 1400 needs the reader to scroll.
+  assert.equal(pushAskSeen({ cardTop: 1400, viewportHeight: 800, scrollOffset: 0 }), false);
+  assert.equal(pushAskSeen({ cardTop: 1400, viewportHeight: 800, scrollOffset: 736 }), true);
+  // Unmeasured is never seen.
+  assert.equal(pushAskSeen({ cardTop: -1, viewportHeight: 800, scrollOffset: 0 }), false);
+  assert.equal(pushAskSeen({ cardTop: 100, viewportHeight: -1, scrollOffset: 0 }), false);
+  assert.match(SPEC, /export function pushAskSeen\([\s\S]{0,200}\{\s*'worklet';/);
+});
+
+test('the card hands up its y; Today measures from every layout, the floor’s scroll and the happy path’s worklet', () => {
+  assert.match(POSTHOG, /\| 'push_ask_seen'/);
+  assert.match(CARD, /onLayout\?: \(y: number\) => void;/);
+  assert.match(CARD, /onLayout=\{onLayout \? \(e: LayoutChangeEvent\) => onLayout\(e\.nativeEvent\.layout\.y\) : undefined\}/);
+  // Both cards report their layout.
+  assert.equal((TODAY.match(/onLayout=\{onPushAskLayout\}/g) ?? []).length, 2);
+  // Both ScrollViews report their viewport.
+  assert.equal((TODAY.match(/onLayout=\{onScrollViewportLayout\}/g) ?? []).length, 1);
+  assert.match(TODAY, /const floorSeenProps = \{\s*onLayout: onScrollViewportLayout,\s*scrollEventThrottle: 100,\s*onScroll: onFloorScroll,\s*\};/);
+  assert.match(TODAY, /const onScrollViewportLayout = \(e: LayoutChangeEvent\) => \{\s*pushAskViewport\.value = e\.nativeEvent\.layout\.height;\s*maybePushAskSeen\(floorScrollOffset\.current\);/);
+  assert.match(TODAY, /<ScrollView[\s\S]{0,400}\{\.\.\.floorSeenProps\}>/);
+  // The floor's plain scroll checks from JS; the happy path checks on the UI
+  // thread and hops to JS exactly once.
+  assert.match(TODAY, /floorScrollOffset\.current = e\.nativeEvent\.contentOffset\.y;\s*maybePushAskSeen\(floorScrollOffset\.current\);/);
+  assert.match(
+    TODAY,
+    /const onHappyPathScroll = useAnimatedScrollHandler\(\(e\) => \{\s*scrollY\.value = e\.contentOffset\.y;[\s\S]{0,600}pushAskSeenReported\.value = true;\s*runOnJS\(reportPushAskSeen\)\(\);/,
+  );
+  // One report, once per person, carrying the sentence that was on screen.
+  assert.match(TODAY, /trackOnce\('push_ask_seen', \{ closet \}\)/);
+  assert.equal((TODAY.match(/push_ask_seen/g) ?? []).length, 1);
+  // The rule is the spec's, on both threads — never a second copy of the maths.
+  assert.equal((TODAY.match(/pushAskSeen\(\{/g) ?? []).length, 2);
+  assert.doesNotMatch(TODAY, /\+ 40\b|- 96\b/);
 });

@@ -52,6 +52,7 @@ import {
 } from '@/features/onboarding/ten-slots';
 import { canGenerate, useWardrobe } from '@/features/styling/queries';
 import { track, trackOnce } from '@/lib/posthog';
+import { noteReviewMoment } from '@/features/rating/review-moments';
 import type { Garment } from '@/lib/styling';
 
 /**
@@ -503,6 +504,9 @@ export default function TheTenScreen() {
     const items = wardrobe.data;
     if (!items || !canGenerate(items)) return;
     trackOnce('closet_ready', { route: 'the_ten', pieces: items.length });
+    // The tenth landing is a moment the review card is armed by (A50) —
+    // idempotent per install inside, so this effect re-running is free.
+    noteReviewMoment('ten');
   }, [wardrobe.data]);
 
   // A closet that cannot be read is not an empty closet — the same distinction
