@@ -472,3 +472,316 @@ effort elsewhere and discover the gap at write-up time.
 **Never count `paywall_eligible` as an impression**, and never infer a broken Superwall
 campaign from "eligible fired, presented did not" without checking the `eligible` flag —
 on 09-02 that would have blamed the campaign layer for a trial-state suppression.
+
+## Engineering gate accounts now use public mail domains (2026-09-07)
+
+**Standing correction.** The internal-account filter (`%cinchstyle.com`, `demo@cinch.app`, the two
+`lisa.*` addresses) missed **`cinchbounce0907@gmail.com`** and **`cinchbounce0907b@gmail.com`** —
+both minted by audit ship 6's own deliberate bounce test on 09-07. Taken at face value they
+inflated the day's real signup count from **9 to 11**, a 22% overstatement on the headline
+scoreboard line, and both would have counted as "signed up and never added a garment" in the
+first-item denominator.
+
+They cannot be caught by domain, because the whole point of a bounce test is to use a real public
+mail provider. Add the prefix to the standard exclusion:
+
+```sql
+when lower(coalesce(u.email,'')) like 'cinchbounce%' then 'gate'
+```
+
+**The general rule, which matters more than the prefix:** before quoting any day's signup,
+first-item or DAU number, **read that day's engineering-session log in LEDGER.md and subtract the
+accounts it says it created.** Audit ship 6 named both addresses in its own write-up; the numbers
+were only wrong because the filter was applied without reading it. Gate accounts are identifiable
+by the combination `last_sign_in_at IS NULL` + 0 items + created inside the session's timestamp
+window.
+
+Related: A49's `reap_unverified_signups()` now deletes never-verified rows hourly at :43, so a
+gate account minted by a bounce test disappears within ~24h. Same-night briefings will see it;
+later ones will not, which makes a night-of undercount and a retrospective overcount equally
+possible. Always state which.
+
+## A pessimism claim needs 20 people and 3 days (2026-09-07)
+
+**Standing correction, and the most-repeated error in this file.** Five consecutive predictions
+that users would fail to do something have all been falsified:
+
+| id | claim | actual |
+|---|---|---|
+| P13 | real DAU will not exceed 6 on any day 09-04→09-10 | 10 and 8 |
+| P4 | <55% of 09-01→09-08 real profiles hold ≥1 item | **63.0%** |
+| P11 | <60% of 09-03→09-10 real profiles hold ≥1 garment | **62.5%** |
+| — (prose) | "D1 retention on the 09-05 cohort is zero" | 2 of 13 returned at +20h and +31h |
+| — (prose) | "the binding constraint is arrivals; no product work moves it" | arrivals moved 6× with nothing shipped |
+
+**⚠️ The first draft of this section said "every prediction about whether a mechanism would work
+has held — 6 of 6 (P5b, P8, P9, P10, P12, P15)." That was wrong, and the error is worth
+preserving.** P8, P9 and P12 are predictions about *user behaviour*, not mechanisms — P8 and P12
+are "fewer than N of 29 recipients will open the app", P9's own ledger text calls it "a prediction
+that Cinch *succeeds*". They were misfiled into the mechanism column because they held, which made
+the asymmetry look total. **A taxonomy assembled after the fact to fit an argument is the most
+dangerous artefact this file can produce.** Bin predictions by their *subject* the night they are
+issued, not by their outcome the night they are scored.
+
+Binned honestly, the record is not "users always surprise me." It is sharper:
+
+| kind | held | failed |
+|---|---|---|
+| Will a **mechanism** work? | P5b, P10, P15 | P6, P7 *(both falsified by the founder acting — the good kind)* |
+| Will users **come back** after being away? | **P2** (0 of 7 expired trials returned) · **P8** (2 of 29) · **P12** (3 of 29) | — |
+| Will users **finish** a step they have already started? | — | **P13** · **P4** · **P11** |
+
+**The finding: I am reliably right when I predict users will not come *back*, and reliably wrong
+when I predict users will not *finish*.** Three for three each way. Re-engagement pessimism has
+been correct every time; activation pessimism has been wrong every time. Weight accordingly, and
+note that the 09-06 "day-2 return is binding" call sat on the wrong side of this line — it treated
+a *finishing* population as a *returning* one — which is precisely why it collapsed in a day.
+
+**The rule:** a claim that *users will not do something* may not be stated without the word
+**provisional** unless it rests on **≥20 distinct people** observed over **≥3 days**. Below that
+threshold, write the number and the denominator and stop. This binds the briefing's own thesis
+section: on 2026-09-07 it forced "the binding constraint has moved to the ask" (n=8) down to
+"*candidate* constraint". A claim that *a mechanism does or does not work* is not covered — those
+have been reliable at n=1, because a wire either carries a signal or it does not.
+
+**Corollary — do not declare a prediction falsified before its due date if its cohort can still
+grow.** On 09-07 P11 was first written up as "❌ FALSIFIED, three days early" at 15 of 24 = 62.5%
+against a ≥60% falsifier. But every profile created in the remaining three days enters the
+denominator immediately while its first item may arrive later, so **15/26 = 57.7% un-falsifies
+it** — two non-adders reverse the verdict. Early reads are "provisionally falsified, rescore on
+the due date."
+
+**Corollary on calendar-boundary retention.** "D1 = 0 of 8" was computed with a UTC-calendar-day
+test, which scores a return at **+20 hours** as a failure and a return at **+30 minutes across
+midnight** as a success. Both errors occurred in the 09-05/06 cohort. Measure returns in
+**elapsed hours since that person's own signup**, never in calendar days, and state the threshold.
+
+## When PostHog is dark, Supabase is a lower bound — say which (2026-09-07)
+
+PostHog's session expires independently of ASC's. When it is dark, arrivals, activation, closets,
+paywall impressions and a *return* proxy are all reconstructable from Supabase — but only as a
+**lower bound**, and the briefing must say so.
+
+| want | Supabase substitute | direction of error |
+|---|---|---|
+| `Application Opened` / DAU | union of `items.created_at`, `profiles.updated_at`, `ai_calls.created_at`, `paywall_impressions.shown_at`, `push_tokens.last_seen_at` | **undercounts** — a user who opens and does nothing is invisible |
+| retention / day-≥2 return | same union, `min(ts) - auth.users.created_at > 20h` | **undercounts** |
+| paywall impressions | `paywall_impressions` (complete since A19, 09-05) | exact — corroborated row-for-row against Superwall on 09-07 |
+| signups | `auth.users` with the internal/family/**gate** filter | exact |
+
+Two traps found the hard way:
+- **`auth.users.last_sign_in_at` is useless as a return proxy.** It does not move on session
+  refresh; on 09-07 all thirteen members of the 09-05/06 cohort read `hrs_span = 0.0`.
+- **A bulk SQL update looks exactly like a retention spike.** The 09-03 wind-down (A27) touched
+  29 rows and renders as "29 real returning users" in any `profiles.updated_at` proxy. Exclude
+  known migration and clamp timestamps before reading the series.
+
+## UTC day vs rolling 24 hours — label every window (2026-09-07)
+
+**Standing correction.** Three separate counts were wrong in one night's first draft because the
+sources use different windows and the briefing mixed them silently:
+
+- Superwall's Overview reports a **rolling 24 hours**. Supabase queries here are written on the
+  **UTC calendar day**. ASC reports UTC days and **publishes one day late**.
+- On 09-07 the third real paywall impression (`packing_access`, `52ff5b6d`) is stamped
+  **2026-09-08 00:14:33Z**. It is inside "the last 24 hours" and outside "09-07". Glossing
+  Superwall's `15.38%` as "3 of 13" therefore produced an arithmetic impossibility — 3/13 is 23%;
+  the rate was **2 of 13**.
+- The same leak moved the "since 09-05" signup total (23 rows includes a 09-08 00:11Z signup
+  against a 7+6+9 = 22 UTC-day sum).
+
+**Rule: every window in a scoreboard row carries its own label** — "UTC day", "rolling 24h",
+"30d to <date>". When a fraction is offered as the gloss on a rate from another system, recompute
+the fraction in *that system's* window or do not print it.
+
+**Related, and the correct instinct:** a signup at 23:59Z whose first item lands at 00:01Z is one
+session, not a day-2 return. Elapsed-hours-since-that-person's-signup is the only safe basis for
+retention (see "A pessimism claim needs 20 people"), and it is the same discipline.
+
+## Do not carry a rate forward when its denominator has grown (2026-09-07)
+
+Search's own impression→PPV was measured at **2.77%** on 09-05 (196 / 7,074). It was quoted
+unchanged on 09-07, by which time the 30-day window had rolled to **236 / 8,166 = 2.89%**. A rate
+computed on a rolling window is only valid for the night it was computed. Recompute, or print the
+date the rate belongs to. The same applies to "99.1%" → **99.2%** Search share, and to the "94%-US
+baseline" quoted on 09-06 which measured **76%** when finally checked (09-07 §17.1).
+
+## A condition that has never been non-zero has never been tested (2026-09-08)
+
+**Standing correction, and the most expensive strategic one in this file.** Five Conditions #5
+asks for **blended monthly ARPU ≥ $11**. It has read `❌ $0` in every briefing since 08-24 — for
+a true reason, since nobody has ever paid. Because it was failing for the right reason, nobody
+ever audited whether it *could* pass. On 09-08 the live App Store price list was read for the
+first time: **$4.99/mo · $39.99/yr · $9.99/mo · $79.99/yr**, an amortised ceiling of **$9.99
+gross / $8.49 net of Apple's 15%**.
+
+**The condition was NOT unreachable for its entire life — and the 09-08 briefing's first draft
+said it was, which is itself an instructive error.** When Condition 5 was written on 2026-08-24,
+Pro monthly was **$14.99 = $12.74 net**, comfortably above the bar. Commit **`50c3ca4`,
+2026-08-31 21:49**, repriced (`$14.99→$9.99`, `$119→$79.99`, `$59→$39.99`) and silently
+invalidated a strategic gate written a week earlier. `handoff/d-decisions/DIRECTIVE.md:35`
+records the $14.99 read from App Store Connect itself, so the old prices were **shipped, not
+planned**. Eight briefings then scored a broken gate without noticing.
+
+**Scope caveat that must travel with the claim:** the $8.49 ceiling amortises annual plans over
+twelve months. On a *cash-booked* ARPU convention a month containing one $79.99 annual sale
+clears $11 easily. This file has always used amortised MRR implicitly (09-01's "$50K = ~4,500
+paying users at $11" is only coherent as recurring monthly revenue) but has never said so.
+**State the convention whenever the claim is used.**
+
+The rules this generalises to:
+
+1. **Before a verdict date, re-derive every threshold against the system's own maxima.** A gate
+   is only a test if passing it is physically possible. Do this once per gate, in writing, not
+   on the verdict night.
+2. **A metric that has been zero every night is an untested instrument, not a settled result.**
+   Zero is the reading you get from a working thermometer in a cold room *and* from a broken one.
+3. **A gate written against a constant must be re-derived whenever that constant changes.** The
+   08-31 repricing was a commit like any other and nothing connected it to a strategic gate from
+   the week before. When a price, cap or quota moves, `grep` the briefings and METHODOLOGY for
+   every threshold that depends on it — the same night.
+4. **Prices, caps, quotas and limits are load-bearing constants and drift silently.** They live in
+   four places here — App Store Connect, Superwall's imported product table, `src/features/billing/plans.ts`,
+   and the strategy docs — and on 09-08 the first three agreed while `docs/ai-models-and-tiers.md`
+   and the `[[cinch-subscription-products]]` memory still carried the **pre-08-31** prices
+   ($7.99/$59/$14.99/$119). **Read the price from Apple's import, never from a doc** — including
+   `plans.ts`, whose `monthlyPriceHint` / `annualPriceHint` are, by its own docblock, hints while
+   *"the paywall itself reads StoreKit."* They corroborate; they do not independently measure. A
+   genuinely independent second read is a StoreKit product fetch or the ASC subscription-price API.
+   Everything derived from price — LTV, CPI ceilings, the $50K user count — is void until rebuilt.
+5. **MRR is gross.** Apple's commission is a cost, not a reduction in MRR. Do not divide an MRR
+   target by a net-of-commission ARPU; the 09-08 briefing's first draft did and produced a third
+   wrong $50K figure. $50K MRR ÷ $9.99 = **5,005**; $50K *net proceeds* ÷ $8.49 = 5,890.
+
+**Where to read the live price list:** Superwall → Products & Entitlements
+(`/applications/52618/products/v2`). Its footer says *"All products imported from App Store
+Connect"*, so it is Apple's list. Corroborate against `src/features/billing/plans.ts`.
+
+## Read the engineering log for CONTRADICTIONS, not just for its numbers (2026-09-08)
+
+The 09-07 rule said: before quoting a day's signup or funnel number, read that day's
+engineering-session log in LEDGER.md and subtract the accounts it created. **That is too narrow.**
+
+On 2026-09-07 the audit-ship-6 entry recorded, from a Keyed-Release boot gate on a real
+Production Superwall key, that the returning-free paywall's default button *"already reads 'Try 7
+days free — then $39.99/yr' … so **A12's premise that the default tap cannot start a trial may be
+stale**; worth one look in the Superwall editor."* **The same night's briefing escalated A12 to
+the founder queue on the opposite premise**, and the 09-08 briefing built a thesis section on it
+before catching the contradiction while writing the ledger.
+
+**The rule: an engineering session's log can close, contradict or invalidate an OPEN ROW, not only
+supply numbers. Diff it against `## Open` every night.** A sentence containing "may be stale",
+"worth one look", "premise", or a named row id is a scoring event and must be resolved or
+explicitly deferred with a reason — never read past.
+
+## Superwall's dashboard reads more than the briefings have assumed (2026-09-08)
+
+Two corrections to the standing "only Last-24-Hours is machine-readable" note:
+
+- **The range control DOES respond to `form_input` on its `<select>`** even though it ignores URL
+  parameters. `find` for "Last 24 Hours" → `form_input` the combobox ref with `"Last 7 Days"` →
+  wait ~7s → `get_page_text`. 7d, 30d, 90d and custom are all reachable this way.
+- **Superwall's "Paywall Rate" is `(new users in the window who saw a paywall) / (new users in the
+  window)`** — not impressions over users, and not all-users. Verified 09-08: Superwall reported
+  12.5% on 40 new users (= 5); `paywall_impressions` held **10** rows across 8 persons in the same
+  window (every real row is dated 09-04 or later, so all 10 fall inside any 7-day window ending
+  09-08), of whom exactly **5 signed up inside it**. A session that compares the raw impression
+  count to the rate will read a contradiction that is not there.
+
+## The itunes review-RSS URL in this file was wrong (2026-09-08)
+
+`itunes.apple.com/us/rss/customerreviews/id=<ID>/sortBy=mostRecent/json` returns an **empty body**.
+The working form is:
+
+```
+https://itunes.apple.com/rss/customerreviews/id=<ID>/sortBy=mostRecent/json?cc=us
+```
+
+Also: the pinned competitor track-id list (09-03) protects against name-search substitution but
+**cannot detect delisting**. On 09-08, Pureple (1076555394), Combyne (1224833673) and StyleDNA
+(1439466895) all returned `resultCount:0` from `lookup` and an empty review feed. Write **unread,
+`resultCount:0`** — do not infer removal from the storefront, and do not fall back to a name search.
+
+## PostHog and Superwall are readable WITHOUT a browser session (2026-09-08, engineering)
+
+Two nights of "PostHog — UNREAD, session expired" were a browser problem, not a data problem.
+The engineering session reads both through tools that hold their own credentials:
+
+| system | how | what it answered on 09-08 |
+|---|---|---|
+| **PostHog** | the `posthog` MCP `exec` tool — `call execute-sql {"query": "<HogQL>"}` (also `query-trends`, `query-funnel`, `query-retention`, `persons-list`) | per-person event streams for `a874512d`, `bae15db5`, `d03875a0`; the A48 shown-vs-seen read; the four eligible-never-generated closets' Today history |
+| **Superwall** | `superwall` CLI (`superwall whoami --json` → `paywalls list --project 28319 --app 52618 --json`, `campaigns list …`) | paywall 254200 carries all four products; every campaign variant points at 254200 — `returning_free` (105048), `ten_completed` (105047) and `reveal_complete` (101136) included |
+| **App Store Connect prices** | `superwall asc get "/v1/subscriptions/<id>/prices?filter[territory]=USA&include=subscriptionPricePoint"` and `…/introductoryOffers` | the independent price read §16.8 asked for: $4.99 / $39.99 / $9.99 / $79.99, proceeds $4.24 / $33.99 / $8.49 / $67.99; the only intro offer is standard.annual's 1-week FREE_TRIAL, `startDate 2026-08-31` |
+
+HogQL gotchas: alias every aggregate (`count() as n`) and avoid `first`/`last` as aliases;
+`distinct_id` is the Supabase user id, so `distinct_id like 'a874512d%'` joins the two systems.
+`$app_build != '1'` is the harness exclusion. Taxonomy warnings name events that have never
+fired (`auth_code_bounced`, `auth_cancel_hint_taken` as of 09-08) — that is a zero, not a typo.
+
+**The `returning_free` vs 254200 "contradiction" (09-08 §17.9) was never one.** Every campaign
+routes to the same paywall, so what the 09-07 boot gate saw on `returning_free` IS paywall
+254200. What the API cannot say is which product the layout pre-selects — that is a fact about
+the paywall document, readable only in the editor (or by presenting it on a keyed sim and reading
+the button).
+
+## `ai_calls.outfit_generation` does not measure "saw an outfit" (2026-09-08, engineering)
+
+Today's plates are generated **on the device** (`generateOutfits`, `use-outfits.ts` stage 1).
+The server call recorded as `outfit_generation` is the *enhancement* — asked only for a complex
+note, a formality conflict between events, or a measured near-tie (`should-enhance.ts`). An
+ordinary morning makes zero `ai_calls` rows and still draws three outfits.
+
+So "6 of 15 ten-piece closets have ever generated an outfit" (09-08 §8.1/§8.2, A59b) counted
+the wrong thing. The instrument for *was dressed* is PostHog: `outfits_source` (plates on
+Today's screen, per visit) and `outfit_set_viewed` (a Reveal plate). Re-read on 09-08: **all
+four** of the "never generated" eligible closets (`89d85597`, `9a21ba7f`, `fed827cc`,
+`c34290ab`) have `outfits_source` or `outfit_set_viewed` events — every one of them has been
+shown outfits. Use `ai_calls.outfit_generation` for AI cost and for the stylist's server work,
+never for delivery.
+
+## Count activated closets on the wardrobe-eligible basis (2026-09-08, engineering)
+
+`items` with `status = 'pending_tag'` are invisible to `canGenerate` (`useWardrobe` filters
+to `tagged` / `needs_review` / `verified`). A "ten-piece closet" query over raw `items` counts
+`ced245be` (11 pending, 0 eligible) and `c646253d` (13 pending, 5 eligible) as activated. Add
+`and status in ('tagged','needs_review','verified') and not is_archived` to every closet-size
+denominator. Both of those closets predate the 08-26 consent gate (last sign-in 08-18 and
+08-20, `ai_consent_version` null); the T-10b floor and the Reveal's consent door already
+handle them the moment either person opens the app. Nothing more to build; A61 is a
+measurement rule.
+
+## Print a line for EVERY lettered section of the sweep — including "nothing to report" (2026-09-08)
+
+**Standing correction, and the most embarrassing in this file.** On 2026-09-08 the nightly
+skipped **§F (Channels: TikTok, Instagram, Pinterest, paid) entirely** and nobody — including
+the author and two adversarial fact-check passes — noticed, because **an omitted section looks
+exactly like a section with no news in it.** The founder asked "you're going to Apple Ads
+insights, right?" and the answer was no.
+
+What was missed: **two Apple Search Ads campaigns Running in the US at a combined $20/day,
+$131.30 spent in 7 days, avg CPA $3.65** — the largest line item in the business, against a
+briefing that said in §13 *"Dollars: $0.044/day of AI. Nothing else is being spent, and nothing
+else needs to be."*
+
+Rules:
+
+1. **Every lettered section A–G gets a printed line, every night.** If there is nothing to
+   report, write "nothing live" and the date it was last checked. A section with no heading is
+   a defect; a heading with "nothing to report" is a reading.
+2. **Read paid spend from the ad platform, never infer it from the ledger.** The ledger had
+   been carrying "Open an Apple Search Ads account — 29 nights open" as a live founder decision
+   for four weeks while the account existed and was spending. A ledger row is a record of what
+   someone once believed, not a source of truth about the world. Same failure mode as §"Read
+   the engineering log for CONTRADICTIONS."
+3. **Apple Search Ads with a `Search Results` placement is reported by ASC's Source Type
+   dimension as `App Store Search`.** These are NOT distinguishable in the Source Type
+   breakdown. **Any claim that traffic is "organic search" requires the Campaigns / campaign-token
+   view, not the Source Type view.** A47's "the surge was 100% App Store Search" — quoted as
+   organic in the 09-06, 09-07 and 09-08 briefings — could never have separated the two.
+
+**Where to read it:** `app-ads.apple.com` → Advanced → the ad account → Campaigns (spend, CPA,
+budget, status). Cross-check installs against ASC → Analytics → Acquisition → **Campaigns**, or
+Metrics with `groupByDimensionKey=campaignId`. Both should agree; if they disagree, ASC's token
+attribution wins. Gotcha: the Apple Ads date-range control did not accept a preset change under
+automation on 09-08 — it defaults to Last 7 Days, so **state the window explicitly** and do not
+assume you are looking at 30 days.
