@@ -114,7 +114,7 @@ test('all six exits are reachable from this file', () => {
 
 test('a paying member is never presented a placement', () => {
   assert.match(ROUTE, /const paying = \(plan\.plan !== 'free' && !plan\.trialing\) \|\| plan\.unconfirmed/);
-  assert.match(ROUTE, /const skipSheet = paying \|\| offline/);
+  assert.match(ROUTE, /const skipSheet = !maySellOnExit\(\{ paying, offline, thin \}\)/);
   assert.match(ROUTE, /if \(!skipSheet\) setPresenting\(true\)/);
 });
 
@@ -127,7 +127,7 @@ test('a trial in progress is not sold a second one', () => {
 
 test('offline skips the sheet rather than spinning on it', () => {
   assert.match(ROUTE, /const offline = weatherFailed/);
-  assert.match(ROUTE, /paying \|\| offline/);
+  assert.match(ROUTE, /maySellOnExit\(\{ paying, offline, thin \}\)/);
 });
 
 test('no price, product, term or vendor layout is drawn here', () => {
@@ -330,7 +330,10 @@ test('reveal_seen_at stamps only at delivery moments, never on mount', () => {
   // The mount-time stamp is gone; every write is gated by the decision table
   // in reveal-zero-core (complete, or an exit from the honest zero).
   assert.doesNotMatch(ROUTE, /useEffect\(\(\) => \{\s*if \(stamped\.current\) return;/);
-  assert.match(ROUTE, /mayStampSeen\(moment, zeroReason\)/);
+  assert.match(ROUTE, /mayStampSeen\(moment, zeroReason, thin\)/);
+  // A thin closet — under the product's floor — is derived from the same
+  // predicate Today floors on, and only from a settled read.
+  assert.match(ROUTE, /const thin = countReady && belowActivationFloor\(items\.length, canGenerate\(items\)\)/);
   assert.match(ROUTE, /if \(sequence\.complete\) stampSeenRef\.current\('complete'\)/);
   assert.match(ROUTE, /stampSeen\('zero_repair'\)/);
   assert.match(ROUTE, /stampSeen\('zero_open_today'\)/);

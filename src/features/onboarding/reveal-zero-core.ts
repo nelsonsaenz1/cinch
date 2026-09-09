@@ -82,8 +82,38 @@ export type SeenMoment =
  * only the honest zero may stamp — an exit from the unread, consent-blocked
  * or failed states is someone leaving a screen that delivered nothing, and
  * the door back must survive it.
+ *
+ * `thin` — the closet is under the product's activation floor (fewer than
+ * ten pieces, or a shape the engine cannot build from). A THIN completion
+ * never stamps. Incident 2026-09-05 (`d03875a0`): the voice walkthrough
+ * committed ONE dress and replaced to the Reveal; `countOutfits` honestly
+ * said one, the sequence completed, the door on Today was burned, and the
+ * membership sheet followed two seconds later — over a closet Today itself
+ * was about to floor with "start with ten pieces". The count was true and
+ * the moment was not delivered: nothing that closet makes is reachable on
+ * Today until nine more pieces arrive, and the door back must survive that.
  */
-export function mayStampSeen(moment: SeenMoment, zeroReason: ZeroReason | null): boolean {
-  if (moment === 'complete') return zeroReason === null;
+export function mayStampSeen(
+  moment: SeenMoment,
+  zeroReason: ZeroReason | null,
+  thin = false,
+): boolean {
+  if (moment === 'complete') return zeroReason === null && !thin;
   return zeroReason === 'unpairable';
+}
+
+/**
+ * Whether the exit may raise the membership moment at all.
+ *
+ * Three states skip the sheet and this is the fourth: a thin closet has just
+ * been shown a number Today cannot yet deliver, and selling into that gap is
+ * charging at the floor. `paying` and `offline` are the screen's own facts;
+ * they are folded here so the rule is one function the suite executes.
+ */
+export function maySellOnExit(facts: {
+  readonly paying: boolean;
+  readonly offline: boolean;
+  readonly thin: boolean;
+}): boolean {
+  return !facts.paying && !facts.offline && !facts.thin;
 }

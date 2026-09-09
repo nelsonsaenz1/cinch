@@ -5,16 +5,14 @@ import { GarmentCell } from '@/components/today/garment-cell';
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { TE_01, TE_02, TE_02_CAPTION } from '@/features/examples/example-copy';
+import { PLANS } from '@/features/billing/plans';
 import { missingForFirstOutfit, tallyOf } from '@/features/closet/outfit-count';
 import { TODAY_COPY } from '@/features/today/today-spec';
-import { numberWord } from '@/features/onboarding/reveal-copy';
 import type { Garment } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
-import { missingPhrase } from './closet-floor-copy';
+import { floorPrimaryLabel, floorProgressLine, missingPhrase } from './closet-floor-copy';
 import { GRID_GAP } from './plate-grid';
-
-const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * T-10 and T-11 — two ways to have no outfit, told apart.
@@ -91,18 +89,18 @@ export function ClosetFloor({
   // body, where it belongs, under a title that stays still.
   const headline = TODAY_COPY.floorTitle;
 
-  const body = empty
-    ? TODAY_COPY.floorBody
-    : // "Three pieces in. Seven more to go." — the count is the reader's own
-      // progress toward a floor she was just told about, which is the one
-      // place on Today a number is not a score.
-      `${capitalise(numberWord(items.length))} pieces in. ${capitalise(numberWord(remaining))} more ${remaining === 1 ? 'piece' : 'pieces'} to go.${missing ? ` ${capitalise(missing)} is what turns this into outfits.` : ''}`;
+  // "Three pieces in. Seven more to go." — the count is the reader's own
+  // progress toward a floor she was just told about, which is the one place
+  // on Today a number is not a score. At ten with a missing half the sentence
+  // names the shape instead of counting to nought (A59, 2026-09-08); the words
+  // live in `closet-floor-copy.ts` so the node suite reads every state.
+  const body = empty ? TODAY_COPY.floorBody : floorProgressLine(items.length, remaining, missing);
 
-  const primary = empty
-    ? TODAY_COPY.floorAction
-    : missing
-      ? `Add ${missing}`
-      : 'Add more pieces';
+  // At the free ceiling the add door is a paywall, so a full closet with a
+  // missing half is asked to SWAP — the label and the destination (`onStart`,
+  // owned by Today) agree on that.
+  const atCeiling = items.length >= PLANS.free.items;
+  const primary = floorPrimaryLabel(empty, atCeiling, missing, TODAY_COPY.floorAction);
 
   const example = empty ? TE_01 : TE_02;
 

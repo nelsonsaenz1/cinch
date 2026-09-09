@@ -160,7 +160,15 @@ arrives when they try to add their actual wardrobe, which is the right moment.
 Three suggestions a week, not daily. The habit you are selling is *every
 morning*; the free tier should make its absence felt.
 
-### Standard — $7.99/mo, $59/yr
+> **Prices amended 2026-09-08.** The figures in the two headings below were the shipped
+> App Store prices when this was written and were **cut on 2026-08-31** (commit `50c3ca4`).
+> The live list, read from App Store Connect's own price points on 2026-09-08 via the
+> `superwall asc` proxy, is **Standard $4.99/mo · $39.99/yr (7-day free trial, live since
+> 08-31) · Pro $9.99/mo · $79.99/yr**; Apple's proceeds at the small-business rate are
+> $4.24 · $33.99 · $8.49 · $67.99. The tier *contents* below still stand; the price
+> reasoning under "Why these prices" is about the old list. See the CMO ledger, A58/A60.
+
+### Standard — $7.99/mo, $59/yr *(now $4.99/mo, $39.99/yr — see the note above)*
 - **150 garments**
 - **Daily outfit**, unlimited re-rolls
 - **30 stylist messages/month**
@@ -168,7 +176,7 @@ morning*; the free tier should make its absence felt.
 
 This is the tier most people should land on. 150 covers a real wardrobe.
 
-### Pro — $14.99/mo, $119/yr
+### Pro — $14.99/mo, $119/yr *(now $9.99/mo, $79.99/yr — see the note above)*
 - **Unlimited garments** (soft cap 1,000, see below)
 - Unlimited outfits
 - **Unlimited stylist**

@@ -90,7 +90,7 @@ import { tasteSignal } from '@/features/today/wear-confirm-spec';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
-import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
+import { countOutfits, missingForFirstOutfit, rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { Placement } from '@/features/billing/placements';
@@ -1734,8 +1734,18 @@ export default function TodayScreen() {
               onStart={() => {
                 // The Ten, "resumed at the count rather than restarted" — it
                 // hydrates from the closet it finds. A closet already past the
-                // free cap has no Ten left to run, and takes the chooser.
-                router.push(items.length >= PLANS.free.items ? '/add-clothes' : '/the-ten');
+                // free cap has no Ten left to run, and takes the chooser —
+                // UNLESS it is full and still cannot be dressed (ten pairs of
+                // trousers, `a874512d` 2026-09-05): the chooser's add door is
+                // `add_garment_over_limit`, a paywall, and "Add a top" led
+                // straight into it. That closet takes The Ten's repair plate
+                // instead — the Reveal's own repair loop, `?door=photograph` —
+                // where a filled position is re-read or swapped for free.
+                const full = items.length >= PLANS.free.items;
+                const undressable = missingForFirstOutfit(tallyOf(items)).length > 0;
+                router.push(
+                  full ? (undressable ? '/the-ten?door=photograph' : '/add-clothes') : '/the-ten',
+                );
               }}
               onDescribe={() => router.push('/walkthrough')}
             />

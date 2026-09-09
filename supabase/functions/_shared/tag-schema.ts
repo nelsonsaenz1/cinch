@@ -175,6 +175,7 @@ Rules:
 - Seasons and occasions should be generous rather than narrow: list every one where the piece would genuinely work.
 - fit and patternScale drive silhouette and print-mixing rules, so judge them from the garment's cut and print rather than from how it happens to be laid out or folded in the photo.
 - The description is one sentence a stylist would say to a client. No preamble, no "this image shows".
+- In the description, do not repeat the material when the garment type already names it: "blue denim shorts", never "blue denim denim shorts"; "a leather belt", never "a leather leather belt". Say each word once.
 
 category is the single most important field and the one most often got wrong. Read it as "where on the body does this go", not "what does it resemble":
 - Anything worn on the feet is footwear. Boots, loafers, trainers, heels, sandals — never top, never bottom.

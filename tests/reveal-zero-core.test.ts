@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   classifyZero,
   mayStampSeen,
+  maySellOnExit,
   type SeenMoment,
   type ZeroReason,
 } from '../src/features/onboarding/reveal-zero-core';
@@ -51,6 +52,24 @@ test('complete stamps, and only outside a zero', () => {
   for (const reason of ZERO_REASONS) {
     assert.equal(mayStampSeen('complete', reason), false, reason);
   }
+});
+
+test('a THIN completion never stamps — the 2026-09-05 one-dress walkthrough', () => {
+  // `d03875a0`: one dress committed by voice, the Reveal counted one outfit,
+  // completed, burned Today's door and raised the sheet. Under the floor the
+  // number is shown and nothing is spent.
+  assert.equal(mayStampSeen('complete', null, true), false);
+  assert.equal(mayStampSeen('complete', null, false), true);
+  // The honest zero's exits are unaffected by thinness — a zero is a zero.
+  assert.equal(mayStampSeen('zero_repair', 'unpairable', true), true);
+  assert.equal(mayStampSeen('zero_open_today', 'unpairable', true), true);
+});
+
+test('the exit sells only to a free, online reader whose closet clears the floor', () => {
+  assert.equal(maySellOnExit({ paying: false, offline: false, thin: false }), true);
+  assert.equal(maySellOnExit({ paying: true, offline: false, thin: false }), false);
+  assert.equal(maySellOnExit({ paying: false, offline: true, thin: false }), false);
+  assert.equal(maySellOnExit({ paying: false, offline: false, thin: true }), false);
 });
 
 test('a zero exit stamps only from the honest zero', () => {

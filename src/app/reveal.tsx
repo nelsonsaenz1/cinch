@@ -20,6 +20,7 @@ import { noteReviewMoment } from '@/features/rating/review-moments';
 import {
   classifyZero,
   mayStampSeen,
+  maySellOnExit,
   type SeenMoment,
   type ZeroReason,
 } from '@/features/onboarding/reveal-zero-core';
@@ -37,6 +38,7 @@ import { sweepAfterConsent } from '@/features/ingest/upload-queue';
 import { countOutfits, tallyOf, type CountedKind } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
+import { belowActivationFloor } from '@/features/today/today-spec';
 import {
   REVEAL_EVENTS,
   countBucketProps,
@@ -71,7 +73,7 @@ import {
 } from '@/features/onboarding/reveal-spec';
 import { useRevealSequence } from '@/features/onboarding/use-reveal-sequence';
 import { useUntaggedCount } from '@/features/onboarding/use-untagged-count';
-import { useWardrobe } from '@/features/styling/queries';
+import { canGenerate, useWardrobe } from '@/features/styling/queries';
 import { useOutfits } from '@/features/styling/use-outfits';
 import { haptics } from '@/lib/haptics';
 import { track } from '@/lib/posthog';
@@ -195,10 +197,19 @@ export default function RevealScreen() {
   // (incident 2026-08-31; the decision table is reveal-zero-core.ts). A
   // person who backgrounds mid-count is offered the moment again, which is
   // now the intent rather than the accident. Fire-and-forget as before.
+  /**
+   * Under the product's floor — fewer than ten pieces, or a shape the engine
+   * cannot dress. The walkthrough replaces here after ONE committed piece
+   * (`d03875a0`, 2026-09-05: one dress, "1 outfit", the door burned and the
+   * sheet raised). The number is still shown, honestly; what a thin closet
+   * does not get is the stamp or the sell — reveal-zero-core.ts says why.
+   */
+  const thin = countReady && belowActivationFloor(items.length, canGenerate(items));
+
   const markSeen = useMarkRevealSeen();
   const stamped = useRef(false);
   const stampSeen = (moment: SeenMoment) => {
-    if (stamped.current || !mayStampSeen(moment, zeroReason)) return;
+    if (stamped.current || !mayStampSeen(moment, zeroReason, thin)) return;
     stamped.current = true;
     markSeen.mutate();
   };
@@ -371,7 +382,7 @@ export default function RevealScreen() {
     // exit, replace to Today. Writing it as a branch with its own `replace`
     // would be two chances to get the destination wrong, and the whole
     // contract here is that there is only one destination.
-    const skipSheet = paying || offline;
+    const skipSheet = !maySellOnExit({ paying, offline, thin });
     if (!skipSheet) setPresenting(true);
     const outcome = skipSheet
       ? null
