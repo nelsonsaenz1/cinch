@@ -1,0 +1,14 @@
+import { createSign } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+const KID='L5FX967PC6', ISS='15be563e-238a-41b6-891b-950650cf424e';
+const key=readFileSync(`${homedir()}/.appstoreconnect/private_keys/AuthKey_${KID}.p8`,'utf8');
+const b64=(o)=>Buffer.from(JSON.stringify(o)).toString('base64url');
+const now=Math.floor(Date.now()/1000);
+const unsigned=`${b64({alg:'ES256',kid:KID,typ:'JWT'})}.${b64({iss:ISS,iat:now,exp:now+900,aud:'appstoreconnect-v1'})}`;
+const sig=createSign('SHA256').update(unsigned).sign({key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+const jwt=`${unsigned}.${sig}`;
+const [method,path,body]=process.argv.slice(2);
+const r=await fetch(`https://api.appstoreconnect.apple.com/v1${path}`,{method,headers:{authorization:`Bearer ${jwt}`,'content-type':'application/json'},body});
+const text=await r.text();
+console.log(r.status); console.log(text.slice(0,4000));
