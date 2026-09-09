@@ -809,3 +809,27 @@ Rules for the night after a ship:
    ceiling raised `add_garment_over_limit`); the number to beat is `11e176c1`'s **61 seconds**
    from tenth garment to paywall. A "did it work?" with no pre-recorded baseline is unanswerable
    a week later.
+
+## Apple Ads has been running since 2026-08-25 — "App Store Search" is not "organic" (2026-09-09, engineering)
+
+The founder's Apple Ads account (`app-ads.apple.com`, "Nelson Saenz_ads", app id 23675390) has run
+two US Search Results campaigns since **2026-08-25**: `CIN-EXP-003_US_SR_EXACT` ($14/day, ten exact
+keywords) and `CIN-EXP-003_US_SR_DISCOVERY` ($6/day, Search Match). 30 days to 09-09: **$243.70,
+5,868 impressions, 223 taps, 55 installs, CPA $4.43**; `[outfit planner]` alone is 42 of the 55.
+
+ASC App Analytics counts Search Ads taps under the **App Store Search** source type. So every
+"99% App Store Search" line since A47, the 09-05/06 surge read as "the same searchers, more of them
+installing", and the 30-day 83 first-time downloads all contain paid installs — roughly two thirds of
+them. Rules from tonight:
+- **Read ASC Analytics → Sources → Campaigns** (Apple Search Ads appears there per campaign) before
+  any attribution claim, and print organic Search as `Search − Campaigns`.
+- **Every install→paid, LTV and CPI figure now has a real CPI beside it:** $3.60 on the working term,
+  $4.43 blended. Quote it.
+- **Popularity scores live in the Add Keywords sheet** (Ad Group → Keywords → Add Keywords; type
+  candidates, read the dots, **Cancel**). Read 09-09: `fashion` 3, `clothes` 3, `what` 3, `closet` 3,
+  `outfit` 3; `lookbook`, `daily`, `digital`, `capsule wardrobe`, `packing list`, `stylist`, `ootd`,
+  `outfit ideas`, `clothes organizer` all **1**. The three doc'd en-US swaps are a wash (3→3, 1→1) or
+  a loss (3→1): **do not swap en-US**.
+- Discovery's Search Match spend matches Russian and Arabic marketplace queries (`лемана про`,
+  `озон`, `shopee`, `gucci morty`); its 11 installs cost $7.76 each. A founder decision, not a
+  measurement — but never count its installs as category demand.
