@@ -156,6 +156,13 @@ async function plan(versionString) {
     const existing = locs.find((l) => l.locale === locale);
     if (!existing) steps.push({ op: 'create-version-loc', locale, versionId: v.id, from: primary.id, keywords: KEYWORDS[locale] });
     else if ((existing.keywords ?? '') !== KEYWORDS[locale]) steps.push({ op: 'patch-keywords', locale, id: existing.id, keywords: KEYWORDS[locale] });
+    // Apple creates the version localisation ITSELF the moment an appInfo
+    // localisation for that locale exists (learned on 1.2.4, 2026-09-09: the
+    // POST answered 409 "already exists" for every locale the previous step had
+    // just created). That auto-created row carries no description, promo text
+    // or What's New — a half-filled localisation Apple refuses at submission —
+    // so an existing row with an empty description is filled from en-US.
+    if (existing && !(existing.description ?? '')) steps.push({ op: 'fill-text', locale, id: existing.id, from: primary.id });
     if (!existing || (await screenshotSets(existing.id)).length === 0) steps.push({ op: 'copy-screenshots', locale, from: primary.id });
   }
   return { version: v, primary, steps };
@@ -239,6 +246,20 @@ async function cmdApply(versionString) {
         },
       });
       created[s.locale] = r.data.id;
+    } else if (s.op === 'fill-text') {
+      await api('PATCH', `/appStoreVersionLocalizations/${s.id}`, {
+        data: {
+          type: 'appStoreVersionLocalizations',
+          id: s.id,
+          attributes: {
+            description: primaryFull.description,
+            promotionalText: primaryFull.promotionalText ?? undefined,
+            whatsNew: primaryFull.whatsNew ?? undefined,
+            supportUrl: primaryFull.supportUrl ?? undefined,
+            marketingUrl: primaryFull.marketingUrl ?? undefined,
+          },
+        },
+      });
     } else if (s.op === 'copy-screenshots') {
       const toId = created[s.locale] ?? (await versionLocalizations(version.id)).find((l) => l.locale === s.locale)?.id;
       if (!toId) throw new Error(`no localisation id for ${s.locale}`);
