@@ -785,3 +785,27 @@ Metrics with `groupByDimensionKey=campaignId`. Both should agree; if they disagr
 attribution wins. Gotcha: the Apple Ads date-range control did not accept a preset change under
 automation on 09-08 — it defaults to Last 7 Days, so **state the window explicitly** and do not
 assume you are looking at 30 days.
+
+
+## A ship's effect is not readable on the night it ships (2026-09-08)
+
+Audit ship 7 published four OTA update ids at ~21:1xZ on a US night. **Zero devices had opened
+the app on them by publish time, and that is normal, not a failure.** The same is true of every
+behavioural row a ship creates: A59's spread copy cannot be scored until real accounts reach ten
+garments *after* the ship, which on current arrival rates is days away, and P23's own falsifier
+names n≥8.
+
+Rules for the night after a ship:
+
+1. **Absence of device receipt at publish time is not evidence of a bad ship.** Verify the
+   manifest, record the update ids, and read receipt the *following* night — grouped by
+   `properties.$update_id` on `Application Opened`, across **all four** fleets
+   ([[cinch-fleets-and-reach]]; "three fleets" is the recurring error).
+2. **Never score a ship's behavioural prediction off the ship night's data.** The population that
+   could satisfy it does not exist yet. This is the same defect as declaring P11 falsified three
+   days early, in a different costume.
+3. **When a ship changes a route, name the baseline it has to beat, in the ledger, on the night
+   it ships.** A59 rerouted a full undressable closet away from the add door (which at the free
+   ceiling raised `add_garment_over_limit`); the number to beat is `11e176c1`'s **61 seconds**
+   from tenth garment to paywall. A "did it work?" with no pre-recorded baseline is unanswerable
+   a week later.

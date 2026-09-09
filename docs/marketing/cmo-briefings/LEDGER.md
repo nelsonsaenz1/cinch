@@ -8,6 +8,29 @@ nights must be escalated or killed, never silently reprinted.
 Format: `| id | issued | item | lane | predicted effect | status | measured effect |`
 Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) · OPS (no code).
 
+## ⏭ READ FIRST — carry-forward for the 2026-09-09 nightly (founder handoff, 09-08 ~22:1xZ)
+
+Four reads that belong to **tomorrow's** session, not to the 09-08 one. None was measurable at
+publish time. Do not score any of them off 09-08 data.
+
+| # | read | why it was not readable on 09-08 | where |
+|---|---|---|---|
+| **1** | **Device receipt of audit ship 7's four update ids** — `01a083b4` (store) · `01a083b6` (b43/44) · `01a083b8` (b45) · `01a083ba` (b46), all manifest-verified at publish | **Nobody had opened the app on them yet — normal for a US night.** An absence here at publish time is not a failed ship. | PostHog `Application Opened` grouped by `properties.$update_id`, excluding `$app_build='1'`. Confirm all **four** fleets, per [[cinch-fleets-and-reach]] — three is the recurring error. |
+| **2** | **P23's first post-ship ten-piece closets** — do single-category closets fall below 15%? | A59 shipped *after* the 09-08 briefing. **n = 0 post-ship closets exist yet.** P23 requires n≥8; do not score early, and do not read a small early number as a trend (the P4/P11 lesson). | Supabase: real accounts reaching 10 garments with `created_at` after the ship, `count(distinct category)`. |
+| **3** | **Has the floor→paywall-within-a-minute path gone to zero?** | The A59 ship changed where a full, undressable closet routes: Today now sends it to `/the-ten?door=photograph` (TenRepair over the live grid) instead of the add door — which at the free ceiling **was** the `add_garment_over_limit` paywall. | `paywall_impressions` where `placement='add_garment_over_limit'`, and the elapsed gap from the user's 10th item. **Baseline to beat: `11e176c1`** (ten_completed 01:39:33Z → `add_garment_over_limit` 01:40:34Z and again 01:43:48Z — **61 seconds**) and **`a874512d`** (signup 17:28Z → paywall 17:46Z). **Target: zero.** |
+| **4** | **P11 on 09-10 and P17 on 09-13** — both fall due, neither is scoreable before its date | P11 is at 16/26 = 61.5% with a ≥60% falsifier and **one non-adder un-falsifies it** (16/27 = 59.3%). P17's lower-bound proxy is 1 of 13, falsifier ≥3. | Score on the due date only. METHODOLOGY: *"do not declare a prediction falsified before its due date if its cohort can still grow."* |
+
+**Also settled after the 09-08 briefing shipped, so its §7 and §17.9 are already partly stale:**
+**A12 CLOSED by founder ruling** — every campaign variant routes to paywall 254200, and Standard
+annual's 1-week trial has been on the default button since the 09-01 update. The §17.9
+contradiction is dissolved in favour of the boot gate's reading, not A12's. **P22 accordingly
+scored FALSIFIED** on the re-dated 09-01→09-08 clock: **0 arms-length trial starts across 10
+real paywall impressions.** So the ask *was* being made, with a trial, and nobody took it —
+which is the opposite of §7's "the monetization question is currently unasked," and the next
+thesis has to start from there.
+
+---
+
 ## Open
 
 | id | issued | item | lane | predicted effect | status | measured effect |
@@ -669,6 +692,7 @@ Verifier pass (Opus, adversarial, read-only) on the diff before publish: five CO
 | id | disposition |
 |---|---|
 | **A12** | ✅ **CLOSED by founder ruling 2026-09-09 ("close A12 on the gate's evidence"), night 10.** The evidence: (1) the audit-ship-6 Keyed-Release boot gate (09-07, production Superwall key) read the default button as *"Try 7 days free — then $39.99/yr"* on Standard annual; (2) `superwall campaigns list` (09-08) shows **every** campaign variant — `returning_free` 105048, `ten_completed` 105047, `reveal_complete` 101136, the limits campaign 100436, `packing_access` 100596, `repeat_upsell` 100973, `membership_upgrade` 101571, `event_join_over_limit` 105039 — pointing at paywall **254200**, so the gate's placement and A12's paywall are the same document; (3) `superwall paywalls list`: 254200 holds all four products, last updated **2026-09-01 01:53Z**; (4) ASC via the proxy: `cinch.standard.annual` is the only product in group 22290564 with an introductory offer (FREE_TRIAL, ONE_WEEK, `startDate 2026-08-31`). **Premise retired:** the 09-01 row's "defaults to `proAnnual`, which has none" described the paywall before its 09-01 update; the 09-07 and 09-08 nightlies escalated it on that stale premise while the ledger's own engineering entry flagged the contradiction (09-08 §17.9). **Consequence:** P22 is scored on the re-dated clock (falsified — see Predictions), and the remaining monetisation decision is the **price**, not the button (A60). Not verified tonight: the editor's own "default product" field — the founder chose to close on the on-screen reading rather than spend the editor look. |
+| **12.1 (Savannah)** | ✅ **RULED by the founder 2026-09-09: "Savannah's pro year is a gift."** `77d25934`'s `subscriptions` row (`plan='pro'`, `current_period_end=2027-09-01`, set by hand 09-01) is a **comped grant**, not a purchase and not a trial. `trial_ends_at = 2026-09-13` on that row is inert — nothing charges and nothing lapses on it. Standing instruction for every briefing: she is outside the install→paid denominator by design (Condition 1 will never see her), outside the paying-user count, and never a churn risk. **The family trial (`90dc9d33`, $39.99 on 2026-09-12 22:56Z) was not ruled on** — it runs unless cancelled. |
 
 ## Closed 2026-09-08
 
