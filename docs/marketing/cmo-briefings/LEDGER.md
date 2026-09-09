@@ -89,6 +89,128 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 | **A40** | 09-03 | **Give the `/closet` fallback page a `cinch://` door** — a recipient who already owns Cinch was being shown "Get Cinch" | OTA/web | A recipient with the app installed reaches their closet, not the App Store listing | **✅ SHIPPED + verified live 09-03** | Found by reasoning through A38's cache finding: with a stale AASA, every installed recipient lands on the fallback and the page's only action told them to install an app they already have. Page now leads with `cinch://closet` (resolves via expo-router default matching to `src/app/(tabs)/closet.tsx`; scheme `cinch` at `app.config.ts:139`, no `+native-intent` to intercept) and keeps the App Store as an explicit secondary, because a custom-scheme link is inert when the app is absent and must never be the sole action. |
 | **A39** | 09-03 | **All three HTML templates overflow a 375px viewport** | OPS (copy) | Email renders inside the phone it is read on | **new — `reengage.html` fixed, the other three are not** | `dispatch.html`, `release.html` and `welcome.html` set `width="600"` with only `max-width:520px` and no `width:100%`, so the card is 520px wide on a 375px phone. Rendered and screenshotted 09-03 at 375×812. **Dispatch No. 01 was sent that way to 23 people on 09-01.** |
 
+## Audit ship 7 — the shape at ten, the thin Reveal, and two dashboards that were never dark (engineering session, read after the 09-08 nightly, 2026-09-09 01:07Z main · side-cuts 01:09Z / 01:11Z / 01:13Z)
+
+Commit `62bea5d` on main. Published to all four live runtimes and manifest-verified:
+
+| runtime | fleet | OTA | branch |
+|---|---|---|---|
+| 4e646ba0 | 1.2.3 / b47 (store) | `01a083b4-d56e-792d-80a4-ca82a4f7d60b` | main |
+| c5f00773 | 1.2.0 / b43-44 | `01a083b6-b499-7ec2-82fc-31416320ab1e` | ota/c5f00773-a59 |
+| 813c6d34 | 1.2.1 / b45 | `01a083b8-8a89-7741-b6bf-764aa406c5fe` | ota/813c-a59 |
+| ccfa8345 | 1.2.2 / b46 | `01a083ba-33d0-7cd0-9572-9bab52025c7e` | ota/ccfa8345-a59 |
+
+**Two of the nightly's "unread" systems read fine from here, and both changed rows.** PostHog
+answers HogQL through the `posthog` MCP (`execute-sql`) and Superwall answers through the
+`superwall` CLI (`paywalls list`, `campaigns list`, and the `asc` proxy for App Store Connect
+itself); neither needs the browser session that expired. METHODOLOGY carries the recipes. Every
+per-person claim below is PostHog, not a Supabase proxy.
+
+Rows moved:
+- **A59 ✅ SHIPPED (OTA) — and the diagnosis moved before the fix did.** Both single-category
+  closets came through the **import door**, never The Ten: `a874512d` fired
+  `clothes_import_selected` ×10 (09-05 17:30–17:42Z) and `bae15db5` ×10 (09-07 23:25–23:45Z),
+  and neither ever opened `/the-ten`. The Ten's own card already names the missing half
+  (`starterCardCopy`, the `core` gap: "Add a top. An outfit is a top with a bottom, or a
+  dress…") — it never reached them. The counter they DID meet was Today's floor at ten, and it
+  read **"Ten pieces in. Zero more pieces to go. A top is what turns this into outfits."** with
+  one action, **"Add a top"**, whose door at the free ceiling is `add_garment_over_limit`:
+  `a874512d` tapped it and met the paywall **39 seconds** after `closet_floor_shown`
+  (17:45:45Z → `paywall_presented` 17:46:24Z), then never came back. So the fix is on Today, not
+  in The Ten: `floorProgressLine` (closet-floor-copy.ts) says at ten *"Ten pieces in — but an
+  outfit needs a top with a bottom, or a dress. A top is what turns this into outfits."* (no
+  nought, no digit), the action becomes **"Swap a piece for a top"**, and it opens
+  `/the-ten?door=photograph` — the Reveal's own repair loop, `TenRepair` over the live grid,
+  where a filled position is re-read or replaced without buying anything. Pinned by
+  `tests/closet-floor-copy.test.ts`. §11.5's third string is adopted in that form; the first two
+  (at four and eight pieces) already exist on the floor as "A top is what turns this into
+  outfits." **P23 stands as the effect metric**; a second, sharper one is the pair
+  `closet_floor_shown` → `paywall_presented {add_garment_over_limit}` inside a minute for a
+  ten-piece closet — that path is gone.
+- **A59b ❌ KILLED — it counted the wrong thing.** `ai_calls.outfit_generation` is the server
+  *enhancement* (asked only for a complex note, an event-formality conflict or a measured
+  near-tie — `should-enhance.ts`); Today's plates are generated on the device and an ordinary
+  morning writes no `ai_calls` row at all. The instrument for "was dressed" is PostHog
+  `outfits_source` (plates on screen) and `outfit_set_viewed` (a Reveal plate). All four
+  "eligible, never generated" closets have them: `89d85597` `outfits_source` ×2 + a Reveal
+  visit on 08-31; `9a21ba7f` ×1; `fed827cc` ×3 plus `reveal_door_shown` ×3; `c34290ab` a
+  completed Reveal (`outfit_set_viewed`, 09-07 21:01Z). Every closet that clears `canGenerate`
+  has been shown outfits; "nine real people who have never seen an outfit" is false and no
+  card is owed. The keepable loss is A59's population, not this one. METHODOLOGY amended.
+- **A61 ✅ ANSWERED — no build.** Both untagged closets predate the 08-26 consent gate:
+  `c646253d` last signed in **08-18** (13 rows pending), `ced245be` **08-20** (11), both
+  `ai_consent_version = null`, `profiles.updated_at` = the 09-03 sharing migration. The T-10b
+  pending-consent floor on Today (shipped 08-31) and the Reveal's consent door already handle
+  exactly this state the moment either person opens the app; nothing more to build. What was
+  wrong is the *count*: every "ten-piece closet" query in the briefings ran over raw `items`.
+  Rule added to METHODOLOGY — closet-size denominators filter to
+  `status in ('tagged','needs_review','verified') and not is_archived`.
+- **A61b ✅ SHIPPED (OTA).** Root cause, from PostHog: `d03875a0` used the **voice walkthrough**
+  (`intake_started` 23:06:13Z → `intake_committed` 23:07:07Z, one dress via catalogue search),
+  and `walkthrough/review.tsx` replaces to `/reveal` regardless of closet size.
+  `countOutfits` of one dress is honestly **1**, the sequence completed at 23:07:10Z, the stamp
+  landed, `paywall_eligible {ok}` fired at 23:07:12Z and the sheet at :13 — over a closet Today
+  floored two seconds later with "start with ten pieces." Fix: a **thin** closet
+  (`belowActivationFloor` on the same settled read) still sees its number, but
+  `mayStampSeen('complete', null, thin)` refuses the stamp and `maySellOnExit({paying, offline,
+  thin})` skips the membership moment; both are pure in `reveal-zero-core.ts` and executed by
+  `tests/reveal-zero-core.test.ts`. The honest zero's exits are unchanged.
+- **A12 — the contradiction in 09-08 §17.9 dissolves, and the row is probably already met.**
+  `superwall campaigns list`: **every** campaign variant points at paywall **254200** —
+  `returning_free` (105048), `ten_completed` (105047), `reveal_complete` (101136) and the
+  limits campaign (100436) alike. So the 09-07 boot gate's *"Try 7 days free — then $39.99/yr"*
+  default button **was paywall 254200**, not a different document. `superwall paywalls list`:
+  254200 carries all four products (`proAnnual`, `proMonthly`, `standardAnnual`,
+  `standardMonthly`), updated 2026-09-01 01:53Z. ASC via the proxy: the **only** introductory
+  offer in the group is `cinch.standard.annual`'s 1-week FREE_TRIAL, `startDate 2026-08-31`.
+  The one fact the API cannot state is which product the layout pre-selects — and that is
+  precisely what the gate read off the screen. **Recommendation: close A12 as met since
+  2026-09-01 on the gate's evidence, or confirm with one editor look; either way P22's clock
+  started 09-01, not "when A12 ships" — and on that dating it has already run seven days with
+  zero arms-length trial starts.** The founder decision that remains is the *price*, not the
+  button.
+- **§16.8 ✅ the independent price read.** ASC's own USA price points via `superwall asc get
+  /v1/subscriptions/<id>/prices`: standard.monthly **$4.99** (proceeds $4.24) ·
+  standard.annual **$39.99** ($33.99) · pro.monthly **$9.99** ($8.49) · pro.annual **$79.99**
+  ($67.99). A60's ceiling ($9.99 gross / $8.49 net) is confirmed from Apple, not from a
+  document. `docs/ai-models-and-tiers.md` §163/§171 amended with a dated note.
+- **A53 — half shipped, half a founder question.** The duplicated word ("Blue denim denim
+  shorts", 12 rows across 7 closets) is the model's: `description` is written verbatim from
+  the tagger. One rule added to `TAG_SYSTEM_PROMPT` ("do not repeat the material when the
+  garment type already names it") and `tag-item` redeployed (`--use-api`). The **colour
+  disagreement has a mechanism, not a model error**: the name a reader sees (`pieceName` →
+  `colors[0].name`) is the on-device pixel sampler's nearest table name over the cutout
+  (`upload-queue.ts:601`), while the description's colour is the model's word — "sage /
+  taupe / steel" for light-wash denim is the sampler, and it overwrites the model's
+  `colorNames`. Which source should NAME a piece is a product call, so it is surfaced rather
+  than changed: the model for the word, the pixels for the swatch, is the obvious split.
+- **A48's read, done (PostHog, since 09-07 20:00Z, harness excluded):** `push_ask_shown`
+  5 `{floor}` + 1 `{usable}`; `push_ask_seen` **5 + 1 — seen equals shown for every person**;
+  `push_ask_answered` **0**. The card is in the viewport and declined. Per the row's own
+  rule the fix is the sentence, which is the founder's.
+- **09-08 §16.1 (PostHog dark) is closed as a gap** — see METHODOLOGY "PostHog and Superwall
+  are readable WITHOUT a browser session". Also read there: `auth_code_bounced` and
+  `auth_cancel_hint_taken` have never fired (taxonomy), which is a zero, not a typo.
+
+Keyed-Release boot gate: **PASSED** (xcodebuild Release + production Superwall key, fresh install on "Cinch iPhone 17 Pro",
+01:03–01:06Z). The QA closet `sim-test+j00` was retagged in SQL to **ten × bottom/jeans** for the
+run (originals snapshotted, restored at 01:08Z and verified) — the first gate of a *shape* state.
+Cover → email door → OTP via Resend read-back → `auth_completed` 01:04:35Z → Today's floor with
+the six-tile tray, headline "Start with ten pieces", body **"Ten pieces in — but an outfit needs a
+top with a bottom, or a dress. A top is what turns this into outfits."**, one filled action
+**"Swap a piece for a top"** (`closet_floor_shown` + `push_ask_shown {floor}` 01:04:37Z,
+`push_ask_seen {floor}` 01:04:49Z on the scroll) → tap → **The Ten, "TEN OF TEN · Every well is
+taken"**, all ten photographs live, and the repair plate under them: *"That's ten pieces — but not
+a week of outfits yet. Cinch can't find a pair of shoes or a top in what you've filed…"* — the
+designed repair loop, no paywall. The Hermes bundle carries the em-dash sentence in its UTF-16
+string table (`strings` will not find it; grep the bytes as `utf-16-le`). **Not exercised on the
+sim:** the thin Reveal (needs the voice walkthrough with one committed piece); its rule is pure
+and executed by `tests/reveal-zero-core.test.ts`, and reveal.tsx's wiring is source-pinned by
+`tests/reveal-page.test.ts`. **One nit seen on the gate, not fixed:** the push card under a full
+undressable closet still reads *"Once your ten are in…"* — the floor's conditional sentence, now
+stale for a closet that has ten in. Copy call for the founder (`push/ask-spec.ts`, pinned by
+`tests/push-ask.test.ts`).
+
 ## Audit ship 6 — seen not mounted, the moment not the timer, the bounce, and the ask (engineering session, read after the 09-06 nightly, 2026-09-07 20:14Z main · side-cuts 20:23Z / 20:35Z / 20:45Z)
 
 Commit `20573e9` on main. Published to all four live runtimes and manifest-verified:
