@@ -92,6 +92,8 @@ async function appInfo() {
     locale: l.attributes.locale,
     name: l.attributes.name,
     subtitle: l.attributes.subtitle,
+    privacyPolicyUrl: l.attributes.privacyPolicyUrl,
+    privacyChoicesUrl: l.attributes.privacyChoicesUrl,
   }));
   return { id: info.id, state: info.attributes.appStoreState, locs };
 }
@@ -152,7 +154,12 @@ async function plan(versionString) {
   if ((primary.keywords ?? '') !== KEYWORDS['en-US']) steps.push({ op: 'patch-keywords', locale: 'en-US', id: primary.id, keywords: KEYWORDS['en-US'] });
   for (const locale of Object.keys(KEYWORDS)) {
     if (locale === 'en-US') continue;
-    if (!info.locs.find((l) => l.locale === locale)) steps.push({ op: 'create-appinfo-loc', locale, infoId: info.id, name: info.locs.find((l) => l.locale === 'en-US')?.name, subtitle: info.locs.find((l) => l.locale === 'en-US')?.subtitle });
+    // `privacyPolicyUrl` travels with the appInfo localisation and is REQUIRED
+    // at review submission — 1.2.4's first submit attempt was refused with
+    // "You must provide a value for the attribute 'privacyPolicyUrl'" on every
+    // locale this step had created without it (2026-09-09).
+    const enInfo = info.locs.find((l) => l.locale === 'en-US');
+    if (!info.locs.find((l) => l.locale === locale)) steps.push({ op: 'create-appinfo-loc', locale, infoId: info.id, name: enInfo?.name, subtitle: enInfo?.subtitle, privacyPolicyUrl: enInfo?.privacyPolicyUrl, privacyChoicesUrl: enInfo?.privacyChoicesUrl });
     const existing = locs.find((l) => l.locale === locale);
     if (!existing) steps.push({ op: 'create-version-loc', locale, versionId: v.id, from: primary.id, keywords: KEYWORDS[locale] });
     else if ((existing.keywords ?? '') !== KEYWORDS[locale]) steps.push({ op: 'patch-keywords', locale, id: existing.id, keywords: KEYWORDS[locale] });
@@ -225,7 +232,13 @@ async function cmdApply(versionString) {
       await api('POST', '/appInfoLocalizations', {
         data: {
           type: 'appInfoLocalizations',
-          attributes: { locale: s.locale, name: s.name, subtitle: s.subtitle },
+          attributes: {
+            locale: s.locale,
+            name: s.name,
+            subtitle: s.subtitle,
+            privacyPolicyUrl: s.privacyPolicyUrl ?? undefined,
+            privacyChoicesUrl: s.privacyChoicesUrl ?? undefined,
+          },
           relationships: { appInfo: { data: { type: 'appInfos', id: s.infoId } } },
         },
       });
