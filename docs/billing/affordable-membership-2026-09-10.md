@@ -1,7 +1,12 @@
 # Affordable membership — the first 100 paying users (release packet, 2026-09-10)
 
-**Status: PREPARED.** Code and tests are on branch `codex/affordable-membership`; nothing
-below is live. Purchase availability at the new prices, paywall routing to a monthly-only
+**Status: ROLLING OUT (founder go, 2026-09-10 ~02:1xZ).** Apple price changes are SCHEDULED for
+2026-09-11 in all 175 territories (Apple refuses an unscheduled price on an approved subscription:
+"Initial price cannot be created again after subscription is approved"; the earliest start date is
+the next day). Equalised exceptions Apple chose: Standard AUS $1.99 · JPY 150 · INR 99 · BRL 6.9;
+Pro CAN $3.99 · AUS $4.99 · JPY 500 · INR 299 · BRL 19.9 (GBR/DEU/FRA £/€0.99 and 2.99). The v4
+document 266240 is published and the campaigns are being repointed; the app code ships by OTA.
+The original PREPARED framing follows. Purchase availability at the new prices, paywall routing to a monthly-only
 document, entitlement delivery and the paying-user report have **not** been verified in
 production, so the strategy is not "live" and must not be described as such until §7's
 rollout has run and §8's checks pass.
