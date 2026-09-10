@@ -1,6 +1,6 @@
 # Affordable membership — the first 100 paying users (release packet, 2026-09-10)
 
-**Status: ROLLING OUT (founder go, 2026-09-10 ~02:1xZ).** Apple price changes are SCHEDULED for
+**Status: LIVE for the paywall and routing; price effective 2026-09-11 (founder go, 2026-09-10 ~02:1xZ).** Superwall 266240 published 02:17Z and **every one of the eight campaigns routes to it at 100% (v3 kept at 0% to preserve results; assignments restarted where users existed)**, verified from the API 02:5xZ. Until Apple's start date the document shows StoreKit's current $4.99 / $9.99 monthly with no trial; from 2026-09-11 it shows $0.99 / $2.99 with no further change. Public copy merged to `main` (`bb54ebd`) and deploying. The app-side changes ship by OTA (audit ship 9) after the keyed gate. Apple price changes are SCHEDULED for
 2026-09-11 in all 175 territories (Apple refuses an unscheduled price on an approved subscription:
 "Initial price cannot be created again after subscription is approved"; the earliest start date is
 the next day). Equalised exceptions Apple chose: Standard AUS $1.99 · JPY 150 · INR 99 · BRL 6.9;
