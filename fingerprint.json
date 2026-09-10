@@ -1,7 +1,7 @@
 {
-  "_comment": "The native fingerprint of the build that is in the store. Set with `npm run check:fingerprint -- --set` at the moment a store build is submitted, and at no other time — see scripts/check-fingerprint.mjs.",
+  "_comment": "The native fingerprint of the build that is in the store. Set with `npm run check:fingerprint -- --set` at the moment a store build is submitted, and at no other time \u2014 see scripts/check-fingerprint.mjs.",
   "platform": "ios",
-  "hash": "8f293d642e698e6f4acbd38ef1aeee47840b032d",
+  "hash": "813c6d3413ced400fea427cbf693e9f737c4ca29",
   "sources": 168,
   "recordedAt": "2026-09-09",
   "commit": "408e1c6"

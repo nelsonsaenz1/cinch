@@ -153,7 +153,7 @@ const config: ExpoConfig = {
   // OTA on relaunch — and first sessions are exactly where the Apple sign-in
   // fix and the reveal door earn their keep. Founder order 2026-08-31, ahead
   // of the featuring window.
-  version: '1.2.4',
+  version: '1.2.1',
   orientation: 'portrait',
   // Light only. Cinch is a print lookbook, and a print object has one
   // appearance — this pins the app to light regardless of the system setting,
