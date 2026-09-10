@@ -860,6 +860,12 @@ Rules:
 5. **Print Apple Ads' "Last updated … UTC" stamp every night.** On 09-09 the report was stamped
    04:30Z, an hour after a campaign launched; its $0.00 was unread, not zero. Charts → Installs
    (Total) → Daily gives the per-day series that the campaign table does not.
+6. **Apple Ads' "Last 7 days" preset ENDS YESTERDAY** (2026-09-10, engineering). The campaign
+   table, the keyword table and the chart all default to it, and a campaign launched today
+   reads $0.00 / 0 impressions on every one of them — that is what the 09-09 "$0 across 19
+   Running keywords" was. Read a launch day on **"Current week"** or **"Yesterday"** (the picker
+   under the date field); the "Last updated … UTC" stamp is printed under the Charts tab, not
+   on the tables. A67 on 09-09 by the 12:05Z stamp: $15.39 / 78 / 11 / 6 installs.
 
 ## PostHog: `Application Opened` fires under the ANONYMOUS distinct_id (2026-09-09, nightly)
 
