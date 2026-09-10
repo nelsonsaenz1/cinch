@@ -833,3 +833,55 @@ them. Rules from tonight:
 - Discovery's Search Match spend matches Russian and Arabic marketplace queries (`лемана про`,
   `озон`, `shopee`, `gucci morty`); its 11 installs cost $7.76 each. A founder decision, not a
   measurement — but never count its installs as category demand.
+
+## ASC impressions and page views CONTAIN the ad impressions and ad taps (2026-09-09, nightly)
+
+**Standing correction, and it invalidates every tap-through figure since 09-05.** Apple Search
+Ads on the Search Results placement is counted by App Store Connect not only under the
+`App Store Search` source type for downloads (09-08 rule) but in **impressions and product page
+views too**. 7 UTC days 09-02→09-08: Apple Ads reported **2,791 impressions / 120 taps / 40
+installs**; ASC reported **4,231 impressions / 138 page views / 42 first-time downloads**. Two
+thirds of the impressions and seven eighths of the page views A4 was gated on were ads.
+
+Rules:
+1. **The paid/organic split is `ASC − Apple Ads`, per UTC day, on all three measures.** ASC's own
+   Campaigns view (Acquisition → Campaigns, and `groupByDimensionKey=campaignId`) answers *"There
+   isn't enough data to display campaigns"* for this app — Apple Search Ads does not surface there.
+   Do not wait for it.
+2. **Never quote an ASC impression→PPV while a Search Results campaign is running** without
+   subtracting the ad impressions and taps first, and then say how small the residual is. The
+   organic residual on 09-09 was ~1,440 → ~18 → ~2 a week — too small to carry a listing thesis.
+3. **The listing's own pull is readable from Apple Ads:** tap-through rate per exact keyword
+   (`[outfit planner]` 13.9% over 30 days) isolates the product page against a known query. Gate
+   A4-class work on that, not on ASC.
+4. **Apple Ads "Installs (Total)" over-counts relative to ASC first-time downloads** by
+   redownloads and (on other placements) view-through installs. Bound it with ASC's `redownloads`
+   series (2 over 30 days here) before treating a match as identity.
+5. **Print Apple Ads' "Last updated … UTC" stamp every night.** On 09-09 the report was stamped
+   04:30Z, an hour after a campaign launched; its $0.00 was unread, not zero. Charts → Installs
+   (Total) → Daily gives the per-day series that the campaign table does not.
+
+## PostHog: `Application Opened` fires under the ANONYMOUS distinct_id (2026-09-09, nightly)
+
+`distinct_id like '<supabase uid>%'` joins the two systems for identified events, but
+`Application Opened` (and `Application Installed`, `$screen` before sign-in) is stamped with the
+device's anonymous id. A return query written as `distinct_id like … and event='Application
+Opened'` returned **0 for all 13** of the 09-05/06 cohort on the first run. Use the person:
+
+```sql
+… where person_id in (select person_id from events
+                      where distinct_id like '<uid>%' and timestamp > now() - interval 14 day)
+```
+
+That form found `fed827cc` at +20.4 h, which 09-08 §17.3 had declared "does not reproduce" on
+the Supabase proxy. PostHog `person_id`s are not Supabase ids either — `747c69f2` (PostHog) is
+`ee61db9a` (Supabase); print which system an eight-character id comes from.
+
+## A fifth fleet appears the day a store build releases (2026-09-09, nightly)
+
+1.2.4 / build 48 was approved and live the day it was submitted, and **8 real devices were on
+runtime `8f293d64` before the nightly ran** — with no OTA published for it. Every OTA from
+2026-09-09 targets **five** runtimes: `8f293d64` (b48, store) · `4e646ba0` (b47) · `c5f00773`
+(b43–44) · `813c6d34` (b45) · `ccfa8345` (b46). The store-current fleet is, again, the one
+without a published update. Re-enumerate runtimes from `Application Opened` the night after any
+release; do not carry "four fleets" forward by memory.
