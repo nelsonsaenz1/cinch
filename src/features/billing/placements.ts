@@ -191,6 +191,14 @@ export const Placement = {
   MembershipUpgrade: 'membership_upgrade',
 
   /**
+   * RETIRED FROM THE APP 2026-09-10 (A68). No call site presents this any
+   * more: the beat it named put every real person's first paywall before her
+   * first outfit (4 of 4 lifetime, 0 bought), and the caps' pair rule then
+   * silenced `reveal_complete` — the ask that follows the outfit — for a day.
+   * The name is kept so the ledger's historical rows keep counting toward the
+   * caps and the Superwall campaign (105047) keeps its placement; the first
+   * general ask is now `reveal_complete`. The original rationale follows.
+   *
    * The Ten has just completed — the moment the closet became real and BEFORE
    * the Reveal starts, independent of it. A dismissible Standard-trial offer:
    * the person has done the work, the number is coming, and this is the one
