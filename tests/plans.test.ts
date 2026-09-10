@@ -67,16 +67,17 @@ test('Pro promises no outfit number, because its copy says Unlimited', () => {
   assert.equal(PLANS.pro.outfits, 'Unlimited');
 });
 
-test('price hints carry the approved 2026-08-31 prices, and free carries none', () => {
+test('price hints carry the 2026-09-10 affordable-membership prices, and free carries none', () => {
   // Hints, not truth — the paywall reads StoreKit live and formats per locale
   // (plans.ts spells this out). But a stale hint quotes a price the purchase
   // sheet then contradicts, which reads as a bait-and-switch rather than a
-  // typo. These literals are the approved repricing: Standard $4.99/$39.99,
-  // Pro $9.99/$79.99. Change them only alongside the App Store Connect
-  // products.
-  assert.equal(PLANS.standard.monthlyPriceHint, '$4.99');
+  // typo. These literals are the founder's 2026-09-10 repricing: Standard
+  // $0.99 / month, Pro $2.99 / month; the annual products keep $39.99 / $79.99
+  // for existing subscribers and leave the primary paywall. Change the
+  // monthly hints only alongside the App Store Connect price points.
+  assert.equal(PLANS.standard.monthlyPriceHint, '$0.99');
   assert.equal(PLANS.standard.annualPriceHint, '$39.99');
-  assert.equal(PLANS.pro.monthlyPriceHint, '$9.99');
+  assert.equal(PLANS.pro.monthlyPriceHint, '$2.99');
   assert.equal(PLANS.pro.annualPriceHint, '$79.99');
   assert.equal(PLANS.free.monthlyPriceHint, null);
   assert.equal(PLANS.free.annualPriceHint, null);

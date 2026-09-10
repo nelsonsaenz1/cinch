@@ -178,7 +178,7 @@ test('the Ten and Today arm `ten` beside their closet_ready observers; the Revea
 
 test('the gate stamps every sheet for the card; the card imports no SDK', () => {
   const gate = read('src/features/billing/use-gate.ts');
-  assert.match(gate, /onPresent: \(\) => \{[\s\S]{0,900}stampPaywallPresented\(new Date\(\), reviewPromptIo\);/);
+  assert.match(gate, /onPresent: \((?:info)?\) => \{[\s\S]{0,1600}stampPaywallPresented\(new Date\(\), reviewPromptIo\);/);
   assert.match(gate, /onDismiss: \(_info, result\) => \{[\s\S]{0,300}stampPaywallDismissed\(new Date\(\), reviewPromptIo\);/);
   const card = read('src/components/rating/review-prompt.tsx');
   assert.doesNotMatch(card, /expo-superwall|use-gate|usePlan|use-plan/);

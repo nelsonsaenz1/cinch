@@ -274,6 +274,21 @@ type Presentation = {
    * printing a receipt for a purchase that never happened.
    */
   purchase: 'purchased' | 'restored' | null;
+  /**
+   * Which paywall DOCUMENT Superwall drew for this presentation — the
+   * dashboard identifier (`cinch-membership-v3-…`), read off `PaywallInfo`
+   * in `onPresent`. Stamped on `paywall_presented` and `paywall_converted`
+   * so a price or packaging change (2026-09-10: the affordable-membership
+   * paywall) can be told apart from the document it replaced without a
+   * second analytics vendor. Null until presented.
+   */
+  paywall: string | null;
+  /**
+   * The product a REAL purchase bought, from the SDK's `PaywallResult`. One
+   * of the four App Store product ids, never a price: the amount is Apple's
+   * (the webhook ledger carries it), the id says which plan and term.
+   */
+  productId: string | null;
 };
 
 /**
@@ -348,7 +363,12 @@ function useSuperwallGate(): Gate {
         // The one client-side moment that knows both the money and the door it
         // came through — the webhook reconciles the revenue but never learns
         // the placement. `result` is the SDK's own bounded pair.
-        track('paywall_converted', { placement: target.placement, result: target.purchase });
+        track('paywall_converted', {
+          placement: target.placement,
+          result: target.purchase,
+          paywall: target.paywall ?? undefined,
+          product_id: target.productId ?? undefined,
+        });
         router.push('/membership-thanks');
       }
 
@@ -429,10 +449,19 @@ function useSuperwallGate(): Gate {
     // Fired only when a paywall actually appears — Superwall's campaign can
     // decide to show nothing for a registered placement, and that must not
     // count as an impression or the funnel's top line inflates.
-    onPresent: () => {
+    onPresent: (info) => {
       const target = owned(ownerId);
       if (!target) return;
-      track('paywall_presented', { placement: target.placement });
+      target.paywall = info.identifier;
+      track('paywall_presented', {
+        placement: target.placement,
+        // Which document, and which products it offered — the offer version
+        // of this impression, so the 2026-09-10 monthly-only paywall reads
+        // apart from v3 in the same funnel. Bounded: a dashboard identifier
+        // and a comma-joined list of the four known product ids.
+        paywall: info.identifier,
+        products: info.productIds.join(','),
+      });
       // The server-side twin of that event (ledger A19): one row in
       // `paywall_impressions` per sheet that appeared, whichever placement
       // asked. Best-effort by contract — the insert swallows its own failure.
@@ -458,6 +487,7 @@ function useSuperwallGate(): Gate {
       // fires.
       if (result.type === 'purchased' || result.type === 'restored') {
         target.purchase = result.type;
+        if (result.type === 'purchased') target.productId = result.productId;
       }
       // A purchase or a restore also resolves `registerPlacement`, and that is
       // the path that runs `onGranted`; let it win rather than reporting an
@@ -503,6 +533,8 @@ function useSuperwallGate(): Gate {
         timer: null,
         alive: false,
         purchase: null,
+        paywall: null,
+        productId: null,
       };
       inFlight = target;
 

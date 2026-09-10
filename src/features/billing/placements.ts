@@ -174,9 +174,15 @@ export const Placement = {
    * carries all four products. Nothing about a price or a period is typed into
    * a layout, which is the atlas's actual requirement rather than its sketch.
    *
-   * NO TRIAL. All four products are `trial_period_days: null` (verified against
-   * the Superwall API on 2026-08-12), and correction 06 forbids drawing a
-   * default trial anywhere regardless.
+   * NO TRIAL IS DRAWN BY THE APP. Correction 06 forbids drawing a default
+   * trial anywhere in a layout. The products' own offers have moved twice
+   * since 2026-08-12 (when all four were `trial_period_days: null`):
+   * `cinch.standard.annual` carried a 1-week StoreKit FREE_TRIAL from
+   * 2026-08-31, and the 2026-09-10 affordable-membership decision puts the
+   * two MONTHLY products ($0.99 Standard, $2.99 Pro) on the primary paywall
+   * with no trial at all — the useful free experience precedes a clearly
+   * disclosed monthly purchase. Whatever the offer, the paywall document reads
+   * it from StoreKit; nothing here states one.
    *
    * Campaign: **"Membership upgrade" (101571)**, created 2026-08-12, audience
    * "no active Pro entitlement" — the same rule as the other four, so the
