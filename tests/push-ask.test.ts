@@ -75,12 +75,15 @@ test('two closets, two sentences — and the floor one is conditional', () => {
   const floor = PUSH_ASK_COPY.line('floor');
   const usable = PUSH_ASK_COPY.line('usable');
   assert.notEqual(floor, usable);
-  // The floor promise names the condition in the word every other floor
-  // sentence on Today uses, spelled, never a numeral.
-  assert.match(floor, /^Once your ten are in, /);
+  // The floor promise names its condition as the closet being READY — not a
+  // count (12.9, 2026-09-10): the floor also holds full closets that cannot be
+  // dressed, and "once your ten are in" was seen by nine real people and
+  // answered by none. It says what the note does, in the note's own words.
+  assert.match(floor, /^When your closet is ready, Cinch will dress it every morning\. /);
+  assert.doesNotMatch(floor, /\bten\b|Once your/);
   // The hour is the only numeral either sentence carries.
   assert.doesNotMatch(floor.replace('7:30am', ''), /\d/);
-  assert.doesNotMatch(usable, /Once your ten/);
+  assert.doesNotMatch(usable, /When your closet is ready/);
   // Both keep the channel's own promise: one note, at the hour.
   for (const line of [floor, usable]) {
     assert.match(line, /One note at 7:30am, nothing else\.$/);
@@ -91,9 +94,9 @@ test('two closets, two sentences — and the floor one is conditional', () => {
 });
 
 test('the sender keeps the floor sentence: the claim counts to the same ten', () => {
-  // The card says "once your ten are in"; the note says "the day's look is
-  // ready" and opens Today. The claim function is what makes the first true
-  // of the second — nobody under the floor is claimed.
+  // The card says "when your closet is ready"; the note says "the day's look
+  // is ready" and opens Today. The claim function is what makes the first
+  // true of the second — nobody under the floor is claimed.
   const migration = readFileSync(
     'supabase/migrations/20260905000000_morning_edit_needs_a_closet.sql',
     'utf8',

@@ -34,10 +34,25 @@ import type { PushPermission } from '@/features/push/permission';
  *
  * Now the card draws as soon as the wardrobe read has settled, floor or not,
  * and the SENTENCE moves instead of the gate: on the floor it promises the
- * edit "once your ten are in", which is exactly what the sender does —
+ * edit for "when your closet is ready", which is exactly what the sender does —
  * `push_claim_morning_edit` (migration 20260905000000) claims nobody whose
  * closet is under the floor, so a grant made at zero pieces produces no note
- * until the tenth lands. The promise and the behaviour are the same sentence.
+ * until the closet clears it. The promise and the behaviour are the same
+ * sentence.
+ *
+ * ── THE FLOOR SENTENCE, REWRITTEN (founder decision 12.9, 2026-09-10) ─────
+ *
+ * The first floor sentence was "Once your ten are in, tomorrow's look is
+ * ready when you wake up." Read back after `push_ask_seen` existed: ten real
+ * people were shown the card, nine saw it, and NONE answered — not Turn on,
+ * not Not now — and eight of the ten met it on the floor, with zero to nine
+ * garments. A promise about a closet the reader does not have, counted in a
+ * number she has not reached, was being looked at and walked past. It was
+ * also wrong for the one closet the floor holds at ten: a full but
+ * undressable closet (A59) has "ten in" and still cannot be dressed. So the
+ * sentence now names the state the sender actually waits for — the closet
+ * being READY — the channel's own word (channels.ts: "when the day's look is
+ * ready to read") — and says what the note does for it, every morning.
  *
  * ── ONCE, EVER ────────────────────────────────────────────────────────────
  *
@@ -110,13 +125,14 @@ export const PUSH_ASK_COPY = {
    * and no urgency, the Today card's taste bar.
    *
    * Two sentences for two closets. On the floor the promise is CONDITIONAL
-   * and says so — "once your ten are in" — because that is precisely when
-   * the sender starts (A44); "ten" is the word every other floor sentence on
-   * Today uses, and it is spelled, not a numeral, for the same taste bar.
+   * and says so — "when your closet is ready" — because that is precisely
+   * when the sender starts (A44); "ready" rather than a count, because the
+   * floor also holds full closets that cannot be dressed (12.9). The hour is
+   * the only numeral either sentence carries, for the same taste bar.
    */
   line: (closet: Exclude<PushAskCloset, 'unread'>, at: MorningEditTime = DEFAULT_MORNING_EDIT_TIME): string =>
     closet === 'floor'
-      ? `Once your ten are in, tomorrow’s look is ready when you wake up. One note at ${morningEditLabel(at)}am, nothing else.`
+      ? `When your closet is ready, Cinch will dress it every morning. One note at ${morningEditLabel(at)}am, nothing else.`
       : `Tomorrow’s look, ready when you wake up. One note at ${morningEditLabel(at)}am, nothing else.`,
   action: 'Turn on',
   dismiss: 'Not now',
