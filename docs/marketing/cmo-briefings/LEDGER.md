@@ -142,6 +142,28 @@ thesis has to start from there.
 | **A40** | 09-03 | **Give the `/closet` fallback page a `cinch://` door** — a recipient who already owns Cinch was being shown "Get Cinch" | OTA/web | A recipient with the app installed reaches their closet, not the App Store listing | **✅ SHIPPED + verified live 09-03** | Found by reasoning through A38's cache finding: with a stale AASA, every installed recipient lands on the fallback and the page's only action told them to install an app they already have. Page now leads with `cinch://closet` (resolves via expo-router default matching to `src/app/(tabs)/closet.tsx`; scheme `cinch` at `app.config.ts:139`, no `+native-intent` to intercept) and keeps the App Store as an explicit secondary, because a custom-scheme link is inert when the app is absent and must never be the sole action. |
 | **A39** | 09-03 | **All three HTML templates overflow a 375px viewport** | OPS (copy) | Email renders inside the phone it is read on | **new — `reengage.html` fixed, the other three are not** | `dispatch.html`, `release.html` and `welcome.html` set `width="600"` with only `max-width:520px` and no `width:100%`, so the card is 520px wide on a 375px phone. Rendered and screenshotted 09-03 at 375×812. **Dispatch No. 01 was sent that way to 23 people on 09-01.** |
 
+## Audit ship 9 — the affordable membership goes live (engineering session, founder go 2026-09-10 ~02:1xZ: "go ahead, run the apple price change and publish v4")
+
+Main `bb54ebd` (merge of `codex/affordable-membership`) + `b88de7d`. Published to all **five** live runtimes and manifest-verified 03:2xZ:
+
+| runtime | fleet | OTA | branch |
+|---|---|---|---|
+| 8f293d64 | 1.2.4 / b48 (store) | `01a08941-1e0a-788c-93e4-9849e950835a` | main |
+| 4e646ba0 | 1.2.3 / b47 | `01a08943-02c9-75cf-b44d-0a7e1d013be7` | ota/4e646ba0-pricing |
+| ccfa8345 | 1.2.2 / b46 | `01a08944-7877-70ef-a5e0-703ebe6df829` | ota/ccfa8345-pricing |
+| 813c6d34 | 1.2.1 / b45 | `01a08946-1cc8-7e9a-94b3-8759746f2cff` | ota/813c-pricing |
+| c5f00773 | 1.2.0 / b43-44 | `01a08947-9401-7816-9cde-dd241b62a04f` | ota/c5f00773-pricing |
+
+What is live, in the order it went live:
+1. **Apple** — Standard monthly → **$0.99** and Pro monthly → **$2.99** (USA base), scheduled for **2026-09-11** in all 175 territories (Apple refuses an unscheduled price on an approved subscription; the earliest start is the next day). Equalised exceptions: Standard AUS $1.99 · JPY 150 · INR 99 · BRL 6.9; Pro CAN $3.99 · AUS $4.99 · JPY 500 · INR 299 · BRL 19.9. Annual products untouched. 0 arm's-length subscribers affected.
+2. **Superwall** — document **266240** "Cinch Membership v4 — monthly" published 02:17Z; **all eight campaigns route to it at 100%** (v3 254200 held at 0% so its results survive; assignments restarted where users existed). Until Apple's date the sheet shows StoreKit's $4.99 / $9.99 monthly with no trial; from 09-11 it shows $0.99 / $2.99 with no further change.
+3. **Web** — `cinchstyle.com/terms` and `/press` deployed from `main` with "from 11 September 2026" wording (verified live 02:5xZ).
+4. **App (this OTA)** — the Profile membership row prints the term ("Through <date>") and never a typed price; `paywall_presented` carries `paywall` (the document identifier) + `products`, `paywall_converted` carries `paywall` + `product_id`; the plan hints read $0.99 / $2.99. Pinned by `tests/paywall-identity.test.ts`.
+
+Keyed-Release boot gate: **PASSED** (xcodebuild Release + production key, fresh install, 02:5xZ). `sim-test+j00` → sign-in → **the live campaign served v4 on the keyed build** — "Start Standard — $4.99 / month", "Renews monthly at $4.99 until you cancel. Cancel any time in your Apple ID subscriptions.", Restore · Terms · Privacy · Manage Subscription; tapping Pro flips the CTA to "Start Pro — $9.99 / month" and the legal line follows → × → Today with the plate, the push card and the rating card behind the closed sheet. PostHog: `paywall_presented {returning_free, paywall: cinch-membership-v4--monthly-8b69-2026-09-10, products: cinch.pro.annual,cinch.pro.monthly,cinch.standard.annual,cinch.standard.monthly}` 02:56:47Z. QA impression row deleted afterwards.
+
+**Measurement from here:** `scripts/paying-users.sql` is the primary count (baseline 0); exposure = `paywall_presented` where `paywall` = the v4 identifier; the packet is `docs/billing/affordable-membership-2026-09-10.md`. **Owed:** the v4 document's product-unavailable state (hide the price / disable the CTA when StoreKit returns nothing) and an AX pass in the editor; the Superwall products page re-import once Apple's prices land; the A67 stop rule rewritten from trial starts to paid starts (founder); a read on 09-11 that StoreKit shows $0.99 / $2.99 on a keyed sim.
+
 ## Audit ship 8 — the ask after the outfit, and the floor sentence (engineering session, founder rulings 2026-09-10: "after is good with me" · "same OTA as A68" · 12.4 "whatever")
 
 Commits `9948392` (A68) + `36885a3` (12.9) on main. Published to all **five** live runtimes and manifest-verified:
