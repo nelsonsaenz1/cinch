@@ -19,6 +19,14 @@
  *     two bracket the Reveal, and a toll booth on both ends of the same road
  *     is the exact shape of ask this file exists to forbid.
  *
+ * `ten_completed` IS NO LONGER PRESENTED BY THE APP (A68, 2026-09-10): the
+ * beat between the tenth garment and the Reveal was putting every stranger's
+ * first ask 4–60 seconds BEFORE her first outfit, and the pair rule then
+ * silenced the post-outfit ask for a day. The first general ask is now
+ * `reveal_complete`, after the outfit. The placement stays in the set and the
+ * pair rule stays in the arithmetic on purpose: rows shown before the change
+ * are still in the 7-day ledger, and a row that landed must keep binding.
+ *
  * THE LEDGER IS SERVER ROWS, NOT DEVICE STORAGE. Impressions are recorded to
  * `paywall_impressions` (owner-only RLS, created 2026-08-31) and read back
  * over a 7-day window. Rows are account-level, so a reinstall — or a second

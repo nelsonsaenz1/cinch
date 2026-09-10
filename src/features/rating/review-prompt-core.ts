@@ -41,8 +41,9 @@
  *
  * ── NEVER OVER A PAYWALL ─────────────────────────────────────────────────
  *
- * Both moments sit one step before a general promo (`ten_completed` at the
- * Ten's exit, `reveal_complete` at the Reveal's), and Today itself can
+ * The `reveal` moment sits one step before a general promo (`reveal_complete`
+ * at the Reveal's exit; The Ten's own `ten_completed` beat was retired on
+ * 2026-09-10 — A68 — so the `ten` moment no longer has one), and Today itself can
  * present `returning_free` or `trial_expired` on arrival. A Cinch card
  * sliding up over a vendor sheet — or into the beat after it closes — is
  * the interruption this file's docblock has always forbidden. So
