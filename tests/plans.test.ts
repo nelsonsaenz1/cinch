@@ -72,13 +72,13 @@ test('price hints carry the 2026-09-10 affordable-membership prices, and free ca
   // (plans.ts spells this out). But a stale hint quotes a price the purchase
   // sheet then contradicts, which reads as a bait-and-switch rather than a
   // typo. These literals are the founder's 2026-09-10 repricing: Standard
-  // $0.99 / month, Pro $2.99 / month; the annual products keep $39.99 / $79.99
-  // for existing subscribers and leave the primary paywall. Change the
-  // monthly hints only alongside the App Store Connect price points.
+  // $0.99 / month · $9.99 / year, Pro $2.99 / month · $29.99 / year (the
+  // yearly pair is ten months' worth; v3 sells both terms). Change the hints
+  // only alongside the App Store Connect price points.
   assert.equal(PLANS.standard.monthlyPriceHint, '$0.99');
-  assert.equal(PLANS.standard.annualPriceHint, '$39.99');
+  assert.equal(PLANS.standard.annualPriceHint, '$9.99');
   assert.equal(PLANS.pro.monthlyPriceHint, '$2.99');
-  assert.equal(PLANS.pro.annualPriceHint, '$79.99');
+  assert.equal(PLANS.pro.annualPriceHint, '$29.99');
   assert.equal(PLANS.free.monthlyPriceHint, null);
   assert.equal(PLANS.free.annualPriceHint, null);
 });

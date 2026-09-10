@@ -92,12 +92,12 @@ export interface PlanCopy {
    * reads StoreKit and formats in the device locale, because a price typed
    * into a layout is wrong in every country but one. These two exist so a
    * screen can name the tier without a round trip. The founder's 2026-09-10
-   * repricing (the affordable-membership decision): Standard **$0.99 / month**,
-   * Pro **$2.99 / month**; the annual products keep their 2026-08-31 prices
-   * ($39.99 / $79.99) for the subscribers who already hold them and are no
-   * longer offered on the primary paywall. Change the monthly hints only
-   * alongside the App Store Connect price points, or the hint quotes a price
-   * the purchase sheet contradicts — and note that since 2026-09-10 NO
+   * repricing (the affordable-membership decision): Standard **$0.99 / month
+   * · $9.99 / year**, Pro **$2.99 / month · $29.99 / year** (the founder's
+   * same-day ruling kept the monthly + yearly paywall — v3 — and priced the
+   * year at ten months; Apple applies all four from 2026-09-11). Change the
+   * hints only alongside the App Store Connect price points, or the hint
+   * quotes a price the purchase sheet contradicts — and note that since 2026-09-10 NO
    * shipping layout prints either hint (membership-copy.ts stopped; every
    * membership surface is pinned against reading them), precisely so a hint
    * can never be shown while checkout still charges the old price.
@@ -144,7 +144,7 @@ export const PLANS = {
     eventHosting: 15,
     eventJoins: null,
     monthlyPriceHint: '$0.99',
-    annualPriceHint: '$39.99',
+    annualPriceHint: '$9.99',
   },
   pro: {
     name: 'Pro',
@@ -156,6 +156,6 @@ export const PLANS = {
     eventHosting: 100,
     eventJoins: null,
     monthlyPriceHint: '$2.99',
-    annualPriceHint: '$79.99',
+    annualPriceHint: '$29.99',
   },
 } as const satisfies Record<Plan, PlanCopy>;

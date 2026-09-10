@@ -456,8 +456,8 @@ function useSuperwallGate(): Gate {
       track('paywall_presented', {
         placement: target.placement,
         // Which document, and which products it offered — the offer version
-        // of this impression, so the 2026-09-10 monthly-only paywall reads
-        // apart from v3 in the same funnel. Bounded: a dashboard identifier
+        // of this impression, so any future document reads apart from v3 in
+        // the same funnel (the 2026-09-10 monthly-only v4 served for ten hours). Bounded: a dashboard identifier
         // and a comma-joined list of the four known product ids.
         paywall: info.identifier,
         products: info.productIds.join(','),
