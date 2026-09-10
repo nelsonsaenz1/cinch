@@ -70,10 +70,26 @@ Nothing is cancelled, shortened, regranted or migrated. The family annual (`90dc
 
 Upgrade / downgrade / cancel / expire / grace / refund keep the verified contract: `GRANTING`/`REVOKING` (Superwall) and `ASC_GRANTING`/`ASC_REVOKING` (Apple) are product-agnostic; `effective_plan()` keeps the 3-day slack; `cancellation` and `billing_issue` still grant through the period (grace) — none of it reads a price.
 
-## 5 · The v4 paywall — build spec (Superwall editor)
+## 5 · The v4 paywall — BUILT as document 266240 (Superwall editor, 2026-09-10 01:5xZ)
 
-Built by **duplicating 254200** ("Cinch Membership v3") in the dashboard, so every element, the
-`{{context}}` line, the four product bindings and the campaign wiring shape stay; then:
+**Paywall 266240 · "Cinch Membership v4 — monthly" · identifier
+`cinch-membership-v4--monthly-8b69-2026-09-10`** — duplicated from 254200 in the dashboard and
+edited through the editor relay (agent session, 45 tool calls), then saved. The API lists it as
+`draft v0, published_at null`; **no campaign points at it**, so nothing a customer can reach has
+changed. Edits made, all verified in the editor preview (screenshot in the ledger): the "Save N%"
+chip, both annual chips, the trial line and both "/mo billed yearly" stacks deleted; the monthly
+chips read `{{ products.standardMonthly.price }} / month` and `{{ products.proMonthly.price }} /
+month`; each card's own tap selects its monthly product (indices 3 and 1); the radio dots and the
+card borders key off those indices; the CTA reads **"Start Standard — {{ price }} / month"** /
+**"Start Pro — {{ price }} / month"** by selection; the legal line reads "Renews monthly at
+{{ price }} until you cancel. Cancel any time in your Apple ID subscriptions."; **standardMonthly
+is the default product**; close, Restore, Terms, Privacy and Manage Subscription unchanged; all four
+products stay attached for restores. The editor preview shows today's StoreKit prices ($4.99 /
+$9.99) — they read $0.99 / $2.99 the moment §7.2 propagates, with no further edit.
+
+**Still owed in the editor before §7.4:** the product-unavailable state (price string empty → hide
+the chip text and disable the CTA rather than render "Start Standard —  / month"), and an AX /
+Dynamic Type pass in the preview. The original build brief follows for reference:
 
 - Name **"Cinch Membership v4 — monthly"**, identifier `cinch-membership-v4-monthly-2026-09-10`.
 - Products attached: **all four stay attached** (restore and the `membership_upgrade` route for an existing annual member need them resolvable), but the layout **draws only** `standardMonthly` and `proMonthly`.
@@ -82,7 +98,7 @@ Built by **duplicating 254200** ("Cinch Membership v3") in the dashboard, so eve
 - CTA: **"Start Standard — {{ products.standardMonthly.price }} / month"** / **"Start Pro — {{ products.proMonthly.price }} / month"**, switching with the selection. The disclosure line under it: "Renews monthly at {{ price }} until cancelled. Cancel any time in your Apple ID subscriptions." No trial words anywhere on the document.
 - Keep: close (×) control, Restore, Terms, Privacy, Manage Subscription; the `{{context}}` line (the Reveal's own arithmetic); presentation style fullscreen; `feature_gating: non_gated`.
 - **Delayed-price guard:** the price chip and the CTA render only from the StoreKit product's own localized price string. If StoreKit returns no product (propagation, offline), the document's fallback state must show the plan names and **no price**, with the CTA disabled — never a typed "$0.99". The editor's product-unavailable state is where this lives.
-- Save as a draft; **do not publish** and do not repoint campaigns until §7.4.
+- Saved 2026-09-10; **not routed** — no campaign repointed until §7.4.
 
 Why not edit 254200 in place: existing annual subscribers who open Profile → Membership → "See plans" (or `membership_upgrade`) would be shown the monthly-only document — correct for them too (they can only change term through Apple's page, which is linked). The reason to keep v3 is recovery (§7.6): a document that can be re-pointed in one click.
 
@@ -113,7 +129,7 @@ Why not edit 254200 in place: existing annual subscribers who open Profile → M
    ```
    Then read back `/v1/subscriptions/<id>/prices?include=subscriptionPricePoint&limit=200` and list any territory whose equalised price Apple adjusted (the `adjustedEqualizations` relation) in this file's §7.2 table before step 4. Prices in ASC do not need App Review; StoreKit propagation is typically minutes to a few hours.
 3. **Propagation check** on a keyed sim / device: present `membership_upgrade`, confirm StoreKit's price string reads $0.99 / $2.99 (the v3 document will show it in its monthly chips) before any customer sees v4.
-4. **Superwall**: publish v4 (§5), then repoint every campaign variant (100436, 100596, 100973, 101136, 101571, 105039, 105048 — and 105047 for completeness) from 254200 to v4. Superwall serves the new document on the next paywall fetch; no app release.
+4. **Superwall**: publish **266240** (v4, §5), then repoint every campaign variant (100436, 100596, 100973, 101136, 101571, 105039, 105048 — and 105047 for completeness) from 254200 to 266240. Superwall serves the new document on the next paywall fetch; no app release.
 5. **Public copy**: push `main` (terms, press, review notes). Sync the Superwall dashboard product prices (`products` page, "imported from App Store Connect") so the dashboard's own analytics show the new amounts.
 6. **Verify live** (§8), then update the Growth Scoreboard's launch line and the CMO ledger. Only then may this packet's status read **live**.
 
@@ -123,7 +139,7 @@ Why not edit 254200 in place: existing annual subscribers who open Profile → M
 
 - [ ] Both monthly products resolve to the intended price and correct entitlement — **prepared** (points identified; entitlement mapping verified unchanged); verify after §7.2.
 - [ ] Displayed price, selected product and Apple purchase sheet agree — **after §7.3–7.4**, on a keyed sim with a sandbox tester.
-- [ ] New-customer paywalls use monthly terms without annual-trial language — **§5 spec; not built**.
+- [x] New-customer paywalls use monthly terms without annual-trial language — **built as 266240, verified in the editor preview 2026-09-10**; the unavailable-price state and an AX pass remain (§5).
 - [x] Free first Reveal works before the promotional ask — **verified 2026-09-10 01:00Z** (A68 gate).
 - [x] Dismissal leaves the free experience usable — **verified** (same gate).
 - [ ] Purchase, cancellation, pending payment, failure, restore, relaunch — sandbox run after §7.4.
@@ -139,7 +155,7 @@ Why not edit 254200 in place: existing annual subscribers who open Profile → M
 | # | decision | owner |
 |---|---|---|
 | 1 | Run §7.2 (the Apple price change) — irreversible for existing subscribers; there are none at arm's length today | Founder |
-| 2 | Build and publish v4 in the Superwall editor (§5) and repoint the campaigns (§7.4) | Engineering, at the founder's word |
+| 2 | Publish 266240 and repoint the campaigns (§7.4) — the document is built | Engineering, at the founder's word |
 | 3 | The stop rule on Apple Ads (A67: 14 days / ~75 installs / 0 trial starts → pause) is written against **trial starts**, which the monthly offer no longer has. Rewrite to **paid starts**? | Founder — flagged, not changed |
 | 4 | Pro's delivery cost at full quota versus $2.54 net (§2) | Founder — reported, not changed |
 | 5 | Whether the `membership_upgrade` door for an existing **annual** member should show v4 (monthly only) or route straight to Apple's subscription page | Founder (default: v4, with Manage Subscription on it) |
