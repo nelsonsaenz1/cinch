@@ -54,8 +54,8 @@ this app *are* garment names.
 | `stylist_question_answered` | Stylist replied successfully | `outfitCount` |
 | `stylist_questionnaire_completed` | Guided brief tapped through | — |
 | `outfit_shared` | Share sheet opened for an outfit card | — |
-| `paywall_presented` | Server refused, upgrade offered | `placement` |
-| `paywall_converted` | Real purchase or restore through a paywall | `placement`, `result` |
+| `paywall_presented` | Server refused, upgrade offered | `placement`, `paywall` (the Superwall document identifier — the offer version, since 2026-09-10), `products` (comma-joined product ids offered) |
+| `paywall_converted` | Real purchase or restore through a paywall | `placement`, `result`, `paywall`, `product_id` (the App Store product bought; never a price — amounts are the webhook ledger's) |
 
 Plus PostHog's own `Application Opened` / `Application Backgrounded` /
 `Application Updated` from `captureAppLifecycleEvents`, and `$screen` from

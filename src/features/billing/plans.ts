@@ -91,10 +91,16 @@ export interface PlanCopy {
    * A HINT, like the monthly one, and for the same reason: the paywall itself
    * reads StoreKit and formats in the device locale, because a price typed
    * into a layout is wrong in every country but one. These two exist so a
-   * screen can name the tier without a round trip. The approved 2026-08-31
-   * repricing: Standard $4.99 / $39.99, Pro $9.99 / $79.99 — change these only
-   * alongside the App Store Connect products, or the hint quotes a price the
-   * purchase sheet contradicts.
+   * screen can name the tier without a round trip. The founder's 2026-09-10
+   * repricing (the affordable-membership decision): Standard **$0.99 / month**,
+   * Pro **$2.99 / month**; the annual products keep their 2026-08-31 prices
+   * ($39.99 / $79.99) for the subscribers who already hold them and are no
+   * longer offered on the primary paywall. Change the monthly hints only
+   * alongside the App Store Connect price points, or the hint quotes a price
+   * the purchase sheet contradicts — and note that since 2026-09-10 NO
+   * shipping layout prints either hint (membership-copy.ts stopped; every
+   * membership surface is pinned against reading them), precisely so a hint
+   * can never be shown while checkout still charges the old price.
    *
    * NO TRIAL WORDING may ever join these hints (correction 06): in-app copy
    * never states a trial duration as a constant — the paywall document reads
@@ -137,7 +143,7 @@ export const PLANS = {
     stylist: '5 chats a month',
     eventHosting: 15,
     eventJoins: null,
-    monthlyPriceHint: '$4.99',
+    monthlyPriceHint: '$0.99',
     annualPriceHint: '$39.99',
   },
   pro: {
@@ -149,7 +155,7 @@ export const PLANS = {
     stylist: 'Unlimited',
     eventHosting: 100,
     eventJoins: null,
-    monthlyPriceHint: '$9.99',
+    monthlyPriceHint: '$2.99',
     annualPriceHint: '$79.99',
   },
 } as const satisfies Record<Plan, PlanCopy>;

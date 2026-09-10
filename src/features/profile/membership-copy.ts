@@ -32,7 +32,18 @@ export type MembershipCopy = {
   visible: boolean;
   /** "Cinch Standard" / "Cinch Pro" / "Pro trial". Empty when `!visible`. */
   title: string;
-  /** Price and (if known) renewal date, or the trial's own clock. May be empty. */
+  /**
+   * The paid term's end (if known), or the trial's own clock. May be empty.
+   *
+   * NO PRICE, since 2026-09-10. This subtitle used to print
+   * `monthlyPriceHint` ("$4.99 / month · Renews …"), which was the one
+   * shipping surface quoting a typed price — wrong in every country but one,
+   * wrong for an annual subscriber (the row cannot tell the two terms apart:
+   * `subscriptions` holds a plan and a period end, never a product), and
+   * wrong for the whole propagation window of a price change, when the hint
+   * and the purchase sheet disagree. The price a member pays is Apple's to
+   * state; the app names the tier and the date.
+   */
   subtitle: string;
   /** Whether "Manage" (the hand-off to the App Store) should render. */
   paidPlan: boolean;
@@ -52,15 +63,15 @@ export function membershipCopyFor(input: MembershipCopyInput): MembershipCopy {
   }
 
   const title = trialing ? `${input.copy.name} trial` : `Cinch ${input.copy.name}`;
-  const renewsOn = input.currentPeriodEnd ? formatDay(input.currentPeriodEnd) : null;
+  // "Through", never "Renews": renewal is the store's to decide and this app
+  // has never read a renewal intent (the same rule membership-row.ts holds).
+  const throughOn = input.currentPeriodEnd ? formatDay(input.currentPeriodEnd) : null;
   const subtitle = trialing
     ? input.trialEndsAt
       ? `Trial ends ${formatDay(input.trialEndsAt)}`
       : ''
-    : input.copy.monthlyPriceHint
-      ? renewsOn
-        ? `${input.copy.monthlyPriceHint} / month · Renews ${renewsOn}`
-        : `${input.copy.monthlyPriceHint} / month`
+    : throughOn
+      ? `Through ${throughOn}`
       : '';
 
   return { visible: true, title, subtitle, paidPlan };
