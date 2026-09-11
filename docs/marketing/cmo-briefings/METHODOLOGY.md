@@ -891,3 +891,44 @@ runtime `8f293d64` before the nightly ran** — with no OTA published for it. Ev
 (b43–44) · `813c6d34` (b45) · `ccfa8345` (b46). The store-current fleet is, again, the one
 without a published update. Re-enumerate runtimes from `Application Opened` the night after any
 release; do not carry "four fleets" forward by memory.
+
+## Denominator-zero is a reason to wait, never a reason to kill a row triggered by a user action (2026-09-11)
+
+**Standing correction.** The 09-09 briefing recommended killing **A28** ("stop enforcing the closet
+cap as a write failure") because "no free user has hit the cap since 09-06 — denominator zero." In
+the next 36 hours three real people produced **34 `clothes_import_failed {closet_limit_reached}`**
+events (28 from one person in six minutes) and none returned. The defect had not gone; arrivals had
+been low. A row whose trigger is a *user action* has a denominator that refills with every arrival.
+Kill on effort or on a changed mechanism; on a zero denominator, write *waiting* and keep the row.
+
+## Read Apple Ads on "Yesterday" and "Today", and a price change needs its own read the day it lands (2026-09-11)
+
+- The campaign table's "Last 7 days" ends yesterday (09-10 rule). For a per-day series without the
+  Charts tab, click the date field → **Yesterday** / **Today**; each gives one UTC day per campaign.
+  09-10 read that way: A67 $27.20 / 154 / 19 / 6.
+- ASC subscription prices: `/iris/v1/subscriptions/<id>/prices?include=subscriptionPricePoint,territory&limit=200`
+  returns 175 rows with the territory id on `relationships.territory`; filter USA in code. **Do not
+  send `filter[territory]=USA`** — the browser automation guard blocks any URL containing that
+  query shape ("Cookie/query string data"). Once a scheduled price becomes current, its
+  `startDate` reads **null** — "no scheduled rows" is how you know the change landed.
+- **`subscriptionPricePoint.proceeds` is Apple's figure at the standard 30% commission** on the
+  09-11 read ($0.70 on $0.99). The 09-08 read reported 85%. Until the Small Business Program status
+  is confirmed (founder 12.11), print both and label which rate a net figure assumes.
+- **A price decrease reaches existing subscribers automatically at their next renewal.** The
+  family annual charges $9.99 on 09-12, not the $39.99 quoted since 09-05.
+
+## `itunes.apple.com/lookup` cannot be navigated to under automation — fetch it (2026-09-11)
+
+Navigating a tab to the lookup URL triggers a download (text/javascript content type) and the tab
+does not change; `get_page_text` then reads whatever was there before. Use
+`fetch('https://itunes.apple.com/lookup?id=…&country=us')` from any page's JS context (CORS is
+open) and parse the response; the same applies to the review RSS.
+
+## An OTA does not reach every first session (2026-09-11)
+
+`checkAutomatically: ON_LOAD` with `fallbackToCacheTimeout: 1500` launches the new bundle only if
+it downloads inside 1.5 s; otherwise the first session runs the embedded bundle and the
+coordinator offers "Restart now". Grouped by `update_id` two days after audit ship 9: build 48 —
+14 persons embedded-only, 7 on the ship, 2 on ship 8. A fix to the *first session* (A28, A68) is
+fully in force only after the next store build; score its first-session effect on
+`update_id`-matched persons only.
