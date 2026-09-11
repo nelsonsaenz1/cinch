@@ -20,9 +20,14 @@ import { useGate } from '@/features/billing/use-gate';
 import { useRemoveItems } from '@/features/closet/mutations';
 import { useArchiveItems, useRestoreItems } from '@/features/closet/storage';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import { admitBatch } from '@/features/ingest/batch-capacity';
 import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
 import { matchOfferJob } from '@/features/ingest/match-eligibility';
-import { selectActiveCount, useQueueStore } from '@/features/ingest/queue-store';
+import {
+  selectActiveCount,
+  selectPendingRowCount,
+  useQueueStore,
+} from '@/features/ingest/queue-store';
 import { useCameraGate } from '@/features/ingest/use-camera-access';
 import { useUnfinishedWalkthrough } from '@/features/intake/queries';
 import { starterReadiness } from '@/features/onboarding/starter-readiness';
@@ -31,6 +36,7 @@ import {
   noRoomCopy,
   replaceFailureLine,
   replacedAnnouncement,
+  tenSpreadLine,
   type TenPhase,
 } from '@/features/onboarding/ten-copy';
 import { PAD, TEN, WELL_RADIUS, tenMeasure } from '@/features/onboarding/ten-spec';
@@ -46,6 +52,7 @@ import {
   isComplete,
   nextSlot,
   placedIds,
+  reconcileWithWardrobe,
   type TenSlot,
 } from '@/features/onboarding/ten-slots';
 import { canGenerate, useWardrobe } from '@/features/styling/queries';
@@ -208,10 +215,36 @@ export default function TheTenScreen() {
   /** TR-05 is answered by walking through a door, and only asked once. */
   const [doorChosen, setDoorChosen] = useState(door === 'photograph');
 
+  // Read above `openCamera`, which pre-flights against it; the replacement
+  // machine and the no-room plate below read the same object.
+  const capacity = useCapacity();
+
   const openCamera = useCallback(
     (slotId: number, mode: 'camera' | 'library') => {
       // Any next action supersedes the swap report — see `swappedSlot`.
       setSwappedSlot(null);
+      // PRE-FLIGHT, before the camera opens — CMO ledger A28 (2026-09-11).
+      // An open well is the grid's claim that there is room; the trigger's
+      // claim is `capacity`, and when they disagree the trigger wins. Until
+      // now they could disagree for a whole run (see `reconcileWithWardrobe`
+      // for the six-minute case), and every shot into a well the server had
+      // no room for cost a Vision pass and ended in a refused insert. The
+      // same count-not-boolean check the capture sheet makes, for one
+      // photograph, less the jobs already queued without a row. A full
+      // account leaves this screen for the door that owns the capacity
+      // question — `/add-clothes` — whose wall keeps the photograph and, for
+      // a dressable closet that has never seen the Reveal, offers the outfits
+      // before the plans (`overLimitDoor`). An unread count admits, as it
+      // does everywhere: the server is the authority, and being wrong in
+      // that direction costs one honest refusal rather than a held shot.
+      const room = admitBatch(1, {
+        ...capacity,
+        pendingRows: selectPendingRowCount(useQueueStore.getState().jobs),
+      });
+      if (room.kind === 'none') {
+        router.push('/add-clothes?from=ten' as Href);
+        return;
+      }
       if (mode === 'camera' && camera.access === 'blocked') {
         setCameraRefused(true);
         return;
@@ -220,7 +253,7 @@ export default function TheTenScreen() {
       setCameraStart(mode);
       setCameraSlotId(slotId);
     },
-    [camera.access],
+    [camera.access, capacity, router],
   );
 
   // ── LP-02 · replacing the photograph in a filled position ────────────────
@@ -267,10 +300,24 @@ export default function TheTenScreen() {
    * again for itself — the same pure function over the same window, so the two
    * cannot disagree, and neither has to be handed the other's answer.
    */
+  // The grid agrees with the closet — see `reconcileWithWardrobe` (A28).
+  // After the reducer above on purpose: this reads `replace.phase`, and an
+  // effect declared before the reducer would read it in the TDZ. Skipped
+  // while a replacement is open, because that flow archives a piece
+  // deliberately and re-places the incoming row itself.
+  useEffect(() => {
+    if (!hydrated.current || !wardrobe.data || replace.phase !== 'closed') return;
+    const ids = wardrobe.data.map((g) => g.id);
+    setSlots((prev) => {
+      if (!prev) return prev;
+      const next = reconcileWithWardrobe(prev, ids);
+      return next === prev ? prev : [...next];
+    });
+  }, [wardrobe.data, replace.phase]);
+
   const window = useWindowDimensions();
   const chromeMeasure = tenMeasure({ fontScale: window.fontScale, height: window.height });
 
-  const capacity = useCapacity();
   // The no-room plate's "See plans" — a server refusal, straight to the gate.
   // Until 2026-09-10 the finish beat's `ten_completed` promo shared this gate;
   // that beat is gone (A68 — see `finishToReveal`), so the gate has one caller
@@ -782,6 +829,8 @@ export default function TheTenScreen() {
         foregroundedId={foregrounded?.id ?? null}
         settlingId={settlingSlot}
         settlingName={settlingSlot === null ? null : (garmentNames[settlingSlot] ?? null)}
+        // The missing half, named while there are still wells to put it in (A76).
+        spread={tenSpreadLine(readiness)}
         garmentNames={garmentNames}
         imageUris={imageUris}
         // A filled tile opens a focused review of the piece in it — LP-02.

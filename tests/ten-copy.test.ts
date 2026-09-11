@@ -24,6 +24,8 @@ import {
   replacedAnnouncement,
   starterCardCopy,
   stopSheetCopy,
+  tenSpreadLine,
+  tenSubtitle,
 } from '../src/features/onboarding/ten-copy';
 import {
   starterReadiness,
@@ -329,4 +331,61 @@ test('LP-02 · the well speaks that label and nothing of its own', () => {
 
   // The empty well's label is untouched by the correction and stays as it was.
   assert.match(well, /slot \$\{slot\.id\}, empty/);
+});
+
+// ── A76 (2026-09-11): the masthead names the missing half while filling ─────
+
+const ofKind = (slot: string, n: number): Garment[] =>
+  Array.from({ length: n }, (_, i) => ({ id: `${slot}${i}`, slot }) as unknown as Garment);
+
+test('tenSpreadLine names the missing half of a tops-only closet, in words', () => {
+  const line = tenSpreadLine(starterReadiness(ofKind('base_top', 6)));
+  assert.equal(line, 'Six tops in — an outfit needs a bottom or a dress.');
+  assert.doesNotMatch(line ?? '', /\d/);
+});
+
+test('tenSpreadLine names the missing half of a bottoms-only closet', () => {
+  assert.equal(
+    tenSpreadLine(starterReadiness(ofKind('bottom', 3))),
+    'Three bottoms in — an outfit needs a top or a dress.',
+  );
+  assert.equal(
+    tenSpreadLine(starterReadiness(ofKind('bottom', 1).concat(ofKind('footwear', 1)))),
+    'One bottom in — an outfit needs a top or a dress.',
+  );
+});
+
+test('tenSpreadLine says the shape when neither half is in', () => {
+  assert.equal(
+    tenSpreadLine(starterReadiness(ofKind('footwear', 2))),
+    'An outfit is a top with a bottom, or a dress — add one of those next.',
+  );
+});
+
+test('tenSpreadLine is silent on the first piece and on any closet with a core', () => {
+  assert.equal(tenSpreadLine(starterReadiness(ofKind('base_top', 1))), null);
+  assert.equal(tenSpreadLine(starterReadiness([])), null);
+  assert.equal(tenSpreadLine(starterReadiness(ofKind('base_top', 5).concat(ofKind('bottom', 1)))), null);
+  assert.equal(tenSpreadLine(starterReadiness(ofKind('dress', 2))), null);
+  // The eleven-top closets of 2026-09-10 would have been told at two.
+  assert.match(tenSpreadLine(starterReadiness(ofKind('base_top', 2))) ?? '', /^Two tops in/);
+});
+
+test('the spread outranks the count while filling, and nothing else', () => {
+  const spread = 'Six tops in — an outfit needs a bottom or a dress.';
+  assert.equal(tenSubtitle({ filled: 6, total: 10, phase: 'filling', spread }), spread);
+  assert.equal(tenSubtitle({ filled: 9, total: 10, phase: 'filling', spread }), spread);
+  assert.equal(tenSubtitle({ filled: 6, total: 10, phase: 'filling' }), 'Ten pieces is enough to start.');
+  // Settling, swapped, ready and a full tray keep their own sentences.
+  assert.match(tenSubtitle({ filled: 6, total: 10, phase: 'settling', spread }), /^Filing/);
+  assert.equal(tenSubtitle({ filled: 6, total: 10, phase: 'swapped', spread }), 'Your count hasn’t changed.');
+  assert.equal(tenSubtitle({ filled: 10, total: 10, phase: 'ready', spread }), 'Enough to dress you tomorrow.');
+  assert.equal(tenSubtitle({ filled: 10, total: 10, phase: 'unready', spread }), 'Every well is taken.');
+});
+
+test('The Ten hands the spread to the body, and the body hands it to the masthead', () => {
+  const route = readFileSync('src/app/the-ten.tsx', 'utf8');
+  const body = readFileSync('src/components/onboarding/ten-body.tsx', 'utf8');
+  assert.match(route, /spread=\{tenSpreadLine\(readiness\)\}/);
+  assert.match(body, /tenSubtitle\(\{ filled, total, phase, name: settlingName, spread \}\)/);
 });

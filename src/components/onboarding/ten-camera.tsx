@@ -194,6 +194,14 @@ export function TenCamera({
   }, [commit, track]);
 
   const shoot = useCallback(async () => {
+    // ONE SHOT PER MOUNT — CMO ledger A28 (2026-09-11). This component closes
+    // itself the moment its job's row lands (`onFilled`), but the row takes a
+    // second or so to land and the shutter stayed live for that second. Read
+    // back from production on 2026-09-10: a reader tapped it twice, 1.2 s
+    // apart, three times in one run — six rows into three wells — and the
+    // grid then offered open wells the account had no room for. A tracked
+    // job means the shot is taken; the second tap is a no-op.
+    if (trackedJobId) return;
     const camera = cameraRef.current;
     // No in-app preview to shoot from — a simulator, or a mount that failed.
     // The system camera is the same fallback capture.tsx uses.
@@ -218,7 +226,7 @@ export function TenCamera({
     } finally {
       setShooting(false);
     }
-  }, [live, cameraReady, commitGuarded, takePhoto]);
+  }, [live, cameraReady, commitGuarded, takePhoto, trackedJobId]);
 
   // A Library entry that came back with nothing. Until then the ask is
   // skipped for that door (the picker needs no permission); after it the
@@ -226,11 +234,13 @@ export function TenCamera({
   // to the system prompt (verification, UX-22) — so the ask card takes over.
   const [libraryDismissed, setLibraryDismissed] = useState(false);
   const library = useCallback(() => {
+    // The same one-shot rule as the shutter — see `shoot`.
+    if (trackedJobId) return;
     void pickFromLibrary().then((assets) => {
       if (assets.length === 0) setLibraryDismissed(true);
       commitGuarded(assets);
     });
-  }, [pickFromLibrary, commitGuarded]);
+  }, [pickFromLibrary, commitGuarded, trackedJobId]);
 
   /**
    * One picker per mount. `start` is read through a ref rather than listed as a
@@ -326,7 +336,7 @@ export function TenCamera({
         onLibrary={library}
         onShoot={() => void shoot()}
         shooting={shooting}
-        shutterEnabled={live}
+        shutterEnabled={live && !trackedJobId}
       />
       {/* The ask, over the dimmed stage and the shot it is about. A
           transparent Modal, so a sibling render reaches the front without

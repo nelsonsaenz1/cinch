@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Placement } from './placements';
 import { presentPromo } from './present-promo';
 import { evaluateTrialExpired } from './trial-expired-core';
+import { useCapacity } from './use-capacity';
 import { useGate } from './use-gate';
 import { usePlan } from './use-plan';
 
@@ -30,6 +31,10 @@ import { usePlan } from './use-plan';
 export function useTrialExpiredPlacement(): void {
   const { plan, trialing, trialEndsAt, loading } = usePlan();
   const gate = useGate();
+  // The active count the closet itself reads (`closet-count`), unread as null
+  // — never presented over an empty closet (A75; see the core).
+  const capacity = useCapacity();
+  const garments = capacity.loading ? null : capacity.used;
 
   // A primitive, because `trialEndsAt` is a fresh Date object every render of
   // usePlan — putting the Date itself in the deps re-runs the effect (and its
@@ -46,7 +51,7 @@ export function useTrialExpiredPlacement(): void {
     // the node suite exercises every branch. This effect only supplies the
     // real storage, the real gate, and the unmount flag.
     void evaluateTrialExpired(
-      { loading, trialing, plan, marker },
+      { loading, trialing, plan, marker, garments },
       {
         getItem: (key) => AsyncStorage.getItem(key),
         setItem: (key, value) => AsyncStorage.setItem(key, value),
@@ -65,5 +70,5 @@ export function useTrialExpiredPlacement(): void {
     return () => {
       cancelled = true;
     };
-  }, [loading, trialing, plan, marker, gate]);
+  }, [loading, trialing, plan, marker, garments, gate]);
 }

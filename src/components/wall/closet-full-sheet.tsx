@@ -33,6 +33,12 @@ export type ClosetFullContentProps = {
   body: string;
   onSeePlans: () => void;
   seePlansBusy?: boolean;
+  /**
+   * The filled action's label. "See plans" everywhere but one place: the
+   * camera path's Reveal-first door (A28, `overLimitDoor`), where the filled
+   * action opens the outfits and the plans move to the outlined one.
+   */
+  primaryLabel?: string;
   /** "Make room for it" (Wall) or "Swap a piece out instead" (Gap Feed) — same weight, same place. */
   secondaryLabel: string;
   onSecondary: () => void;
@@ -55,6 +61,7 @@ export function ClosetFullPanel({
   body,
   onSeePlans,
   seePlansBusy = false,
+  primaryLabel = 'See plans',
   secondaryLabel,
   onSecondary,
   tertiaryLabel,
@@ -76,7 +83,7 @@ export function ClosetFullPanel({
       </Text>
 
       <View className="mt-4" style={{ gap: 8 }}>
-        <Button title="See plans" variant="primary" loading={seePlansBusy} onPress={onSeePlans} />
+        <Button title={primaryLabel} variant="primary" loading={seePlansBusy} onPress={onSeePlans} />
         <Button title={secondaryLabel} variant="secondary" onPress={onSecondary} />
         {tertiaryLabel ? (
           <Pressable

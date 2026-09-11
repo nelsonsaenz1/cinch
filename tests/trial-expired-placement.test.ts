@@ -29,6 +29,7 @@ const lapsed = (over: Partial<TrialExpiredState> = {}): TrialExpiredState => ({
   trialing: false,
   plan: 'free',
   marker: EXPIRED,
+  garments: 10,
   ...over,
 });
 
@@ -136,6 +137,27 @@ test('unmount before the read returns writes nothing and presents nothing', asyn
   assert.equal(h.store.size, 0);
 });
 
+// ── A75 (2026-09-11): never over an empty closet ────────────────────────────
+
+test('a lapsed account with no garments is not asked, and the lapse is not spent', async () => {
+  // The 2026-09-11 impression: a fourteen-day return to zero garments met
+  // `trial_expired` on arrival. No marker is written, so the first visit
+  // with a garment in still gets the one interruption.
+  const h = harness();
+  assert.equal(await evaluateTrialExpired(lapsed({ garments: 0 }), h.io), 'empty_closet');
+  assert.equal(h.presents(), 0);
+  assert.equal(h.store.size, 0);
+  assert.equal(await evaluateTrialExpired(lapsed({ garments: 1 }), h.io), 'presented');
+  assert.equal(h.presents(), 1);
+});
+
+test('an unread garment count waits — it is not zero', async () => {
+  const h = harness();
+  assert.equal(await evaluateTrialExpired(lapsed({ garments: null }), h.io), 'not_lapsed');
+  assert.equal(h.presents(), 0);
+  assert.equal(h.store.size, 0);
+});
+
 // ── Source contracts: the wiring the pure core cannot prove ─────────────────
 
 // Repo-relative, matching the other source-reading tests: the runner's cwd is
@@ -151,6 +173,10 @@ test('the hook delegates to the tested core and registers Placement.TrialExpired
   // paywall_eligible/dismissed events all belong to that one function.
   assert.match(hook, /presentPromo\(gate, Placement\.TrialExpired/);
   assert.doesNotMatch(hook, /gate\.present\(/);
+  // The garment gate reads the closet's own count, unread as null (A75).
+  assert.match(hook, /const capacity = useCapacity\(\)/);
+  assert.match(hook, /const garments = capacity\.loading \? null : capacity\.used/);
+  assert.match(hook, /\{ loading, trialing, plan, marker, garments \}/);
   assert.doesNotMatch(
     hook,
     /getItem\(\s*['"`]/,

@@ -150,3 +150,46 @@ export function hydrateFromWardrobe(
     return garment ? { ...slot, status: 'filled' as const, garmentId: garment.id } : slot;
   });
 }
+
+/**
+ * Keep the grid honest against the real closet AFTER hydration — CMO ledger
+ * A28 (2026-09-11).
+ *
+ * Hydration runs once, when the wardrobe first loads; from then on the grid
+ * learns about new rows only through `fillSlot`, which `TenCamera` calls once
+ * per shot. Read back from production on 2026-09-10, that was a lie the grid
+ * told for six minutes: two shutter taps a second apart filed TWO rows into
+ * ONE well (three times over), so the tray showed seven filled while the
+ * account held ten, the reader kept photographing into wells the server had
+ * no room for, and `items_enforce_limit` refused twenty-eight photographs in a
+ * row — each one a Vision pass, a cutout and a "couldn't add" toast. The camera
+ * now takes one shot per mount (see `TenCamera`), and this is the other half:
+ * any garment the wardrobe holds that no well is holding takes the next open
+ * well, in wardrobe order, so the count the reader sees is the count the
+ * trigger enforces.
+ *
+ * ADD ONLY, NEVER EMPTY. A well whose garment has left the wardrobe is left
+ * alone on purpose: `useWardrobe` filters `pending_tag`, so a photograph that
+ * was filed a second ago is absent from the wardrobe until the tagger returns,
+ * and emptying its well would blank the tile the reader just filled. The
+ * replacement flow (LP-02) archives the outgoing piece deliberately and keeps
+ * its tile; the caller skips reconciliation while that flow is open.
+ *
+ * Returns the SAME array when nothing changes, so a state setter given this
+ * result can bail out without a render.
+ */
+export function reconcileWithWardrobe(
+  slots: readonly TenSlot[],
+  wardrobeIds: readonly string[],
+): readonly TenSlot[] {
+  const placed = new Set(placedIds(slots));
+  const unplaced = wardrobeIds.filter((id) => !placed.has(id));
+  if (unplaced.length === 0) return slots;
+  let next = slots;
+  for (const id of unplaced) {
+    const open = nextSlot(next);
+    if (!open) break;
+    next = fillSlot(next, open.id, id);
+  }
+  return next;
+}

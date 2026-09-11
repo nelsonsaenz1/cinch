@@ -24,6 +24,7 @@ import {
   isComplete,
   nextSlot,
   placedIds,
+  reconcileWithWardrobe,
   replaceSlot,
   TEN_SLOTS,
   type TenSlot,
@@ -152,4 +153,47 @@ test('replaceSlot swaps one garment and nothing about the grid', () => {
   // An empty position has no garment to replace, and offering a second way to
   // fill one is how the count and the upload queue drift apart.
   assert.deepEqual(replaceSlot(filled, 9, 'nope'), filled);
+});
+
+// ── A28 (2026-09-11): the grid agrees with the closet after hydration ───────
+
+test('reconcileWithWardrobe places a garment the grid is not holding into the next open well', () => {
+  // The 2026-09-10 case: a double shutter tap filed two rows into one well.
+  const grid = fillSlot(emptyTen(), 1, 'a');
+  const next = reconcileWithWardrobe(grid, ['a', 'a-twin']);
+  assert.deepEqual(placedIds(next), ['a', 'a-twin']);
+  assert.equal(filledCount(next), 2);
+  assert.equal(next[1]!.garmentId, 'a-twin');
+});
+
+test('reconcileWithWardrobe returns the same array when nothing is missing', () => {
+  const grid = fillSlot(fillSlot(emptyTen(), 1, 'a'), 2, 'b');
+  assert.equal(reconcileWithWardrobe(grid, ['a', 'b']), grid);
+  assert.equal(reconcileWithWardrobe(grid, ['b']), grid);
+  assert.equal(reconcileWithWardrobe(grid, []), grid);
+});
+
+test('reconcileWithWardrobe never empties a well — a pending_tag row is absent from the wardrobe, not gone', () => {
+  const grid = fillSlot(fillSlot(emptyTen(), 1, 'a'), 2, 'just-filed');
+  const next = reconcileWithWardrobe(grid, ['a']);
+  assert.equal(next, grid);
+  assert.equal(next[1]!.status, 'filled');
+});
+
+test('reconcileWithWardrobe stops at the grid — an eleventh garment takes no well', () => {
+  const full = hydrateFromWardrobe(
+    Array.from({ length: TEN_SLOTS }, (_, i) => ({ id: `g${i}` }) as never),
+  );
+  const next = reconcileWithWardrobe(full, [...placedIds(full), 'eleventh']);
+  assert.equal(next, full);
+  assert.equal(isComplete(next), true);
+});
+
+test('reconcileWithWardrobe fills in wardrobe order and leaves later wells for later garments', () => {
+  const grid = fillSlot(emptyTen(), 3, 'c');
+  const next = reconcileWithWardrobe(grid, ['c', 'x', 'y']);
+  assert.equal(next[0]!.garmentId, 'x');
+  assert.equal(next[1]!.garmentId, 'y');
+  assert.equal(next[2]!.garmentId, 'c');
+  assert.equal(nextSlot(next)?.id, 4);
 });

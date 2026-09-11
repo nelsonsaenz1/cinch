@@ -153,11 +153,14 @@ export function tenSubtitle({
   total,
   phase,
   name = null,
+  spread = null,
 }: {
   filled: number;
   total: number;
   phase: TenPhase;
   name?: string | null;
+  /** `tenSpreadLine`'s sentence, when the closet has one half of an outfit. */
+  spread?: string | null;
 }): string {
   const named = name?.trim();
   if (phase === 'settling') {
@@ -166,6 +169,9 @@ export function tenSubtitle({
   if (phase === 'swapped') return 'Your count hasn’t changed.';
   if (phase === 'ready') return 'Enough to dress you tomorrow.';
   if (phase === 'unready' || filled >= total) return 'Every well is taken.';
+  // The spread outranks the count while the tray is filling — see
+  // `tenSpreadLine` for the two closets this sentence exists for.
+  if (spread) return spread;
 
   const remaining = total - filled;
   // Near the end the line stops being about the plan and starts being about the
@@ -175,6 +181,44 @@ export function tenSubtitle({
     return `${cap(numberWord(remaining))} well${remaining === 1 ? '' : 's'} still open.`;
   }
   return `${cap(numberWord(total))} pieces is enough to start.`;
+}
+
+/**
+ * The masthead's sentence for a closet that is all one half — CMO ledger A76
+ * (2026-09-11).
+ *
+ * WHY. Redesign 21 retired `SlotCard`, the bordered plate under the grid that
+ * argued for the next piece ("Add a bottom. An outfit is a top with a bottom,
+ * or a dress…"), on the reasoning that a sentence is read once and skipped
+ * nine times. What replaced it names nothing about the mix: the subtitle
+ * reads "Ten pieces is enough to start." on every state from one to seven,
+ * and the capsule reads "Add the next". Two real people then built the ten on
+ * THIS screen, on 2026-09-10, twenty-four hours apart — eleven tops each, not
+ * a bottom or a dress between them — and neither was told, at any point in
+ * the run, that the closet they were making could never be dressed. The
+ * floor's spread copy (A59) lives on Today, which they never reached; the
+ * repair plate speaks only at ten, after the wells are spent.
+ *
+ * So the one line above the tray says the gap while there are still wells to
+ * put it in. Only for the SHAPE gap — a closet with tops and no bottom, or
+ * bottoms and no top, or neither — because that is the gap no later piece of
+ * the same kind can close, and the only one whose absence the reader cannot
+ * see in the grid. Footwear and outfit-count gaps stay with the repair plate:
+ * shoes multiply and never gate, and a count is not a shape.
+ *
+ * NO NUMERAL, no "ten": the count is in words like the band's, and the
+ * threshold is two pieces so the first photograph never meets a lecture.
+ */
+export function tenSpreadLine(r: StarterReadiness): string | null {
+  if (r.hasCore || r.pieces < 2) return null;
+  const { tops, bottoms } = r.tally;
+  if (tops > 0 && bottoms === 0) {
+    return `${cap(numberWord(tops))} ${tops === 1 ? 'top' : 'tops'} in — an outfit needs a bottom or a dress.`;
+  }
+  if (bottoms > 0 && tops === 0) {
+    return `${cap(numberWord(bottoms))} ${bottoms === 1 ? 'bottom' : 'bottoms'} in — an outfit needs a top or a dress.`;
+  }
+  return 'An outfit is a top with a bottom, or a dress — add one of those next.';
 }
 
 /**

@@ -81,11 +81,13 @@ import {
   waitingTitle,
 } from '@/features/ingest/capture-spec';
 import { useCapture, type CapturedAsset } from '@/features/ingest/use-capture';
-import { useWardrobe } from '@/features/styling/queries';
+import { canGenerate, useWardrobe } from '@/features/styling/queries';
 import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
 import { bypassesCameraGate, captureEntryFrom } from '@/features/ingest/capture-entry';
 import { cutoutFailures } from '@/features/ingest/cutout-failure';
 import { admitBatch } from '@/features/ingest/batch-capacity';
+import { OVER_LIMIT_REVEAL_COPY, overLimitDoor } from '@/features/billing/over-limit-door';
+import { useRevealNeverSeen } from '@/features/onboarding/reveal-seen';
 import {
   useQueueStore,
   selectActiveCount,
@@ -355,6 +357,8 @@ function CaptureScreen() {
   const capacity = useCapacity();
   const gate = useGate();
   const wardrobe = useWardrobe();
+  /** Whether the wall may lead with the Reveal — `overLimitDoor` (A28). */
+  const revealNeverSeen = useRevealNeverSeen();
 
   /** Frame 17's fact. One HEAD every four seconds while this screen is open. */
   const online = useConnectivity();
@@ -802,6 +806,29 @@ function CaptureScreen() {
     const best = rankGaps(tally)[0]?.kind ?? 'tops';
     router.push(`/wall-swap?add=${best}`);
   }, [wardrobe.data, router, heldCapture, capacity.storageFull]);
+
+  /**
+   * The Reveal-first door — CMO ledger A28 (2026-09-11), `overLimitDoor`.
+   *
+   * For a dressable closet that has never seen the Reveal, the wall's filled
+   * action opens the outfits rather than the plans; the plans become the
+   * outlined action. `replace`, not `push`: the Reveal's exits replace to the
+   * tabs, and a capture screen left under them would be a stale stage with a
+   * stale hold. The photograph is on the phone either way — the sheet says so
+   * — and the eleventh piece can only land after a swap or a membership, both
+   * of which are still offered.
+   */
+  const heldWall = heldCapture?.wall ?? 'active';
+  const overLimit = overLimitDoor({
+    wall: heldWall,
+    dressable: Boolean(wardrobe.data) && canGenerate(wardrobe.data ?? []),
+    revealNeverSeen,
+  });
+  const seeOutfitsForHeldCapture = useCallback(() => {
+    setClosetFullVisible(false);
+    setHeldCapture(null);
+    router.replace('/reveal' as Href);
+  }, [router]);
 
   /**
    * The resume, on the far side of a swap.
@@ -1662,26 +1689,41 @@ function CaptureScreen() {
       <ClosetFullSheet
         visible={closetFullVisible}
         eyebrow={
-          heldCapture && heldCapture.assets.length > 1
-            ? `${heldCapture.assets.length} photographed · waiting for room`
-            : 'Photographed · not added yet'
+          overLimit === 'reveal'
+            ? OVER_LIMIT_REVEAL_COPY.eyebrow
+            : heldCapture && heldCapture.assets.length > 1
+              ? `${heldCapture.assets.length} photographed · waiting for room`
+              : 'Photographed · not added yet'
         }
         title={
-          heldCapture?.wall === 'total'
-            ? `Your account holds ${heldCapture.limit} pieces — the most it can.`
-            : `Your closet is full at ${heldCapture?.limit ?? capacity.limit}.`
+          overLimit === 'reveal'
+            ? OVER_LIMIT_REVEAL_COPY.title
+            : heldCapture?.wall === 'total'
+              ? `Your account holds ${heldCapture.limit} pieces — the most it can.`
+              : `Your closet is full at ${heldCapture?.limit ?? capacity.limit}.`
         }
         body={(() => {
+          if (overLimit === 'reveal') return OVER_LIMIT_REVEAL_COPY.body;
           const tally = tallyOf(wardrobe.data ?? []);
           const today = countOutfits(tally);
           const plural = (heldCapture?.assets.length ?? 1) > 1;
           return `Your ${capacity.used} pieces make ${today} outfits today. What ${plural ? 'these would' : 'this would'} add depends on what ${plural ? 'they are' : 'it is'} — Cinch can’t say until ${plural ? "they’re" : "it’s"} tagged. ${plural ? "They’re" : "It’s"} saved on your phone either way — nothing here deletes a photograph.`;
         })()}
-        onSeePlans={seePlansForHeldCapture}
-        seePlansBusy={gatePresenting}
-        secondaryLabel={heldCapture?.wall === 'total' ? 'Open Storage' : 'Make room for it'}
-        onSecondary={makeRoomForHeldCapture}
-        tertiaryLabel="Not now"
+        // Reveal first, wall after (A28): the filled action is the outfits
+        // and the plans are the outlined one, for a dressable closet that has
+        // never had its Reveal. Every other closet meets the wall as before.
+        primaryLabel={overLimit === 'reveal' ? OVER_LIMIT_REVEAL_COPY.primary : undefined}
+        onSeePlans={overLimit === 'reveal' ? seeOutfitsForHeldCapture : seePlansForHeldCapture}
+        seePlansBusy={overLimit === 'reveal' ? false : gatePresenting}
+        secondaryLabel={
+          overLimit === 'reveal'
+            ? OVER_LIMIT_REVEAL_COPY.secondary
+            : heldCapture?.wall === 'total'
+              ? 'Open Storage'
+              : 'Make room for it'
+        }
+        onSecondary={overLimit === 'reveal' ? seePlansForHeldCapture : makeRoomForHeldCapture}
+        tertiaryLabel={overLimit === 'reveal' ? OVER_LIMIT_REVEAL_COPY.tertiary : 'Not now'}
         onDismiss={() => {
           setClosetFullVisible(false);
           // Discarding the HOLD, not the file: nothing here calls a delete —

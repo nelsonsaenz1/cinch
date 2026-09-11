@@ -21,6 +21,15 @@ export interface TrialExpiredState {
   trialing: boolean;
   plan: Plan;
   marker: string | null;
+  /**
+   * Active garments, or null while the count is unread — A75 (2026-09-11).
+   * The placement never presents over an empty closet: a person with nothing
+   * filed has nothing membership could open, and the one real impression this
+   * gate exists for was a fourteen-day return to zero garments that met a
+   * paywall on arrival. Unread is not zero — the effect re-runs when the
+   * count settles, and no marker is spent in the meantime.
+   */
+  garments: number | null;
 }
 
 export interface TrialExpiredIo {
@@ -35,8 +44,12 @@ export interface TrialExpiredIo {
 
 /** What happened, for the tests. The hook ignores it. */
 export type TrialExpiredOutcome =
-  /** The guard said no: loading, trialing, not free, or no trial ever. */
+  /** The guard said no: loading, trialing, not free, no trial ever, or the
+   *  garment count is still unread. */
   | 'not_lapsed'
+  /** Lapsed, but the closet holds nothing — no ask, and no marker spent, so
+   *  the lapse is still noticed the first time a garment is in (A75). */
+  | 'empty_closet'
   /** This exact lapse already fired on this device. */
   | 'already_fired'
   /** Unmounted before the marker was read back. Nothing written. */
@@ -56,6 +69,10 @@ export async function evaluateTrialExpired(
   if (state.loading || state.trialing || state.plan !== 'free' || !state.marker) {
     return 'not_lapsed';
   }
+  // Nothing filed, nothing to open — see `garments` on the state. BEFORE the
+  // marker read on purpose: an empty closet must not consume the lapse.
+  if (state.garments === null) return 'not_lapsed';
+  if (state.garments <= 0) return 'empty_closet';
 
   const fired = await io.getItem(FIRED_KEY);
   if (io.cancelled()) return 'cancelled';

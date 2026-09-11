@@ -45,6 +45,7 @@ export function TenBody({
   foregroundedId,
   settlingId,
   settlingName,
+  spread,
   garmentNames,
   imageUris,
   onSlotPress,
@@ -66,6 +67,8 @@ export function TenBody({
   settlingId?: number | null;
   /** The garment being read, when the classifier has a name for it yet. */
   settlingName?: string | null;
+  /** `tenSpreadLine` — the masthead names the missing half while filling (A76). */
+  spread?: string | null;
   garmentNames?: Record<number, string | null>;
   imageUris?: Record<number, string | undefined>;
   onSlotPress?: (slotId: number) => void;
@@ -104,7 +107,7 @@ export function TenBody({
       keyboardShouldPersistTaps="handled">
       <TenMasthead
         title={TEN_TITLE}
-        subtitle={tenSubtitle({ filled, total, phase, name: settlingName })}
+        subtitle={tenSubtitle({ filled, total, phase, name: settlingName, spread })}
         measure={measure}
       />
 
