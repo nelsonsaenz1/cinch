@@ -932,3 +932,20 @@ coordinator offers "Restart now". Grouped by `update_id` two days after audit sh
 14 persons embedded-only, 7 on the ship, 2 on ship 8. A fix to the *first session* (A28, A68) is
 fully in force only after the next store build; score its first-session effect on
 `update_id`-matched persons only.
+
+## Apple Ads back-fills installs for hours — read both sides of an attribution match the same night (2026-09-11, evening)
+
+The campaign table's "Last 7 days" total for 09-04→09-10 read **46** installs at 14:30Z and **50** at
+22:1xZ 09-11 — the same window, eight hours apart, no campaign change. Apple's own banner says reporting
+"may not reflect data received in the last three hours"; in practice attribution lands later than that.
+Rules:
+- A paid-vs-ASC comparison (P28-class) is valid only when Apple Ads and ASC are read **on the same night
+  for the same UTC day**, and the read time is printed beside both.
+- A "Today" read of Apple Ads is a floor, not a count. Print it as "to ~HH:MMZ".
+- Do not restate a prior night's install figure without saying which read it came from.
+
+## Two runs in one day get two files (2026-09-11)
+
+When a daytime run and a nightly both land on the same date, the second is `YYYY-MM-DD-nightly.md`
+(precedent: 2026-09-01). The nightly's scoreboard "prior" column is the daytime run, and every window
+label must say so — "since 14:30Z" is not "today".
