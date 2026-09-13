@@ -949,3 +949,39 @@ Rules:
 When a daytime run and a nightly both land on the same date, the second is `YYYY-MM-DD-nightly.md`
 (precedent: 2026-09-01). The nightly's scoreboard "prior" column is the daytime run, and every window
 label must say so — "since 14:30Z" is not "today".
+
+## Apple bills a renewal before `expires_at` — never schedule the read at expiry (2026-09-13)
+
+Both 09-11 runs told the next session to read the family annual's renewal "at 22:56Z 09-12", the
+subscription's `expires_at`. Apple signed the Production `DID_RENEW` at **14:59:14Z**, eight hours
+earlier (renewals are attempted inside the 24 h before expiry). A session that reads *at* expiry finds
+the row already applied; a session that reads *for* a row stamped at expiry and does not find one would
+write a false "renewal did not fire". Read renewals by `original_transaction_id` over the whole prior
+day, and print the `signed_date`, not the expected time. Also observed: the price decrease reached the
+existing subscriber (charged $9.99, not $39.99), and Superwall books the proceeds at **70%** ($7) — that
+is Superwall's model, not Apple's ledger; the Small Business Program question (12.11) is still open.
+
+## `returning_free`'s "valid outfit result" is arithmetic, not delivery (2026-09-13)
+
+`placements.ts` describes `returning_free` as a return offer for an account that "already holds at least
+one valid outfit result". `use-returning-free.ts` implements that as `outfitCount ≥ 1`, where the count is
+Today's `countOutfits(tallyOf(items))` — a tally over the wardrobe, satisfiable by a top and a bottom the
+person has never been shown together. On 09-13 `faaec810` (5 garments, `reveal_seen_at` null) returned
+after 127 h and was asked for money two seconds after the app opened. When a placement's precondition
+says "has an outfit", check whether the code means *could have* or *has seen*; only `reveal_seen_at` /
+`outfit_set_viewed` mean the latter. Ledger A78.
+
+## The review RSS cannot be fetched from an `appstoreconnect.apple.com` tab (2026-09-13)
+
+`fetch('https://itunes.apple.com/rss/customerreviews/…')` from a page on `appstoreconnect.apple.com`
+fails CORS (`Failed to fetch`), while `itunes.apple.com/lookup` from the same tab succeeds. The sandbox
+shell has no route to `itunes.apple.com` either. Use the `web_fetch` tool for the review feed (it returns
+the full JSON), or run the fetch from a `us.posthog.com` / `superwall.com` tab. Do not write "unread"
+for a competitor's reviews because one origin refused the call.
+
+## Two runs on 09-11, none on 09-12 — the Sunday run's "prior" column is the 09-11 evening run (2026-09-13)
+
+When a nightly is skipped, the next briefing's scoreboard "prior" is the last run that happened, every
+window in the delta is labelled with both endpoints, and any prediction that fell due on the skipped day
+is scored on the next run with a note that it is one day late. No row is silently reprinted across a
+gap: 09-13 scored A4 (night 18) and A61 (night 5) that a 09-12 run would have had to score.
