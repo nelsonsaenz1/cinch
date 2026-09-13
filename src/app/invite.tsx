@@ -12,6 +12,7 @@ import {
   isFreshArrival,
 } from '@/features/invite/invite-lines';
 import { useInviteArrivals, useInviteLink } from '@/features/invite/queries';
+import { useSeedHandle } from '@/features/profile/use-seed-handle';
 import { track } from '@/lib/posthog';
 
 /**
@@ -43,6 +44,10 @@ export default function InviteScreen() {
 
   const { link, loading, error, refetch } = useInviteLink();
   const arrivals = useInviteArrivals();
+  // A54 — a profile with no handle used to land on "Choose a handle first".
+  // Seed one on arrival instead: the page holds its skeleton while the claim
+  // runs and prints the seeded line once `my-profile` re-derives the link.
+  const seed = useSeedHandle({ handle: link.handle, settled: !loading && !error });
 
   const [copied, setCopied] = useState(false);
   /** The sheet could not be presented — distinct from being dismissed. */
@@ -166,7 +171,8 @@ export default function InviteScreen() {
         // rather than string-edited in the render tree.
         linkDisplay={link.handle ? inviteUrlForDisplay(link.handle) : null}
         handle={link.handle ? `@${link.handle}` : null}
-        linkLoading={loading}
+        linkLoading={loading || seed.seeding}
+        seeded={seed.seeded !== null}
         linkError={error}
         onRetryLink={refetch}
         // The handle lives on the profile sheet, which the integrator owns.

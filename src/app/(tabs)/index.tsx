@@ -109,7 +109,7 @@ import {
   type WearFailureKind,
 } from '@/features/styling/wear-failure';
 import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
-import { useRevealNeverSeen } from '@/features/onboarding/reveal-seen';
+import { useRevealDelivered, useRevealNeverSeen } from '@/features/onboarding/reveal-seen';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits, type StyledOutfit } from '@/features/styling/use-outfits';
 import { nameOutfits } from '@/features/styling/outfit-names';
@@ -1035,6 +1035,10 @@ export default function TodayScreen() {
   // by construction: `useRevealNeverSeen` answers true only on a settled read
   // that says never-seen, so loading and error cannot flash the card in.
   const revealNeverSeen = useRevealNeverSeen();
+  // A78 — the mirror read for the return ask: TRUE only on a settled read
+  // that says the Reveal has been DELIVERED (`reveal_seen_at` stamped). Same
+  // query as the door's, so this costs nothing.
+  const revealDelivered = useRevealDelivered();
   const revealDoor =
     revealNeverSeen && !wardrobe.isLoading && !wardrobe.isError && canGenerate(items);
   const revealDoorRef = useRef(false);
@@ -1128,10 +1132,11 @@ export default function TodayScreen() {
   const planState = usePlan();
   const knownPlan = planState.loading || planState.unconfirmed ? null : planState.plan;
   // The day-3 / day-7 return ask, for a free account whose closet already made
-  // a number. Everything about it — the schedule, the once-per-open latch, the
+  // a number AND has been shown its Reveal (A78 — a count is arithmetic, the
+  // stamp is delivery). Everything about it — the schedule, the once-per-open latch, the
   // caps — lives in the hook and behind `presentPromo`; Today only hands over
   // the count it already computes, and the render never depends on it.
-  useReturningFree(countOutfits(currentTally));
+  useReturningFree(countOutfits(currentTally), revealDelivered);
   /**
    * "See plans", from a prompt this screen drew.
    *

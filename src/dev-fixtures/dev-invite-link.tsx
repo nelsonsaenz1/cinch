@@ -153,6 +153,7 @@ export default function DevInviteLinkScreen() {
           linkError={state === 'IV-01f'}
           onRetryLink={() => setState('IV-01')}
           onChooseHandle={() => setState('IV-01')}
+          seeded={false}
           onShare={() => setState('IV-02')}
           shareFailed={false}
           onRetryShare={() => setState('IV-02')}

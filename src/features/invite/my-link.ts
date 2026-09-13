@@ -1,3 +1,4 @@
+import { claimSeedHandle } from '@/features/profile/handle-seed-io';
 import { queryClient } from '@/lib/query-client';
 import { getUserId, supabase } from '@/lib/supabase';
 
@@ -16,7 +17,8 @@ import { bareHandle, inviteUrl } from './link';
  * use it.
  *
  * NULL IS A REAL ANSWER. `profiles.username` is nullable and nothing forces a
- * handle at sign-up, so a user genuinely may have no link. The share still goes
+ * handle at sign-up; since A54 the read seeds one first, so null now means the
+ * claim itself could not complete. The share still goes
  * out — one sentence shorter — rather than carrying
  * `cinchstyle.com/i/@undefined`. Same rule as `useInviteLink`.
  */
@@ -61,8 +63,14 @@ async function fetchInviteUrl(): Promise<string | null> {
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error || !data?.username) return null;
-    return inviteUrl(bareHandle(data.username));
+    if (error) return null;
+    if (data?.username) return inviteUrl(bareHandle(data.username));
+    // No handle yet (ledger A54): claim one, so this share — and every one
+    // after it — carries a link. Inside the caller's deadline on a warm
+    // connection; when it is not, the share ships without one and the handle
+    // is on the row for next time.
+    const seeded = await claimSeedHandle();
+    return seeded ? inviteUrl(bareHandle(seeded)) : null;
   } catch {
     return null;
   }

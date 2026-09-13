@@ -61,6 +61,30 @@ export function useRevealNeverSeen(): boolean {
 }
 
 /**
+ * Whether the Reveal has been DELIVERED to this account — `reveal_seen_at`
+ * set, which the Reveal stamps on delivery, not on mount (reveal-zero-core).
+ * TRUE only on a settled read that says so; loading, error, signed out and a
+ * null column all answer false.
+ *
+ * The opposite default from `useRevealNeverSeen`, for the opposite consumer.
+ * That hook gates a DOOR, and a door that under-shows costs a tap; this one
+ * gates an ASK the app initiates — `returning_free` (ledger A78, 2026-09-13:
+ * a person came back after 127 hours to five garments that had never been
+ * dressed and was shown a paywall two seconds after the app opened) — and an
+ * ask that cannot prove its premise stays quiet. Same query key, so the two
+ * hooks are one read.
+ */
+export function useRevealDelivered(): boolean {
+  const query = useQuery({
+    queryKey: REVEAL_SEEN_KEY,
+    queryFn: ({ signal }) => readSeen(signal),
+    staleTime: Infinity,
+    retry: 1,
+  });
+  return Boolean(query.data && query.data.signedIn && query.data.revealSeenAt !== null);
+}
+
+/**
  * Stamp the Reveal seen, for good.
  *
  * Called by the Reveal on arrival — not on completion, because arriving IS

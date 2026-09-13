@@ -51,6 +51,18 @@ export const COPIED_ACTION = 'Copied';
  */
 export const LINK_NOTE = 'One link, yours permanently. Send it to as many people as you like.';
 
+/**
+ * The colophon when THIS visit claimed the handle (ledger A54, 2026-09-13).
+ * Says what happened and where to change it, nothing else; `handle` arrives
+ * with its `@`. Copy from the 09-13 nightly §11.3, verbatim.
+ */
+export function seededNote(handle: string): string {
+  return `You're ${handle} on Cinch. Change it any time in Profile.`;
+}
+
+/** The filled action on a seeded visit — the closet, not "your link". */
+export const SEEDED_SHARE_ACTION = 'Share my closet';
+
 // ---------------------------------------------------------------------------
 // The roster
 // ---------------------------------------------------------------------------

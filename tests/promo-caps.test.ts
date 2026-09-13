@@ -243,11 +243,22 @@ test('paywall_eligible is the denominator: fired before the eligibility branch r
   );
 });
 
-test('paywall_dismissed fires exactly on decline', () => {
+test("paywall_dismissed fires from the gate on the SDK's own decline, never off the settled outcome", () => {
+  // 2026-09-13: the promo-path emit had fired zero times in 30 days against
+  // 58 presentations — a non-gated paywall resolves `registerPlacement` on
+  // close, so 'granted' always won the grace race and no promo ever settled
+  // 'declined'. The event lives at the sheet now, for every placement.
   const promo = src('features/billing/present-promo.ts');
-  const emits = promo.match(/'paywall_dismissed'/g) ?? [];
+  assert.doesNotMatch(promo, /'paywall_dismissed'/, 'the dead emit is gone');
+  const gate = src('features/billing/use-gate.ts');
+  const emits = gate.match(/track\('paywall_dismissed'/g) ?? [];
   assert.equal(emits.length, 1);
-  assert.match(promo, /outcome === 'declined'[\s\S]{0,120}'paywall_dismissed'/);
+  const onDismiss = gate.indexOf('onDismiss: (_info, result)');
+  const emit = gate.indexOf("track('paywall_dismissed'");
+  assert.ok(onDismiss !== -1 && emit > onDismiss, 'emitted inside onDismiss');
+  assert.match(gate, /if \(result\.type === 'declined'\) \{[\s\S]{0,1200}?track\('paywall_dismissed'/);
+  assert.match(gate, /seconds_open/);
+  assert.match(gate, /target\.presentedAt = Date\.now\(\)/);
 });
 
 test('presentPromo cannot throw — the Reveal path is not blockable', () => {

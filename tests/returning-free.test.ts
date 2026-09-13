@@ -195,3 +195,24 @@ test('the cheap gates run before anything is claimed or fetched', () => {
   assert.match(HOOK, /if \(loading \|\| unconfirmed \|\| plan !== 'free' \|\| trialing\) return/);
   assert.match(HOOK, /if \(outfitCount < 1\) return/);
 });
+
+test('the ask waits for a DELIVERED Reveal, not an outfit count — ledger A78', () => {
+  assert.match(
+    HOOK,
+    /export function useReturningFree\(outfitCount: number, revealDelivered: boolean\)/,
+  );
+  assert.match(HOOK, /if \(!revealDelivered\) return/);
+  // Gated before the latch: a never-dressed closet never spends its open.
+  const gateAt = HOOK.indexOf('if (!revealDelivered) return');
+  const claimAt = HOOK.indexOf('!claimReturningFree()');
+  assert.ok(gateAt !== -1 && claimAt !== -1 && gateAt < claimAt);
+
+  const TODAY = readFileSync('src/app/(tabs)/index.tsx', 'utf8');
+  assert.match(TODAY, /const revealDelivered = useRevealDelivered\(\)/);
+  assert.match(TODAY, /useReturningFree\(countOutfits\(currentTally\), revealDelivered\)/);
+
+  // And the read answers true ONLY on a settled row with the stamp set.
+  const SEEN = readFileSync('src/features/onboarding/reveal-seen.ts', 'utf8');
+  assert.match(SEEN, /export function useRevealDelivered\(\): boolean/);
+  assert.match(SEEN, /query\.data\.signedIn && query\.data\.revealSeenAt !== null/);
+});

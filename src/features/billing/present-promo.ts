@@ -5,8 +5,7 @@
  * a locked feature has earned an immediate answer. The general promos
  * (`ten_completed`, `reveal_complete`, `returning_free`, `trial_expired`) go
  * through here instead, and the difference is everything this file does:
- * qualification, frequency caps, the eligibility denominator, the dismissal
- * event, and the impression ledger.
+ * qualification, frequency caps and the eligibility denominator.
  *
  * THE ONE HARD GUARANTEE: `presentPromo` NEVER throws and always resolves.
  * Its callers include the beat between The Ten and the Reveal, and the Reveal
@@ -129,6 +128,13 @@ export interface PresentPromoOpts {
  * ignored by the arithmetic. One deliberate change of behaviour: a campaign
  * SKIP (holdout, audience filter) used to resolve 'granted' and spend the
  * allowance; a skip draws nothing and now records nothing.
+ *
+ * THE DISMISSAL MOVED THE SAME WAY (2026-09-13). `paywall_dismissed` used to
+ * fire here on a settled 'declined' outcome — and had fired zero times in 30
+ * days against 58 presentations, because a non-gated paywall resolves
+ * `registerPlacement` when it closes and 'granted' always won the gate's
+ * grace race. It now fires from `use-gate.ts`'s `onDismiss`, on the SDK's own
+ * `declined`, for every placement, with `seconds_open`.
  */
 export async function presentPromo(
   gate: Gate,
@@ -169,12 +175,9 @@ export async function presentPromo(
 
     const outcome = await gate.present(placement, opts.onGranted, opts.contextOpts);
 
-    // The impression is recorded by the gate's `onPresent` (see the seam note
-    // above), not here — nothing in this module writes the ledger.
-    if (outcome === 'declined') {
-      track('paywall_dismissed', { placement });
-    }
-
+    // The impression is recorded by the gate's `onPresent` and the close by
+    // its `onDismiss` (see the seam notes above) — nothing in this module
+    // writes the ledger or reports the dismissal.
     return outcome;
   } catch {
     // `gate.present` promises never to reject, but this path guards the

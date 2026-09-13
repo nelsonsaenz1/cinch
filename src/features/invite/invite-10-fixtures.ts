@@ -33,6 +33,7 @@ const IDLE: InvitePageProps = {
   linkError: false,
   onRetryLink: () => {},
   onChooseHandle: () => {},
+  seeded: false,
 
   onShare: () => {},
   shareFailed: false,

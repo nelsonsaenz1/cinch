@@ -19,6 +19,13 @@
  *     Today's `useFirstName` makes for the greeting);
  *   - the outfit count is handed in by Today, which already computes it from
  *     the wardrobe it is rendering (`countOutfits(tallyOf(items))`);
+ *   - whether the Reveal has been DELIVERED — `useRevealDelivered()`, the
+ *     `reveal_seen_at` read Today already makes for its own Reveal door.
+ *     Ledger A78 (2026-09-13): `faaec810` returned at +127 h with five
+ *     garments that had never been dressed and was asked for money two
+ *     seconds after the app opened. An outfit COUNT is arithmetic — the
+ *     engine could make one — and a stamp is delivery — the person was shown
+ *     one. A return offer is about the second thing;
  *   - the prior asks come from `fetchRecentImpressions()`, the same 7-day
  *     ledger read the caps use. Seven days is enough for the day-7 spacing
  *     rule — a day-3 impression is at most ~4 days old by then — see the note
@@ -70,8 +77,13 @@ export function resetReturningFree(): void {
  * `outfitCount` is Today's own computed count, unmodified — zero while the
  * wardrobe loads simply defers the evaluation (nothing is claimed until the
  * account qualifies), and the effect re-runs when the real count lands.
+ *
+ * `revealDelivered` is `useRevealDelivered()` — false until a settled read
+ * says `reveal_seen_at` is stamped. Gated BEFORE the latch, like the other
+ * cheap gates, so a never-dressed closet never spends its app open here and
+ * the ask arrives the first open after the Reveal is delivered, on schedule.
  */
-export function useReturningFree(outfitCount: number): void {
+export function useReturningFree(outfitCount: number, revealDelivered: boolean): void {
   const gate = useGate();
   const { plan, trialing, loading, unconfirmed } = usePlan();
 
@@ -81,6 +93,7 @@ export function useReturningFree(outfitCount: number): void {
     // unqualified account from ever spending the latch or touching the ledger.
     if (loading || unconfirmed || plan !== 'free' || trialing) return;
     if (outfitCount < 1) return;
+    if (!revealDelivered) return;
     if (claimed) return;
 
     let cancelled = false;
@@ -125,5 +138,5 @@ export function useReturningFree(outfitCount: number): void {
       cancelled = true;
       task.cancel();
     };
-  }, [gate, plan, trialing, loading, unconfirmed, outfitCount]);
+  }, [gate, plan, trialing, loading, unconfirmed, outfitCount, revealDelivered]);
 }

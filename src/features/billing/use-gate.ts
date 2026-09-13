@@ -289,6 +289,11 @@ type Presentation = {
    * (the webhook ledger carries it), the id says which plan and term.
    */
   productId: string | null;
+  /**
+   * `Date.now()` when `onPresent` fired. `paywall_dismissed` reads
+   * `seconds_open` off it — how long the reader looked before closing.
+   */
+  presentedAt: number | null;
 };
 
 /**
@@ -453,6 +458,7 @@ function useSuperwallGate(): Gate {
       const target = owned(ownerId);
       if (!target) return;
       target.paywall = info.identifier;
+      target.presentedAt = Date.now();
       track('paywall_presented', {
         placement: target.placement,
         // Which document, and which products it offered — the offer version
@@ -480,6 +486,25 @@ function useSuperwallGate(): Gate {
       stampPaywallDismissed(new Date(), reviewPromptIo);
       const target = owned(ownerId);
       if (!target) return;
+      if (result.type === 'declined') {
+        // The reader saw the offer and closed it — the SDK's own word for it,
+        // read HERE rather than off the settled outcome. `presentPromo` used
+        // to fire this on `outcome === 'declined'`, and it fired zero times
+        // in 30 days against 58 presentations: a non-gated paywall resolves
+        // `registerPlacement` when it closes, so `settle(target, 'granted',
+        // 'feature')` always won the grace race below and no promo ever
+        // settled 'declined'. Every placement, exactly when a human declined,
+        // with how long they looked — the three `reveal_complete` sheets of
+        // 2026-09-12/13 were each closed inside a minute and nothing recorded it.
+        track('paywall_dismissed', {
+          placement: target.placement,
+          paywall: target.paywall ?? undefined,
+          seconds_open:
+            target.presentedAt === null
+              ? undefined
+              : Math.max(0, Math.round((Date.now() - target.presentedAt) / 1000)),
+        });
+      }
       // The only place a genuine purchase or restore is distinguishable from
       // an ordinary grant — `result` only exists because a paywall was
       // actually presented and closed. Recorded before arming so `settle()`
@@ -535,6 +560,7 @@ function useSuperwallGate(): Gate {
         purchase: null,
         paywall: null,
         productId: null,
+        presentedAt: null,
       };
       inFlight = target;
 

@@ -392,6 +392,14 @@ export type AppEvent =
    */
   | 'invite_shared'
   /**
+   * A handle was claimed on the person's behalf (ledger A54, 2026-09-13):
+   * they reached a share with none, and the app seeded one instead of
+   * sending them to a form. `source` is bounded ('name' | 'email' |
+   * 'fallback'); `attempts` is how many candidates it took, counting the one
+   * that landed. Nothing fires for an account that chose its own.
+   */
+  | 'handle_seeded'
+  /**
    * The invite card on Today was on a focused Today (ledger A23,
    * 2026-09-06) — drawn once the closet can be dressed, once per install.
    * `trackOnce`, no properties: the denominator `invite_ask_answered` and
@@ -520,8 +528,14 @@ export type AppEvent =
    */
   | 'paywall_eligible'
   /**
-   * A visibly-presented paywall resolved 'declined' — the reader saw the offer
-   * and closed it. Carries `placement` only.
+   * A visibly-presented paywall was closed without a purchase — the SDK's own
+   * `declined`, read in use-gate.ts's `onDismiss`. Carries `placement`, the
+   * `paywall` document and `seconds_open` (whole seconds since `onPresent`).
+   *
+   * MOVED 2026-09-13. It used to fire from `presentPromo` on a settled
+   * 'declined' and had fired zero times in 30 days against 58 presentations:
+   * a non-gated paywall resolves `registerPlacement` on close, so the settled
+   * outcome was always 'granted'. Now it is the SDK's word, at the sheet.
    *
    * The missing middle outcome. `paywall_presented` opens the trio and
    * `paywall_converted` closes the happy path, but a presentation that ends in

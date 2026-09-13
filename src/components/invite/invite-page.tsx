@@ -27,6 +27,7 @@ import {
   NO_HANDLE_TITLE,
   OFFLINE_BODY,
   OFFLINE_TITLE,
+  SEEDED_SHARE_ACTION,
   SHARE_ACTION,
   SHARE_FAILED_BODY,
   SHARE_FAILED_TITLE,
@@ -41,6 +42,7 @@ import {
   SECONDARY_HEIGHT,
   SECONDARY_HEIGHT_AX,
   TRY_AGAIN,
+  seededNote,
 } from '@/features/invite/invite-lines';
 import { MIN_TAP_TARGET, useTheme, warningAlpha } from '@/theme/tokens';
 
@@ -91,6 +93,8 @@ export type InvitePageProps = {
   onRetryLink: () => void;
   /** The no-handle branch — sends to the profile sheet to claim one. */
   onChooseHandle: () => void;
+  /** This visit seeded the handle (A54): the note says so, the action names the closet. */
+  seeded: boolean;
 
   onShare: () => void;
   /**
@@ -298,7 +302,7 @@ function Actions(props: InvitePageProps) {
     <View style={{ marginTop: 16, gap: 10 }}>
       <View style={{ minHeight: large ? PRIMARY_HEIGHT_AX : PRIMARY_HEIGHT }}>
         <Button
-          title={SHARE_ACTION}
+          title={props.seeded ? SEEDED_SHARE_ACTION : SHARE_ACTION}
           variant="primary"
           onPress={props.onShare}
           disabled={!props.link}
@@ -327,7 +331,7 @@ function Actions(props: InvitePageProps) {
       ) : null}
 
       <Text variant="note" style={{ marginTop: 2 }}>
-        {LINK_NOTE}
+        {props.seeded && props.handle ? seededNote(props.handle) : LINK_NOTE}
       </Text>
     </View>
   );

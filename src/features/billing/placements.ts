@@ -228,9 +228,11 @@ export const Placement = {
 
   /**
    * A qualified return offer — around day 3 and day 7 — for a free account
-   * that never started a trial and already holds at least one valid outfit
-   * result. Both qualifications are the point: someone who has seen their own
-   * closet make a number knows what the product does, and someone who never
+   * that never started a trial and has been SHOWN its Reveal —
+   * `profiles.reveal_seen_at`, which the Reveal stamps on delivery (ledger A78,
+   * 2026-09-13: an outfit COUNT is arithmetic, the stamp is delivery, and the
+   * ask was firing on the first). Both qualifications are the point: someone
+   * who has seen their own closet dressed knows what the product does, and someone who never
    * trialed has not already told us no.
    *
    * NOT A REFUSAL EITHER — nothing was denied on day 3; the app chose the
