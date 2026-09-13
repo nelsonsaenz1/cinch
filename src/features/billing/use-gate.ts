@@ -316,6 +316,51 @@ type Presentation = {
 let inFlight: Presentation | null = null;
 
 /**
+ * The presentation that most recently DREW, kept past `settle()`.
+ *
+ * `inFlight` is cleared the moment a presentation settles, and for a NON-GATED
+ * paywall that moment comes before the sheet's own `onDismiss`: the native
+ * feature closure resolves `registerPlacement` first, `settle(target,
+ * 'granted', 'feature')` runs, and by the time `onDismiss` arrives `owned()`
+ * answers null and the callback used to return before it had read the result.
+ * Proven on the 2026-09-13 keyed boot gate — a `returning_free` close stamped
+ * the review card (which sits above the ownership check) and reached nothing
+ * below it; the same gap is why `paywall_dismissed` had never fired and why a
+ * non-gated purchase would have written no receipt. This is the same record,
+ * held until its dismissal is read.
+ */
+let shown: Presentation | null = null;
+
+/**
+ * The money bookkeeping for a settled presentation whose `purchase` is set —
+ * MB-06 contract §7. Only a REAL purchase or restore earns the thanks screen;
+ * a silent skip (already entitled, holdout) also settles 'granted' but never
+ * sets `purchase`, and takes the caller straight back to `onGranted` with no
+ * interruption. Called from exactly one of two places per presentation:
+ * `settle()` when the dismissal was read first, `onDismiss` when the feature
+ * closure settled first (the non-gated order above).
+ */
+function reportConversion(target: Presentation): void {
+  // The guard both callers already hold, restated so the type narrows here.
+  if (!target.purchase) return;
+  recordPaywallOrigin({
+    placement: target.placement,
+    route: target.route,
+    result: target.purchase,
+  });
+  // The one client-side moment that knows both the money and the door it
+  // came through — the webhook reconciles the revenue but never learns
+  // the placement. `result` is the SDK's own bounded pair.
+  track('paywall_converted', {
+    placement: target.placement,
+    result: target.purchase,
+    paywall: target.paywall ?? undefined,
+    product_id: target.productId ?? undefined,
+  });
+  router.push('/membership-thanks');
+}
+
+/**
  * The in-flight presentation, but only if this gate is the one that started it.
  *
  * `usePlacement` already scopes its callbacks by handler id, so a stray event
@@ -356,25 +401,9 @@ function useSuperwallGate(): Gate {
       target.timer = null;
 
       if (outcome === 'granted' && target.purchase) {
-        // MB-06 — contract §7. Only a REAL purchase or restore earns the
-        // thanks screen; a silent skip (already entitled, holdout) also
-        // settles 'granted' but never sets `purchase`, and takes the caller
-        // straight back to `onGranted` with no interruption, same as today.
-        recordPaywallOrigin({
-          placement: target.placement,
-          route: target.route,
-          result: target.purchase,
-        });
-        // The one client-side moment that knows both the money and the door it
-        // came through — the webhook reconciles the revenue but never learns
-        // the placement. `result` is the SDK's own bounded pair.
-        track('paywall_converted', {
-          placement: target.placement,
-          result: target.purchase,
-          paywall: target.paywall ?? undefined,
-          product_id: target.productId ?? undefined,
-        });
-        router.push('/membership-thanks');
+        // The dismissal was read before the feature closure settled us (the
+        // gated order) — see `reportConversion` for the other order.
+        reportConversion(target);
       }
 
       if (outcome === 'unavailable') {
@@ -459,6 +488,7 @@ function useSuperwallGate(): Gate {
       if (!target) return;
       target.paywall = info.identifier;
       target.presentedAt = Date.now();
+      shown = target;
       track('paywall_presented', {
         placement: target.placement,
         // Which document, and which products it offered — the offer version
@@ -484,7 +514,12 @@ function useSuperwallGate(): Gate {
       // Stamped before the ownership check: the review card waits on the
       // sheet, whoever asked for it.
       stampPaywallDismissed(new Date(), reviewPromptIo);
-      const target = owned(ownerId);
+      // `owned()` alone is not enough here — see `shown`: for a non-gated
+      // paywall the presentation has already settled by now and `inFlight` is
+      // null. The callbacks are scoped per hook instance by the SDK, so the
+      // owner check on `shown` is belt and braces, not the gate.
+      const target = owned(ownerId) ?? (shown && shown.owner === ownerId ? shown : null);
+      shown = null;
       if (!target) return;
       if (result.type === 'declined') {
         // The reader saw the offer and closed it — the SDK's own word for it,
@@ -492,8 +527,9 @@ function useSuperwallGate(): Gate {
         // to fire this on `outcome === 'declined'`, and it fired zero times
         // in 30 days against 58 presentations: a non-gated paywall resolves
         // `registerPlacement` when it closes, so `settle(target, 'granted',
-        // 'feature')` always won the grace race below and no promo ever
-        // settled 'declined'. Every placement, exactly when a human declined,
+        // 'feature')` always won and no promo ever settled 'declined' — and
+        // the first cut of THIS emit missed too, because it sat behind
+        // `owned()`. Every placement, exactly when a human declined,
         // with how long they looked — the three `reveal_complete` sheets of
         // 2026-09-12/13 were each closed inside a minute and nothing recorded it.
         track('paywall_dismissed', {
@@ -513,6 +549,10 @@ function useSuperwallGate(): Gate {
       if (result.type === 'purchased' || result.type === 'restored') {
         target.purchase = result.type;
         if (result.type === 'purchased') target.productId = result.productId;
+        // Already settled by the feature closure (the non-gated order): the
+        // `settle()` below will never run again for this presentation, so the
+        // receipt is written here or not at all.
+        if (inFlight !== target) reportConversion(target);
       }
       // A purchase or a restore also resolves `registerPlacement`, and that is
       // the path that runs `onGranted`; let it win rather than reporting an
