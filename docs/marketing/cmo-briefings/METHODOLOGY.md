@@ -985,3 +985,28 @@ When a nightly is skipped, the next briefing's scoreboard "prior" is the last ru
 window in the delta is labelled with both endpoints, and any prediction that fell due on the skipped day
 is scored on the next run with a note that it is one day late. No row is silently reprinted across a
 gap: 09-13 scored A4 (night 18) and A61 (night 5) that a 09-12 run would have had to score.
+
+## All four browser sessions can expire together — probe all four before anything else (2026-09-14)
+
+On 09-14 ASC (`login?…authResult=FAILED`), PostHog (`/login?next=`), Superwall (`auth.superwall.com`) and Apple
+Ads (`idmsa.apple.com`) were all logged out at once, on the night build 49 went live. Rules:
+
+1. **Probe the four dashboards in the first five minutes of the run**, not when each section comes up. If all
+   four are dark, the run is a Supabase / `web_fetch` / Resend / Vercel run and the briefing says so in its
+   first line; Tomorrow's #1 is the four sign-ins.
+2. **The sandbox has no network** (`curl us.posthog.com` → 000). The `posthog` MCP `exec` tool and the
+   `superwall` CLI that the engineering sessions use are **not** in the nightly's tool list; do not write "read
+   via the CLI" unless the tool is actually present.
+3. **Superwall's `/applications/52618/overview` 404s**; `/applications/52618` is the entry (it redirects to auth
+   when logged out).
+4. **Four simultaneous expiries suggests a Chrome profile reset, not four coincidences.** If it recurs after a
+   re-auth, ask about the profile before asking for another login.
+5. A prediction due on a dark night is scored on the Supabase lower-bound proxy **only in the direction the proxy
+   cannot be wrong in** (a hold on a return-pessimism claim), labelled, with a rescore owed the next night.
+
+## The iTunes `lookup` edge is inconsistent across read paths — no competitor deltas from a single read (2026-09-14)
+
+Dressly read 29,836 ratings / 2.9.5 on 09-13 (browser-tab fetch) and 29,662 / 2.9.4 on 09-14 (`web_fetch`);
+Alta 14,527 → 14,380. Rating counts do not fall by 150 in a day; different CDN edges lag by different amounts.
+Print competitor deltas only when consecutive nights used the **same** read path, and never from one read. The
+absolute figure is fine to print with its read path named.
