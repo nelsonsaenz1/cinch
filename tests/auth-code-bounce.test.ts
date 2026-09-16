@@ -88,7 +88,7 @@ test('the code screen watches the first half-minute, restarts on a resend, and i
   const client = readFileSync('src/features/auth/code-status.ts', 'utf8');
   // The client module reaches `@/lib/supabase`, which the node suite cannot
   // load — so the schedule is pinned from source.
-  assert.match(client, /export const CODE_BOUNCE_CHECKS_MS = \[5_000, 12_000, 25_000\] as const;/);
+  assert.match(client, /export const CODE_BOUNCE_CHECKS_MS = \[5_000, 12_000, 25_000, 45_000\] as const;/);
   // Email only; stops once bounced; every timer cleared on unmount.
   assert.match(screen, /if \(viaPhone \|\| bounced\) return;\s*let alive = true;\s*const timers = CODE_BOUNCE_CHECKS_MS\.map/);
   assert.match(screen, /setBounced\(true\);\s*track\('auth_code_bounced', \{ method: 'email' \}\);/);
@@ -97,7 +97,9 @@ test('the code screen watches the first half-minute, restarts on a resend, and i
   // A resend restarts the watch.
   assert.match(screen, /setBounced\(false\);\s*setSendSerial\(\(n\) => n \+ 1\);/);
   // Drawn only while the screen is still waiting.
-  assert.match(screen, /bounced && value\.length === 0 && !wrong && !verifying \? bouncedTrouble\(\) : null/);
+  // A85 (2026-09-16): the bounce outranks a wrong code, and a wrong code asks once, at once.
+  assert.match(screen, /bounced && !verifying && \(value\.length === 0 \|\| wrong\) \? bouncedTrouble\(\) : null/);
+  assert.match(screen, /setWrong\(true\);[\s\S]{0,400}?if \(!viaPhone\) \{\s*void signInCodeBounced\(email\)\.then\(\(yes\) => \{\s*if \(!yes\) return;\s*setBounced\(true\);\s*track\('auth_code_bounced'/);
   // The card's door is the address screen, every other card's a fresh send.
   assert.match(screen, /onAction=\{shownTrouble\.door === 'address' \? \(\) => router\.back\(\) : \(\) => void resend\(\)\}/);
   const trouble = bouncedTrouble();

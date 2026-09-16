@@ -270,3 +270,27 @@ test('the card hands up its y; Today measures from every layout, the floor’s s
   assert.equal((TODAY.match(/pushAskSeen\(\{/g) ?? []).length, 2);
   assert.doesNotMatch(TODAY, /\+ 40\b|- 96\b/);
 });
+
+test('12.13 (2026-09-16): a closet under the floor is claimed once, keyed "floor", and the sender says what it waits for', () => {
+  const migration = readFileSync(
+    'supabase/migrations/20260916000100_morning_edit_below_ten.sql',
+    'utf8',
+  );
+  // The floor test is the same ten the card and the 09-05 guard count to.
+  const floor = migration.match(/\(select count\(\*\) from public\.items i where i\.user_id = n\.user_id\) < (\d+) as on_floor/);
+  assert.ok(floor, 'the claim has lost its floor test');
+  assert.equal(Number(floor[1]), TODAY_ACTIVATION_FLOOR);
+  // Once: the word, not the date, is the dedupe key under the floor.
+  assert.match(migration, /case when d\.on_floor then 'floor' else d\.local_date end/);
+  assert.match(migration, /returns table \(user_id uuid, dedupe_key text, floor boolean\)/);
+  assert.match(migration, /c\.dedupe_key = 'floor' as floor/);
+  // The guest list is restated after the drop.
+  assert.match(migration, /grant\s+execute on function public\.push_claim_morning_edit\(\) to service_role, postgres;/);
+  // And the sender reads it into the floor sentence.
+  const sender = readFileSync('supabase/functions/send-push/index.ts', 'utf8');
+  assert.match(sender, /morningEditPayload\(\{ floor: \(claim as MorningEditClaim\)\.floor === true \}\)/);
+  const copy = readFileSync('supabase/functions/send-push/copy.ts', 'utf8');
+  assert.match(copy, /title: 'Ten photos, then Cinch dresses you\.'/);
+  assert.match(copy, /body: 'Your closet is waiting for its first ten — a coat, a top, a pair of jeans is a start\.'/);
+  assert.match(copy, /body: 'The day’s look is ready to read\.'/, 'the ten-plus sentence is unchanged');
+});

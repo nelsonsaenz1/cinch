@@ -67,7 +67,19 @@ export type Payload = { title: string; body: string; data: Record<string, string
 const TODAY = '/';
 const ACTIVITY = '/activity';
 
-export function morningEditPayload(): Payload {
+export function morningEditPayload(input: { floor: boolean } = { floor: false }): Payload {
+  if (input.floor) {
+    // The one note a closet under the floor ever gets (12.13 / ledger A77):
+    // sent once, the morning after the grant, and never again until the
+    // tenth piece is in — the claim keys it 'floor', not by date. It says
+    // what the closet is waiting for; it does not promise a look the server
+    // knows it cannot have. Copy from the 09-11 nightly §11.3, verbatim.
+    return {
+      title: 'Ten photos, then Cinch dresses you.',
+      body: 'Your closet is waiting for its first ten — a coat, a top, a pair of jeans is a start.',
+      data: { channel: 'morning_edit', url: TODAY },
+    };
+  }
   return {
     title: 'Today’s edit',
     // Not "your look is X". See the docblock: the server does not have one.

@@ -125,22 +125,27 @@ export default function CodeScreen() {
   const [resending, setResending] = useState(false);
   /**
    * The bounce watch (A49). Each send — the address screen's, and every
-   * resend from here — starts a fresh watch: a few checks in the first
-   * half-minute, stopped the moment the screen has anything else to say
-   * (a code typed, a card up, a verify in flight) or the send is superseded.
-   * `sendSerial` is that supersession: a resend bumps it, the old watch's
-   * closure sees a stale serial and stands down.
+   * resend from here — starts a fresh watch: four checks in the first
+   * three-quarters of a minute, standing down once a bounce is known or the
+   * send is superseded. `sendSerial` is that supersession: a resend bumps it,
+   * the old watch's closure sees a stale serial and stands down. A WRONG code
+   * also asks once, immediately (A85): the person who typed against a bounced
+   * send is the person the card exists for, and the next scheduled check may
+   * be seconds away or already spent.
    */
   const [sendSerial, setSendSerial] = useState(0);
   const [bounced, setBounced] = useState(false);
 
   const large = fontScale >= AX_STACK_SCALE;
   const exhausted = attemptsLeft <= 0;
-  // The bounce outranks nothing typed and nothing else wrong — it is drawn
-  // only while the screen is still waiting, which is exactly when the
-  // person is waiting too. A code already typed means the mail arrived.
+  // The bounce outranks an empty field AND a wrong code (ledger A85,
+  // 2026-09-16): a send that came back means the six digits typed against it
+  // cannot be the code — Matawan NJ, build 49, typed ten seconds after a
+  // bounced send and met "wrong code" instead of the card that names it. It
+  // stays hidden only while digits are being typed against it (they may be a
+  // real code from an earlier delivered send) and while a verify is in flight.
   const shownTrouble: Trouble | null =
-    trouble ?? (bounced && value.length === 0 && !wrong && !verifying ? bouncedTrouble() : null);
+    trouble ?? (bounced && !verifying && (value.length === 0 || wrong) ? bouncedTrouble() : null);
   const errored = wrong || shownTrouble != null;
   const shown = wrong ? errorValue : value;
 
@@ -215,6 +220,15 @@ export default function CodeScreen() {
           setWrong(true);
           setShakeTick((t) => t + 1);
           AccessibilityInfo.announceForAccessibility(wrongCodeLine(left));
+          // A85: a wrong code against a send that bounced is the bounce, not
+          // a typo. One immediate read, same answer shape as the watch's.
+          if (!viaPhone) {
+            void signInCodeBounced(email).then((yes) => {
+              if (!yes) return;
+              setBounced(true);
+              track('auth_code_bounced', { method: 'email' });
+            });
+          }
         }
         haptics.failure();
       } catch (err) {
@@ -227,7 +241,7 @@ export default function CodeScreen() {
         setVerifying(false);
       }
     },
-    [attemptsLeft, verifyCode, router],
+    [attemptsLeft, verifyCode, router, viaPhone, email],
   );
 
   const onChange = useCallback(

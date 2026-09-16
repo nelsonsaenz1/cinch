@@ -99,28 +99,40 @@ test('ten watches is NOT READY', () => {
   assert.equal(r.pieces, 10);
   assert.equal(r.outfits, 0);
   assert.ok(!r.ready);
-  assert.deepEqual(r.missing, ['footwear', 'core', 'outfits']);
+  // 12.8 (2026-09-16): footwear is a suggestion, never a gate.
+  assert.deepEqual(r.missing, ['core', 'outfits']);
+  assert.equal(starterSuggestion(r)?.gap, 'footwear', 'still the first thing suggested while anything is missing');
 });
 
 test('ten tops is NOT READY', () => {
   const r = starterReadiness(repeat('base_top', 10));
   assert.equal(r.outfits, 0);
   assert.ok(!r.ready);
-  assert.ok(r.missing.includes('footwear'));
+  assert.ok(!r.missing.includes('footwear'), '12.8: shoes never gate');
+  assert.ok(r.missing.includes('core'));
   assert.ok(r.missing.includes('core'));
 });
 
-test('tops and bottoms with no footwear counts, but The Ten still asks for shoes', () => {
-  // Shoes multiply, never gate (2026-09-01): the closet honestly makes 25.
-  // Readiness still names footwear first — the guided ten teaches a complete
-  // look, and that is pedagogy, not arithmetic.
-  const r = starterReadiness([...repeat('base_top', 5), ...repeat('bottom', 5)]);
-  assert.equal(r.pieces, 10);
-  assert.ok(r.hasCore, 'the shape is there…');
-  assert.ok(!r.hasFootwear);
-  assert.equal(r.outfits, 25, '…and it already counts barefoot');
-  assert.ok(!r.ready);
-  assert.equal(r.missing[0], 'footwear', 'the guidance is named first');
+test('tops and bottoms with no footwear is READY — the pair is the top suggestion while filling, never the gate', () => {
+  // Founder ruling 12.8 (2026-09-16): shoes multiply, never gate. Five tops and
+  // five bottoms make twenty-five outfits barefoot; that closet is ready.
+  const full = starterReadiness(
+    [...repeat('base_top', 5), ...repeat('bottom', 5)],
+  );
+  assert.equal(full.outfits, 25, 'it already counts barefoot');
+  assert.ok(!full.hasFootwear);
+  assert.ok(full.ready);
+  assert.equal(starterSuggestion(full), null, 'a ready closet is not nagged for shoes');
+
+  // While the closet is still short, the pair is named FIRST — it finishes
+  // every outfit the closet already makes.
+  const filling = starterReadiness(
+    [...repeat('base_top', 3), ...repeat('bottom', 3)],
+  );
+  assert.ok(!filling.ready);
+  assert.deepEqual(filling.missing, ['pieces']);
+  assert.equal(starterSuggestion(filling)?.gap, 'footwear');
+  assert.equal(starterSuggestion(filling)?.kind, 'shoes');
 });
 
 test('shape and footwear are not enough — four cores is the fourth condition', () => {
@@ -181,25 +193,27 @@ test('a suggestion never promises a gain it cannot deliver', () => {
   assert.deepEqual(stuck.alsoNeeds, ['bottoms']);
 
   // …and since 2026-09-01 the first pair of shoes on a standing closet gains
-  // nothing either — 25 outfits barefoot, 25 with one pair (×max(shoes, 1)).
-  // The suggestion still names footwear (pedagogy), the projection stays
-  // honest, and nothing is missing for a first outfit.
+  // nothing either — 9 outfits barefoot, 9 with one pair (×max(shoes, 1)).
+  // While the closet is still short (12.8: shoes suggest, never gate) the
+  // suggestion names footwear first, the projection stays honest, and nothing
+  // is missing for a first outfit.
   const almost = starterSuggestion(
-    starterReadiness([...repeat('base_top', 5), ...repeat('bottom', 5)]),
+    starterReadiness([...repeat('base_top', 3), ...repeat('bottom', 3)]),
   )!;
   assert.equal(almost.gap, 'footwear');
-  assert.equal(almost.projected, 25);
+  assert.equal(almost.projected, 9);
   assert.deepEqual(almost.alsoNeeds, []);
 });
 
 test('the suggestion names the cause, not the symptom', () => {
+  // Eight pieces: still filling, so the pair is suggested first (12.8).
   const noShoes = starterSuggestion(
-    starterReadiness([...repeat('base_top', 5), ...repeat('bottom', 5)]),
+    starterReadiness([...repeat('base_top', 4), ...repeat('bottom', 4)]),
   );
   assert.equal(noShoes?.gap, 'footwear');
   assert.equal(noShoes?.kind, 'shoes');
-  // 5 × 5 × 1 — a computed projection, never a table.
-  assert.equal(noShoes?.projected, 25);
+  // 4 × 4 × 1 — a computed projection, never a table.
+  assert.equal(noShoes?.projected, 16);
 
   const noBottom = starterSuggestion(
     starterReadiness([...repeat('base_top', 5), ...repeat('footwear', 5)]),

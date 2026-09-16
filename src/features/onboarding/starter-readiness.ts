@@ -103,8 +103,15 @@ export function starterReadiness(
   const hasFootwear = tally.shoes > 0;
   const hasCore = (tally.tops > 0 && tally.bottoms > 0) || tally.dresses > 0;
 
+  // Footwear is NOT a gate (founder ruling 12.8, 2026-09-16). Shoes multiply
+  // outfits and never make one (`countOutfits`, A6): a ten-piece closet with a
+  // pairable core and four outfits is dressable barefoot, and holding the
+  // Reveal for a pair it may not own was a template rule outliving the
+  // template. `hasFootwear` stays readable — `starterSuggestion` still names
+  // the pair FIRST while the closet is being built — but it no longer decides
+  // `ready`, and `repairCopy` no longer lists it as a reason a closet cannot
+  // be dressed.
   const missing: StarterGap[] = [];
-  if (!hasFootwear) missing.push('footwear');
   if (!hasCore) missing.push('core');
   if (outfits < STARTER_MIN_OUTFITS) missing.push('outfits');
   if (pieces < STARTER_PIECES) missing.push('pieces');
@@ -154,7 +161,11 @@ export type StarterSuggestion = {
 };
 
 export function starterSuggestion(r: StarterReadiness): StarterSuggestion | null {
-  const gap = r.missing[0];
+  // The pair of shoes is the top suggestion while anything at all is still
+  // missing — it finishes every outfit the closet already makes — and never a
+  // nag once the closet is ready (12.8: a suggestion, not a gate).
+  const gap: StarterGap | undefined =
+    !r.hasFootwear && r.missing.length > 0 ? 'footwear' : r.missing[0];
   if (!gap) return null;
 
   const alsoNeeds = missingForFirstOutfit(r.tally);

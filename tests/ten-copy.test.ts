@@ -79,10 +79,13 @@ const repeat = (slot: Garment['slot'], n: number): Garment['slot'][] =>
   Array.from({ length: n }, () => slot);
 
 test('the card names the cause when the closet makes nothing', () => {
-  const copy = card(...repeat('base_top', 5), ...repeat('bottom', 5));
+  // Eight pieces, still filling: the pair is the first suggestion (12.8).
+  const copy = card(...repeat('base_top', 4), ...repeat('bottom', 4));
   assert.equal(copy.title, 'Add a pair of shoes.');
-  // 5 tops × 5 bottoms × 1 pair — computed, and printed as the real figure.
-  assert.match(copy.body, /25 outfits/);
+  // 4 tops × 4 bottoms × 1 pair — computed, and printed as the real figure.
+  assert.match(copy.body, /16 outfits/);
+  // At ten, the same shape is READY and no longer nagged for shoes.
+  assert.equal(card(...repeat('base_top', 5), ...repeat('bottom', 5)).title, 'Your 10 pieces make 25 outfits.');
 });
 
 test('the card never quotes a projection that has not moved', () => {
@@ -136,7 +139,10 @@ test('the repair card names exactly what is absent', () => {
   const noShoes = repairCopy(
     starterReadiness([...repeat('base_top', 4), ...repeat('outerwear', 6)].map((slot) => ({ slot }))),
   );
-  assert.match(noShoes.body, /a pair of shoes or a bottom/);
+  // 12.8 (2026-09-16): the repair names the missing half of the core, never
+  // the shoes — they are not why a closet cannot be dressed.
+  assert.match(noShoes.body, /Cinch can’t find a bottom in what you’ve filed\./);
+  assert.doesNotMatch(noShoes.body, /pair of shoes/);
   assert.match(noShoes.title, /^That’s ten pieces/);
   // It never blames the reader, and it always offers the way back.
   assert.match(noShoes.body, /read it again|swap it/);

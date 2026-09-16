@@ -86,7 +86,17 @@ function constantTimeEqual(a: string, b: string): boolean {
 type RpcResult<T> = { data: T | null; error: { message: string } | null };
 type UntypedRpc = (fn: string, args?: Record<string, unknown>) => PromiseLike<RpcResult<unknown>>;
 
-type MorningEditClaim = { user_id: string; dedupe_key: string };
+type MorningEditClaim = {
+  user_id: string;
+  dedupe_key: string;
+  /**
+   * True when the claim was written for a closet UNDER the ten-piece floor
+   * (founder ruling 12.13, 2026-09-16): the note then says what the closet is
+   * waiting for rather than that a look is ready. Absent on the other four
+   * channels' claims and on rows from the pre-12.13 function.
+   */
+  floor?: boolean;
+};
 type FriendActivityClaim = MorningEditClaim & {
   follow_backs: number;
   new_pieces: number;
@@ -115,7 +125,7 @@ type AnyClaim = MorningEditClaim & Record<string, unknown>;
 function compose(channel: PushChannel, claim: AnyClaim): Payload {
   switch (channel) {
     case 'morning_edit':
-      return morningEditPayload();
+      return morningEditPayload({ floor: (claim as MorningEditClaim).floor === true });
 
     case 'friend_activity': {
       const c = claim as FriendActivityClaim;

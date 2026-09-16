@@ -19,7 +19,7 @@ import { normalizeEmail } from './email';
  * pre-A49 screen, which is bad, and the cost of a false one is a person
  * abandoning a good address, which is worse.
  */
-export const CODE_BOUNCE_CHECKS_MS = [5_000, 12_000, 25_000] as const;
+export const CODE_BOUNCE_CHECKS_MS = [5_000, 12_000, 25_000, 45_000] as const;
 
 /** Past this the answer is treated as "no", whatever is still in flight. */
 const CHECK_CEILING_MS = 6_000;

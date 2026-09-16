@@ -489,8 +489,9 @@ export function starterCardCopy(
  * reading a hoodie as something else, and that is Cinch's mistake.
  */
 export function repairCopy(r: StarterReadiness): { title: string; body: string; action: string } {
+  // Shoes are not why a closet cannot be dressed (12.8, 2026-09-16) — only
+  // the missing half of a core is, so only that half is named here.
   const wants: string[] = [];
-  if (!r.hasFootwear) wants.push('a pair of shoes');
   if (!r.hasCore) wants.push(r.tally.tops === 0 ? 'a top' : 'a bottom');
 
   const named =
