@@ -156,7 +156,7 @@ const config: ExpoConfig = {
   // 1.2.5 (build 49, 2026-09-13, ledger A79) embeds A68 / A28 / A76 / 12.9 and
   // audit ship 11 natively: 10 of 21 real first sessions in the 48 h before the
   // cut ran build 48's embedded bundle and met the pre-A68 ask order.
-  version: '1.2.5',
+  version: '1.2.2',
   orientation: 'portrait',
   // Light only. Cinch is a print lookbook, and a print object has one
   // appearance — this pins the app to light regardless of the system setting,
