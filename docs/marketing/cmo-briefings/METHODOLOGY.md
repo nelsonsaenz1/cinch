@@ -986,6 +986,23 @@ window in the delta is labelled with both endpoints, and any prediction that fel
 is scored on the next run with a note that it is one day late. No row is silently reprinted across a
 gap: 09-13 scored A4 (night 18) and A61 (night 5) that a 09-12 run would have had to score.
 
+## The nightly must run in the `nelsonjsaenz@gmail.com` Chrome profile — check the profile BEFORE calling a dashboard "logged out" (2026-09-14, founder instruction)
+
+The 09-14 "four dashboards expired at once" was not four expiries. Claude in Chrome was paired with a
+Chrome profile signed into **no Google account** (`myaccount.google.com` bounced to the sign-in landing
+page). The founder's standing instruction: **every run of this task must first confirm the paired Chrome
+profile is the one signed in as `nelsonjsaenz@gmail.com`** — that profile holds the ASC, PostHog, Superwall
+and Apple Ads sessions. Order of operations:
+
+1. `list_connected_browsers`; navigate to `https://myaccount.google.com/` and read the address on the page.
+   If it is not `nelsonjsaenz@gmail.com`, try `switch_browser` (needs the extension installed in the right
+   profile and Nelson clicking Connect). If that fails, **stop and ask Nelson to switch** — do not write a
+   dashboard number as "unread — session expired" from the wrong profile.
+2. Only after the profile is confirmed, run the four-dashboard probe below.
+3. A briefing written from the wrong profile must say so in its first line, and its "unread" cells are
+   *unread — wrong profile*, not *session expired*. The 09-14 daytime briefing's §16 and its A80 row carry
+   the wrong diagnosis; corrected in the 09-14 nightly.
+
 ## All four browser sessions can expire together — probe all four before anything else (2026-09-14)
 
 On 09-14 ASC (`login?…authResult=FAILED`), PostHog (`/login?next=`), Superwall (`auth.superwall.com`) and Apple
@@ -1010,3 +1027,45 @@ Dressly read 29,836 ratings / 2.9.5 on 09-13 (browser-tab fetch) and 29,662 / 2.
 Alta 14,527 → 14,380. Rating counts do not fall by 150 in a day; different CDN edges lag by different amounts.
 Print competitor deltas only when consecutive nights used the **same** read path, and never from one read. The
 absolute figure is fine to print with its read path named.
+
+## A version created via the API carries no promotional text — read the field the night a version goes live (2026-09-15)
+
+1.2.5 was created through the App Store Connect API (EAS auto-submit delivers only the binary). Its five
+`appStoreVersionLocalizations` came up with keywords and What's New populated and **`promotionalText: null`**;
+1.2.4's read the full 131-char text on every locale. The 09-14 nightly printed the text as "assumed carried".
+Rules: (1) on the night any version reaches READY_FOR_SALE, read `promotionalText` on every localisation of
+*that* version id and print the length per locale — never carry the prior version's value; (2) the ASC
+release checklist / `create` path must PATCH `promotionalText` alongside `whatsNew`; (3) promotional text is
+editable on a live version with no review, so a blank one is a same-night OPS fix (ledger A81), not a
+release-cycle item.
+
+## The Chrome instance name is not the profile test (2026-09-15)
+
+The 09-14 rule said the right instance is named "NelsonJSaenz". On 09-15 `list_connected_browsers` returned
+"Browser 1" (in use) and "Browser 2"; "Browser 1" was the `nelsonjsaenz@gmail.com` profile and all four
+dashboards were signed in. Names are assigned per pairing and change. **The test is the address on
+`myaccount.google.com`**; run it first, then the four-dashboard probe, and print both in the briefing.
+
+## "Ten-piece closet" is not "dressable closet" — say which in every population (2026-09-15)
+
+P30 read "the first 10 real ten-piece closets built after A28: `add_garment_over_limit` never precedes
+`outfit_set_viewed`". `9014d342` reached the wall with 29 tops, 3 outerwear and 0 bottoms — ten pieces,
+`canGenerate` false — and A28 correctly sent her to the wall, not the Reveal, because A28's Reveal route is
+conditioned on dressability. The prediction was falsified on the letter by a closet its author never imagined,
+and the mechanism it was written to test had worked. When a prediction's population is closets, state the
+basis: *eligible ≥10* (a count), *dressable* (`canGenerate`), or *dressed* (`reveal_seen_at` /
+`outfit_set_viewed`). They are three different populations (see also 09-08 "count activated closets on the
+wardrobe-eligible basis" and 09-13 "`returning_free`'s valid outfit result is arithmetic, not delivery").
+
+## The first conversion came from the door the thesis said was wrong — score the thesis, not just the prediction (2026-09-15)
+
+Every briefing 09-09→09-14 argued the ask must follow the outfit. The first arms-length trial start
+(`9014d342`, 20:32:43Z 09-14) was an `add_garment_over_limit` ask **before** any outfit, over an undressable
+closet, and what she bought was room to keep photographing. n=1 and a trial. The rule this generalises to:
+when a scoreboard line moves off zero for the first time, write down which *thesis* the mechanism of the
+movement supports and which it contradicts, in the same section, before writing tomorrow's focus. A
+prediction can be scored while the argument that produced it goes unexamined — P27 was untouched tonight
+(wrong placement), and that is exactly why the thesis section has to carry the contradiction explicitly.
+Related trap: the 32-row batch that carried her to the wall only landed because of the `enforce_item_limit`
+count race (audit ship 10, "not done, stated"). A bug that produced the revenue is a founder decision
+(12.15), not a fix-in-passing.
