@@ -93,6 +93,16 @@ export type UploadJob = {
    */
   retryable?: boolean;
   /**
+   * The stage the last whole-job run died at, written by the drain loop when
+   * a run fails and cleared when the job is queued again. Read by `retryJob`
+   * to choose the road back: a job that died before `tagging` has a row and
+   * an unfinished upload, and goes through the queue again (the row is
+   * reused, the objects upsert); only a job that died AT tagging re-asks for
+   * the tag alone. Absent on jobs the tagger created (`enqueueTagging`) and
+   * on jobs persisted before it existed — both of those have their upload.
+   */
+  diedAt?: JobStage;
+  /**
    * CP-05 — the on-device cutout ran and could not lift the garment.
    *
    * On the job rather than on the item row, because it is a fact about THIS

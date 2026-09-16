@@ -235,13 +235,37 @@ strings above → `plan` → `apply` → confirm in ASC → submit.
 without a new version and without review** — released or not. Use it for
 seasonal messaging, and change it as often as the season does.*
 
+**In force** (set 2026-09-01 on 1.2.3, carried by 1.2.4, restored on 1.2.5
+2026-09-16; `PROMOTIONAL_TEXT` in `scripts/asc-listing.mjs`, pinned by
+`tests/asc-listing.test.ts`):
+
+```
+Ten pieces is all it takes. Cinch dresses you in clothes you already own — it never invents a garment or asks you to buy one first.
+```
+
+131 of 170. The wedge, then the one sentence that answers the category's 1★
+pages (invented garments, "buy one first").
+
+⚠️ **A version created through the API carries NO promotional text.** Keywords,
+description and What's New come across from the previous version; this field
+does not (1.2.5 went live 2026-09-14 with all five localisations blank, ledger
+A81). After every `create`, run:
+
+```
+node scripts/asc-listing.mjs promo --version <X>
+```
+
+It works on a released version — no submission — and `plan` lists a
+`set-promo` step for any localisation whose field differs.
+
+**Seasonal candidate** (158 of 170; leads with the wedge, ends on the one
+approved marketing constant, `docs/design/positioning-contract.md` §3):
+
 ```
 Photograph ten things you already own. Cinch works out what goes with what, tells you why, and dresses you every morning from there. Ten pieces is a wardrobe.
 ```
 
-158 of 170. Leads with the wedge, ends on the one approved marketing constant
-(`docs/design/positioning-contract.md` §3). Seasonal variants live in
-`docs/aso/custom-product-pages.md`.
+Seasonal variants live in `docs/aso/custom-product-pages.md`.
 
 ---
 

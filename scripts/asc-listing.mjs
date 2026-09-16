@@ -5,6 +5,15 @@
  *   node scripts/asc-listing.mjs read
  *   node scripts/asc-listing.mjs plan  --version 1.2.4
  *   node scripts/asc-listing.mjs apply --version 1.2.4
+ *   node scripts/asc-listing.mjs promo --version 1.2.5   (any state — no review)
+ *
+ * `promo` sets PROMOTIONAL_TEXT on every localisation of the version whose
+ * field differs, released or not: promotional text is the one field Apple
+ * lets a live version change without a submission. It exists because a
+ * version created through the API (1.2.5, 2026-09-13) carries NO promotional
+ * text — the field is not copied from the previous version the way keywords
+ * and description are — and the live page ran blank for two days before the
+ * nightly read it (ledger A81). Run it after every `create`.
  *
  * Input is the "Next build" section of docs/app-store-listing.md: the keyword
  * string per locale lives in KEYWORDS below and MUST match that doc (the test
@@ -47,6 +56,15 @@ export const KEYWORDS = {
   'en-CA': 'wardrobe,organiser,jumper,trainers,trousers,outfits,lookbook,fashion,mix,match,daily,dress,what,wear',
 };
 export const KEYWORD_LIMIT = 100;
+
+/**
+ * The promotional text in force — docs/app-store-listing.md "Promotional
+ * text" is the source (the test pins it). Set 2026-09-01 on 1.2.3, carried
+ * by 1.2.4, dropped by the API-created 1.2.5 and restored 2026-09-16.
+ */
+export const PROMOTIONAL_TEXT =
+  'Ten pieces is all it takes. Cinch dresses you in clothes you already own — it never invents a garment or asks you to buy one first.';
+export const PROMO_LIMIT = 170;
 const EDITABLE = new Set(['PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED', 'METADATA_REJECTED', 'WAITING_FOR_REVIEW']);
 
 // ── auth ──────────────────────────────────────────────────────────────────
@@ -172,6 +190,11 @@ async function plan(versionString) {
     if (existing && !(existing.description ?? '')) steps.push({ op: 'fill-text', locale, id: existing.id, from: primary.id });
     if (!existing || (await screenshotSets(existing.id)).length === 0) steps.push({ op: 'copy-screenshots', locale, from: primary.id });
   }
+  // Every localisation that exists, en-US included: the field is per
+  // localisation and an API-created version has it blank on all of them.
+  for (const l of locs) {
+    if ((l.promotionalText ?? '') !== PROMOTIONAL_TEXT) steps.push({ op: 'set-promo', locale: l.locale, id: l.id });
+  }
   return { version: v, primary, steps };
 }
 
@@ -250,7 +273,7 @@ async function cmdApply(versionString) {
             locale: s.locale,
             description: primaryFull.description,
             keywords: s.keywords,
-            promotionalText: primaryFull.promotionalText ?? undefined,
+            promotionalText: primaryFull.promotionalText ?? PROMOTIONAL_TEXT,
             whatsNew: primaryFull.whatsNew ?? undefined,
             supportUrl: primaryFull.supportUrl ?? undefined,
             marketingUrl: primaryFull.marketingUrl ?? undefined,
@@ -266,7 +289,7 @@ async function cmdApply(versionString) {
           id: s.id,
           attributes: {
             description: primaryFull.description,
-            promotionalText: primaryFull.promotionalText ?? undefined,
+            promotionalText: primaryFull.promotionalText ?? PROMOTIONAL_TEXT,
             whatsNew: primaryFull.whatsNew ?? undefined,
             supportUrl: primaryFull.supportUrl ?? undefined,
             marketingUrl: primaryFull.marketingUrl ?? undefined,
@@ -277,9 +300,42 @@ async function cmdApply(versionString) {
       const toId = created[s.locale] ?? (await versionLocalizations(version.id)).find((l) => l.locale === s.locale)?.id;
       if (!toId) throw new Error(`no localisation id for ${s.locale}`);
       await copyScreenshots(s.from, toId);
+    } else if (s.op === 'set-promo') {
+      await setPromo(s.id);
     }
   }
   console.log('done — re-run `plan` to confirm nothing is left');
+}
+
+async function setPromo(localizationId) {
+  await api('PATCH', `/appStoreVersionLocalizations/${localizationId}`, {
+    data: { type: 'appStoreVersionLocalizations', id: localizationId, attributes: { promotionalText: PROMOTIONAL_TEXT } },
+  });
+}
+
+/**
+ * Promotional text only, on ANY version state. Deliberately not behind the
+ * EDITABLE guard: Apple accepts this one PATCH on a READY_FOR_SALE version,
+ * and the whole point of the command is the live page.
+ */
+async function cmdPromo(versionString) {
+  if (PROMOTIONAL_TEXT.length > PROMO_LIMIT) throw new Error(`promotional text is ${PROMOTIONAL_TEXT.length} chars (limit ${PROMO_LIMIT})`);
+  const v = await target(versionString);
+  const locs = await versionLocalizations(v.id);
+  let changed = 0;
+  for (const l of locs) {
+    if ((l.promotionalText ?? '') === PROMOTIONAL_TEXT) {
+      console.log(`  ${l.locale}  already set`);
+      continue;
+    }
+    await setPromo(l.id);
+    changed += 1;
+    console.log(`  ${l.locale}  set (${(l.promotionalText ?? '').length} → ${PROMOTIONAL_TEXT.length} chars)`);
+  }
+  for (const l of await versionLocalizations(v.id)) {
+    if ((l.promotionalText ?? '') !== PROMOTIONAL_TEXT) throw new Error(`${l.locale} read back differently`);
+  }
+  console.log(`${v.version}  ${v.state}  promotional text verified on ${locs.length} localisations (${changed} changed)`);
 }
 
 // ── main ──────────────────────────────────────────────────────────────────
@@ -293,8 +349,9 @@ if (isMain) {
     if (cmd === 'read') await cmdRead();
     else if (cmd === 'plan') await cmdPlan(versionArg);
     else if (cmd === 'apply') await cmdApply(versionArg);
+    else if (cmd === 'promo') await cmdPromo(versionArg);
     else {
-      console.error('usage: asc-listing.mjs read | plan --version X | apply --version X');
+      console.error('usage: asc-listing.mjs read | plan --version X | apply --version X | promo --version X');
       process.exit(2);
     }
   } catch (err) {

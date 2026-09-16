@@ -254,6 +254,26 @@ const SILENT_RENDER_TIMEOUT_MS = 12_000;
  */
 const GRANT_GRACE_MS = 600;
 
+/**
+ * How long a presentation settled by its FEATURE closure waits for its own
+ * `onDismiss` before the caller is told.
+ *
+ * A non-gated close resolves `registerPlacement` first and delivers
+ * `onDismiss` a beat later. That beat is the whole problem for a caller that
+ * navigates on resolution: the Reveal's exit awaits the gate and replaces to
+ * Today on the same tick, and `usePlacement` subscribes its callbacks per hook
+ * instance from an effect — the unmount cancels the subscription and the
+ * dismissal is delivered to nobody. Every other placement's screen stays
+ * mounted, which is why `fb473c32`'s `reveal_complete` (build 49, 2026-09-14
+ * 23:49:36Z) carried no `paywall_dismissed` while `add_garment_over_limit`,
+ * `returning_free` and `packing_access` all did the same night (ledger A84,
+ * scored by P38). So `settle()` holds the caller's promise until `onDismiss`
+ * has read the result, or for this long — whichever is first. Generous
+ * against the bridge, short against a person waiting on a screen that has
+ * already closed.
+ */
+const DISMISS_HOLD_MS = 1_500;
+
 /** One in-flight presentation. At most one exists: a paywall is modal. */
 type Presentation = {
   placement: PlacementName;
@@ -294,6 +314,14 @@ type Presentation = {
    * `seconds_open` off it — how long the reader looked before closing.
    */
   presentedAt: number | null;
+  /**
+   * The caller's release, while `settle()` is holding the outcome for a
+   * dismissal that has not been read yet (DISMISS_HOLD_MS). `onDismiss` calls
+   * it; the hold timer calls it if the SDK never says. Null when nothing is
+   * held. Calling it twice is safe — it clears itself.
+   */
+  release: (() => void) | null;
+  releaseTimer: ReturnType<typeof setTimeout> | null;
 };
 
 /**
@@ -431,6 +459,27 @@ function useSuperwallGate(): Gate {
         });
       }
 
+      // THE HOLD (ledger A84). `reason === 'feature'` on a presentation that
+      // drew and whose close has not been read (`shown === target`) is the
+      // non-gated close arriving through the promise ahead of the sheet's own
+      // `onDismiss`. Resolving now lets a caller that navigates on resolution
+      // — the Reveal — unmount the hook the dismissal is addressed to, and the
+      // one placement the price thesis is scored on reports no dwell time.
+      // `inFlight` is already clear, so nothing else waits on this; only the
+      // caller does, and only until the close is read.
+      if (outcome === 'granted' && reason === 'feature' && shown === target) {
+        const finish = () => {
+          if (!target.release) return;
+          target.release = null;
+          if (target.releaseTimer) clearTimeout(target.releaseTimer);
+          target.releaseTimer = null;
+          target.settle(outcome);
+        };
+        target.release = finish;
+        target.releaseTimer = setTimeout(finish, DISMISS_HOLD_MS);
+        return;
+      }
+
       target.settle(outcome);
     },
     [dismiss],
@@ -521,6 +570,9 @@ function useSuperwallGate(): Gate {
       const target = owned(ownerId) ?? (shown && shown.owner === ownerId ? shown : null);
       shown = null;
       if (!target) return;
+      // Whether `settle()` is holding the caller for this very callback — see
+      // DISMISS_HOLD_MS. Read once, before anything below can release it.
+      const held = target.release;
       if (result.type === 'declined') {
         // The reader saw the offer and closed it — the SDK's own word for it,
         // read HERE rather than off the settled outcome. `presentPromo` used
@@ -551,9 +603,19 @@ function useSuperwallGate(): Gate {
         if (result.type === 'purchased') target.productId = result.productId;
         // Already settled by the feature closure (the non-gated order): the
         // `settle()` below will never run again for this presentation, so the
-        // receipt is written here or not at all.
-        if (inFlight !== target) reportConversion(target);
+        // receipt is written here or not at all. When the caller is HELD, the
+        // receipt waits one macrotask: `held()` below resolves the caller on
+        // the microtask queue, and a caller that replaces its route on
+        // resolution (the Reveal → Today) would otherwise replace the thanks
+        // screen this pushes. One tick later the push lands on top of
+        // wherever the caller went.
+        if (inFlight !== target) {
+          if (held) setTimeout(() => reportConversion(target), 0);
+          else reportConversion(target);
+        }
       }
+      // The close has been read; whatever `settle()` was holding for it can go.
+      if (held) held();
       // A purchase or a restore also resolves `registerPlacement`, and that is
       // the path that runs `onGranted`; let it win rather than reporting an
       // outcome the caller's own callback would contradict.
@@ -601,6 +663,8 @@ function useSuperwallGate(): Gate {
         paywall: null,
         productId: null,
         presentedAt: null,
+        release: null,
+        releaseTimer: null,
       };
       inFlight = target;
 

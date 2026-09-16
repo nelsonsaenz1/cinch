@@ -14,9 +14,11 @@ import { withDeadline } from '@/features/closet/session';
 import { deleteLocalPhoto, getLocalPhoto, saveLocalPhoto } from './local-photos';
 import {
   CONSENT_WITHDRAWN_MESSAGE,
+  IMAGE_MISSING_MESSAGE,
   analyticsFailureCode,
   analyticsFailureReason,
   isCapacityRefusal,
+  isImageMissing,
 } from './import-failure-classify';
 import { deriveMatchEligible } from './match-eligibility';
 import { useQueueStore, type UploadJob } from './queue-store';
@@ -310,6 +312,15 @@ function classify(status: number | null, body: TagResponseBody | null): TagOutco
     };
   }
 
+  // 409 "Item has no image yet.": the row exists and its photograph does not.
+  // Not a retry — asking the tagger again cannot land a photo — and not
+  // account-wide. Retryable, because the retry door reads this sentence and
+  // sends the job back through the UPLOAD (ledger A83: the first paying
+  // account tapped retry four times against this 409 and nothing re-sent).
+  if (status === 409 && /no image/i.test(detail ?? '')) {
+    return { kind: 'blocked', message: IMAGE_MISSING_MESSAGE, retryable: true, accountWide: false };
+  }
+
   // 409 (another invocation holds the claim), 5xx, and every network failure:
   // the item is genuinely still on its way.
   return { kind: 'retry', message: detail ?? 'Tagging didn’t finish. Cinch will try again.' };
@@ -500,27 +511,52 @@ async function uploadObject(
   contentType: string,
   onProgress?: (fraction: number) => void,
 ): Promise<void> {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
+  // `upsert: true` — the token itself carries it, so the PUT below needs no
+  // header. Without it a signed URL for a path that already holds an object is
+  // REFUSED (400 "The resource already exists"), which turns every retry of a
+  // partly-landed job into a guaranteed failure: 2026-09-14 20:33Z the first
+  // paying account lost three cutout transfers mid-flight, and attempts two
+  // and three of each job were then refused a URL for the original the first
+  // attempt had already stored (ledger A83). A retry must be able to write
+  // over what the last attempt left.
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUploadUrl(path, { upsert: true });
   if (error || !data) {
-    throw new Error(`Could not get an upload URL: ${error?.message ?? 'unknown error'}`);
+    // The bracketed token is the storage API's own status (`statusCode` on a
+    // StorageApiError) — the bounded `code` on `clothes_import_failed`.
+    const code =
+      (error as { statusCode?: string | number; status?: number } | null)?.statusCode ??
+      (error as { status?: number } | null)?.status ??
+      'no_code';
+    throw new Error(`Could not get an upload URL [${code}]: ${error?.message ?? 'unknown error'}`);
   }
 
   const file = new File(localUri);
 
-  const result = await file.upload(data.signedUrl, {
-    httpMethod: 'PUT',
-    mimeType: contentType,
-    headers: { 'content-type': contentType },
-    // Hands the transfer to iOS's NSURLSession background session, so it
-    // survives the app being backgrounded mid-import.
-    sessionType: 'background',
-    onProgress: ({ bytesSent, totalBytes }) => {
-      if (totalBytes > 0) onProgress?.(bytesSent / totalBytes);
-    },
-  });
+  let result: Awaited<ReturnType<File['upload']>>;
+  try {
+    result = await file.upload(data.signedUrl, {
+      httpMethod: 'PUT',
+      mimeType: contentType,
+      headers: { 'content-type': contentType },
+      // Hands the transfer to iOS's NSURLSession background session, so it
+      // survives the app being backgrounded mid-import.
+      sessionType: 'background',
+      onProgress: ({ bytesSent, totalBytes }) => {
+        if (totalBytes > 0) onProgress?.(bytesSent / totalBytes);
+      },
+    });
+  } catch (err) {
+    // The transfer threw before any answer — the session was torn down, the
+    // connection was lost, the file went away. `net_error` is the same token
+    // the row writes use for a request that never reached its server.
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Upload did not reach the server [net_error]: ${message}`);
+  }
 
   if (result.status >= 400) {
-    throw new Error(`Upload failed with ${result.status}`);
+    throw new Error(`Upload failed [${result.status}]: the server refused the object`);
   }
 }
 
@@ -961,6 +997,10 @@ export async function drainQueue(): Promise<void> {
             // reasons that pass — signal, storage, memory pressure. Worth
             // offering again rather than presenting as final.
             retryable: exhausted ? true : undefined,
+            // Kept on the job so the retry door knows which road back to take
+            // (`retryJob`): a run that died before `tagging` still owes its
+            // upload, whatever `itemId` says.
+            diedAt,
           });
           // ONLY when the job is actually finished. The other branch puts it
           // back on the queue with attempts left, and an import that stumbles
@@ -1331,12 +1371,21 @@ export async function startBackfill(): Promise<{ enqueued: number }> {
 /**
  * Try a failed job again, because the user asked.
  *
- * Two routes, and the difference matters. A job that already has an `itemId`
- * got its photographs uploaded and its row written — only the tag is missing —
- * so it re-asks for the tag alone. Re-encoding and re-uploading three objects
- * to fix a failed 200-byte function call is minutes of a stranger's battery
- * spent on nothing. A job that never reached an item id has no such shortcut
- * and goes back through the queue from the top.
+ * Two routes, and the difference matters. A job whose photographs are
+ * uploaded and whose row is written — only the tag is missing — re-asks for
+ * the tag alone. Re-encoding and re-uploading three objects to fix a failed
+ * 200-byte function call is minutes of a stranger's battery spent on nothing.
+ * A job that still owes its upload goes back through the queue from the top.
+ *
+ * "Owes its upload" is NOT "has no `itemId`" — that was the test until
+ * 2026-09-16, and it sent a row written at `writing` whose transfer then died
+ * at `uploading` straight to the tagger, which answered 409 "no image yet"
+ * four times for the first paying account (ledger A83). Three signs, any one
+ * of which means the upload is owed: no row at all; the last run died at a
+ * stage before `tagging` (`diedAt`); or the tagger itself said the row has no
+ * image (`IMAGE_MISSING_MESSAGE`). The row is kept and reused — `processJob`
+ * skips the insert when `itemId` is set — and the uploads upsert, so what the
+ * last attempt did land is simply written over.
  *
  * The sweep's rate limit is cleared here on purpose: an explicit tap is exactly
  * the moment the backoff should not apply.
@@ -1346,7 +1395,11 @@ export async function retryJob(jobId: string): Promise<void> {
   const job = jobs.find((j) => j.id === jobId);
   if (!job || job.stage !== 'failed') return;
 
-  if (!job.itemId) {
+  const itemId = job.itemId;
+  // Owed unless the row exists AND the last run reached the tagger AND the
+  // tagger did not say the photograph is missing. Written inline so the
+  // narrowing on `itemId` survives to the tag call below.
+  if (!itemId || (job.diedAt !== undefined && job.diedAt !== 'tagging') || isImageMissing(job.error)) {
     update(jobId, {
       stage: 'queued',
       attempts: 0,
@@ -1354,6 +1407,7 @@ export async function retryJob(jobId: string): Promise<void> {
       error: undefined,
       retryable: undefined,
       progress: 0,
+      diedAt: undefined,
     });
     nextSweepAt = 0;
     sweepInterval = SWEEP_MIN_INTERVAL_MS;
@@ -1362,7 +1416,7 @@ export async function retryJob(jobId: string): Promise<void> {
   }
 
   update(jobId, { stage: 'tagging', progress: 1, error: undefined, retryable: undefined });
-  const outcome = await requestTag(job.itemId);
+  const outcome = await requestTag(itemId);
 
   if (outcome.kind === 'settled') {
     update(jobId, { stage: 'done', error: undefined, retryable: undefined, label: outcome.label });

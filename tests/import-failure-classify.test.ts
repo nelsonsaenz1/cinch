@@ -4,9 +4,11 @@ import { test } from 'node:test';
 
 import {
   CONSENT_WITHDRAWN_MESSAGE,
+  IMAGE_MISSING_MESSAGE,
   analyticsFailureCode,
   analyticsFailureReason,
   isCapacityRefusal,
+  isImageMissing,
 } from '../src/features/ingest/import-failure-classify';
 
 /**
@@ -91,4 +93,36 @@ test('the garment-limit paywall is never suppressed after an import failure (A16
 test('the session read inside the queue is bounded, so a hung refresh cannot latch the drain', () => {
   assert.doesNotMatch(uploadQueue, /await getUserId\(\)/);
   assert.match(uploadQueue, /withDeadline\(getUserId\(\), USER_ID_DEADLINE_MS/);
+});
+
+// ---------------------------------------------------------------------------
+// Ledger A83 (2026-09-16) — the upload has names
+// ---------------------------------------------------------------------------
+
+test('the upload throw sites are named, in the order the upload runs, with their code', () => {
+  const url = 'Could not get an upload URL [400]: The resource already exists';
+  const net = 'Upload did not reach the server [net_error]: The network connection was lost.';
+  const refused = 'Upload failed [413]: the server refused the object';
+  assert.equal(analyticsFailureReason(url), 'upload_url_refused');
+  assert.equal(analyticsFailureCode(url), '400');
+  assert.equal(analyticsFailureReason(net), 'upload_transport_failed');
+  assert.equal(analyticsFailureCode(net), 'net_error');
+  assert.equal(analyticsFailureReason(refused), 'upload_refused');
+  assert.equal(analyticsFailureCode(refused), '413');
+  // The pre-fix shapes (no bracket) are named too, with the honest code.
+  assert.equal(analyticsFailureReason('Could not get an upload URL: The resource already exists'), 'upload_url_refused');
+  assert.equal(analyticsFailureCode('Could not get an upload URL: The resource already exists'), 'no_code');
+});
+
+test('a row with no photograph behind it is named, and the retry door can read it back', () => {
+  assert.equal(analyticsFailureReason(IMAGE_MISSING_MESSAGE), 'image_missing');
+  assert.equal(isImageMissing(IMAGE_MISSING_MESSAGE), true);
+  assert.equal(isImageMissing('Saved, but not tagged — Cinch couldn’t find this garment to tag.'), false);
+  assert.equal(analyticsFailureCode(IMAGE_MISSING_MESSAGE), undefined);
+});
+
+test('the tagger’s two transient shapes stop reading as unknown once the retries are spent', () => {
+  assert.equal(analyticsFailureReason('Tagging didn’t finish. Cinch will try again.'), 'tag_not_finished');
+  assert.equal(analyticsFailureReason('FunctionsFetchError: Failed to send a request to the Edge Function'), 'tag_transport_failed');
+  assert.equal(analyticsFailureReason('something nobody has named'), 'unknown');
 });

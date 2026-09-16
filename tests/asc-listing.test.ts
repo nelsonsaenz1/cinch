@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { KEYWORDS, KEYWORD_LIMIT } from '../scripts/asc-listing.mjs';
+import { KEYWORDS, KEYWORD_LIMIT, PROMOTIONAL_TEXT, PROMO_LIMIT } from '../scripts/asc-listing.mjs';
 
 /**
  * The next build's keyword fields (founder order 2026-09-07): one string per
@@ -58,4 +58,23 @@ test('apply is guarded to editable versions and never runs on import', () => {
   assert.match(src, /if \(isMain\) \{/);
   // Every new localisation is created whole: description, keywords, promo, What's New.
   assert.match(src, /description: primaryFull\.description,\s*keywords: s\.keywords,\s*promotionalText: primaryFull\.promotionalText/);
+});
+
+test('the promotional text in force fits, is the doc’s, and has a review-free command of its own', () => {
+  // Ledger A81 (2026-09-16): an API-created version carries no promotional
+  // text, and 1.2.5 ran blank on all five localisations for two days.
+  assert.ok(PROMOTIONAL_TEXT.length <= PROMO_LIMIT, `${PROMOTIONAL_TEXT.length} chars`);
+  assert.ok(DOC.includes(PROMOTIONAL_TEXT), 'the script’s text is not the doc’s');
+  const src = readFileSync('scripts/asc-listing.mjs', 'utf8');
+  assert.match(src, /async function cmdPromo\(versionString\)/);
+  // `promo` is deliberately NOT behind the EDITABLE guard — the field is the
+  // one Apple lets a live version change, and the live page is the point.
+  const promoFn = src.slice(src.indexOf('async function cmdPromo'), src.indexOf('// ── main'));
+  assert.doesNotMatch(promoFn, /EDITABLE/);
+  assert.match(promoFn, /read back differently/, 'the command verifies its own write');
+  // A localisation created or filled from an en-US that has no promo text
+  // still gets the text in force, never a blank.
+  assert.equal((src.match(/promotionalText: primaryFull\.promotionalText \?\? PROMOTIONAL_TEXT/g) ?? []).length, 2);
+  // And `plan` reports a blank or stale field as a step, so "nothing to do" means it.
+  assert.match(src, /op: 'set-promo'/);
 });
