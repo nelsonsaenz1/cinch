@@ -16,7 +16,9 @@ import { getUserId, supabase } from '@/lib/supabase';
  * Called from exactly one place — `askPushPermission`, immediately after a
  * grant. Never on launch: registering a token is not a thing to do to somebody
  * who has not asked for a notification, and on the binary in the field there is
- * no module to ask for one from.
+ * no module to ask for one from. (`touchPushToken`, below, is not a
+ * registration: it UPDATES a row that a grant already wrote, and writes nothing
+ * for anyone else.)
  */
 
 /**
@@ -70,4 +72,39 @@ export async function registerPushToken(): Promise<string | null> {
   }
   track('push_token_registered', pushTokenRegisteredProps({ ok: true }));
   return token;
+}
+
+/**
+ * A granted device says it is still here (A87b, 2026-09-17).
+ *
+ * `push_tokens.last_seen_at` used to be written once, at the grant, so it was
+ * a fact about the day someone said yes and nothing about whether the phone was
+ * still opening the app. The first three morning notes ever went to three
+ * devices last seen 5–11 days earlier, and none answered. The floor note's
+ * claim now asks for a device seen inside 72 hours; this is what makes that
+ * timestamp mean "opened recently".
+ *
+ * UPDATE, never upsert: a permission granted in iOS Settings without the card
+ * ever being answered has no row, and must not gain one here — registering is
+ * the card's job (the docblock above). A row that is not there is a no-op.
+ * Quiet on every failure, and no analytics: `push_token_registered` means a
+ * grant, and a heartbeat must not inflate it.
+ */
+export async function touchPushToken(): Promise<void> {
+  if (!PUSH_AVAILABLE || !push) return;
+  try {
+    const { status } = await push.getPermissionsAsync();
+    if (status !== 'granted') return;
+    const userId = await getUserId();
+    if (!userId) return;
+    const { data: token } = await push.getExpoPushTokenAsync({ projectId: projectId() });
+    await supabase
+      .from('push_tokens')
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq('token', token)
+      .eq('user_id', userId);
+  } catch {
+    // A heartbeat that could not be sent is the previous timestamp standing —
+    // the claim reads that as "not warm", which is the safe direction.
+  }
 }

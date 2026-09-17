@@ -246,6 +246,17 @@ Ten pieces is all it takes. Cinch dresses you in clothes you already own — it 
 131 of 170. The wedge, then the one sentence that answers the category's 1★
 pages (invented garments, "buy one first").
 
+**es-MX carries the same sentence in Spanish** (`PROMOTIONAL_TEXT_BY_LOCALE` in
+the script; set 2026-09-17 on 1.2.5 — A81's restore had copied the English
+string to every localisation, ledger A88). en-GB / en-CA / en-AU take the
+en-US text verbatim.
+
+```
+Con diez prendas basta. Cinch te viste con la ropa que ya tienes: nunca inventa una prenda ni te pide que compres primero.
+```
+
+122 of 170.
+
 ⚠️ **A version created through the API carries NO promotional text.** Keywords,
 description and What's New come across from the previous version; this field
 does not (1.2.5 went live 2026-09-14 with all five localisations blank, ledger

@@ -40,7 +40,7 @@ export {
 
 export { useNotificationPrefs, useSetNotificationPrefs } from '@/features/push/prefs';
 
-export { registerPushToken } from '@/features/push/token';
+export { registerPushToken, touchPushToken } from '@/features/push/token';
 
 export { PUSH_AVAILABLE } from '@/features/push/native';
 

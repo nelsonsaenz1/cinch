@@ -420,7 +420,10 @@ export default {
           // Colour hex is extracted on-device from the actual pixels; the model
           // only supplies names. Stored as [{name}] and enriched client-side.
           colors: tags.colorNames.map((name) => ({ name })),
-          ai_tags: tags,
+          // The raw response, plus WHICH model wrote it: `tag_corrections` (the
+          // correction corpus, A88b) needs a model id beside the output it is
+          // correcting, and nothing else on the row records one.
+          ai_tags: { ...tags, model: rescued && settings.rescueModelId ? settings.rescueModelId : config.model_id },
           status: 'tagged',
         })
         .eq('id', itemId);

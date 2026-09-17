@@ -2238,25 +2238,31 @@ export type Database = {
           attempts: number
           channel: string
           created_at: string
+          dedupe_key: string | null
           last_attempt_at: string | null
           ticket_id: string
           token: string
+          user_id: string | null
         }
         Insert: {
           attempts?: number
           channel: string
           created_at?: string
+          dedupe_key?: string | null
           last_attempt_at?: string | null
           ticket_id: string
           token: string
+          user_id?: string | null
         }
         Update: {
           attempts?: number
           channel?: string
           created_at?: string
+          dedupe_key?: string | null
           last_attempt_at?: string | null
           ticket_id?: string
           token?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -2264,16 +2270,22 @@ export type Database = {
         Row: {
           channel: string
           dedupe_key: string
+          delivered_at: string | null
+          receipt_error: string | null
           sent_at: string
           user_id: string
         }
         Insert: {
           channel: string
           dedupe_key: string
+          delivered_at?: string | null
+          receipt_error?: string | null
           sent_at?: string
           user_id: string
         }
         Update: {
+          delivered_at?: string | null
+          receipt_error?: string | null
           channel?: string
           dedupe_key?: string
           sent_at?: string
@@ -3766,8 +3778,10 @@ export type Database = {
       push_claim_receipts: {
         Args: { p_limit?: number }
         Returns: {
+          dedupe_key: string | null
           ticket_id: string
           token: string
+          user_id: string | null
         }[]
       }
       push_claim_votes_comments: {

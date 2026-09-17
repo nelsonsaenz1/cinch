@@ -45,6 +45,57 @@ function invalidateAfterItemsRemoved(qc: ReturnType<typeof useQueryClient>): voi
 }
 
 /**
+ * The correction corpus — `tag_corrections`, one row per human disagreement.
+ *
+ * Migration 20260803180000 created the table as "the fine-tuning corpus" and
+ * nothing ever inserted into it: the review deck tracked `item_tag_corrected`
+ * (field names only, by design — an analytics property is no place for the
+ * user's own text) and the labelled pair the table exists to hold was never
+ * written. So A53's question — how often is the tagger wrong, and about what —
+ * had a table with 0 rows lifetime under it (ledger A88b).
+ *
+ * `model_output` is the tagger's raw response (`items.ai_tags`, which now
+ * carries the model id that wrote it); `corrected` is the patch as the person
+ * sent it, with whether it came from the review deck. Owner-scoped by RLS.
+ * A courtesy, never a gate: the correction has already landed by the time
+ * this runs, and no failure here may undo or delay it.
+ */
+async function recordTagCorrection({
+  userId,
+  itemId,
+  patch,
+  verified,
+}: {
+  userId: string;
+  itemId: string;
+  patch: ItemPatch;
+  verified: boolean;
+}): Promise<void> {
+  type Corpus = Database['public']['Tables']['tag_corrections']['Insert'];
+  try {
+    const { data } = await supabase
+      .from('items')
+      .select('ai_tags, image_path')
+      .eq('id', itemId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    const output = (data?.ai_tags ?? null) as Record<string, unknown> | null;
+    const modelId = typeof output?.model === 'string' ? output.model : 'untracked';
+    const row: Corpus = {
+      user_id: userId,
+      item_id: itemId,
+      image_path: data?.image_path ?? null,
+      model_id: modelId,
+      model_output: (output ?? {}) as Corpus['model_output'],
+      corrected: { ...patch, verified } as unknown as Corpus['corrected'],
+    };
+    await supabase.from('tag_corrections').insert(row);
+  } catch {
+    // Silent by design — see the docblock.
+  }
+}
+
+/**
  * The one write from the review deck — and now the one write from item detail.
  *
  * Every accepted or edited item flips `user_verified = true` — that's the
@@ -125,6 +176,9 @@ export function useVerifyItem() {
       // order means `category,colors` is one bucket rather than two.
       if (corrected.length) {
         track('item_tag_corrected', { fields: corrected.sort().join(','), verified: verify });
+        // A88b (2026-09-16): the table this signal was designed to land in had
+        // never been written to — 0 rows lifetime against 3 events a week.
+        await recordTagCorrection({ userId, itemId: id, patch: patch ?? {}, verified: verify });
       }
 
       // TODO(OUT-22): if `patch` was set, log a row to `style_feedback` for the

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { KEYWORDS, KEYWORD_LIMIT, PROMOTIONAL_TEXT, PROMO_LIMIT } from '../scripts/asc-listing.mjs';
+import { KEYWORDS, KEYWORD_LIMIT, PROMOTIONAL_TEXT, PROMOTIONAL_TEXT_BY_LOCALE, PROMO_LIMIT, promoFor } from '../scripts/asc-listing.mjs';
 
 /**
  * The next build's keyword fields (founder order 2026-09-07): one string per
@@ -57,7 +57,7 @@ test('apply is guarded to editable versions and never runs on import', () => {
   assert.match(src, /const isMain = \/asc-listing\\\.mjs\$\/\.test\(process\.argv\[1\] \?\? ''\);/);
   assert.match(src, /if \(isMain\) \{/);
   // Every new localisation is created whole: description, keywords, promo, What's New.
-  assert.match(src, /description: primaryFull\.description,\s*keywords: s\.keywords,\s*promotionalText: primaryFull\.promotionalText/);
+  assert.match(src, /description: primaryFull\.description,\s*keywords: s\.keywords,\s*promotionalText: promoFor\(s\.locale, primaryFull\.promotionalText\)/);
 });
 
 test('the promotional text in force fits, is the doc’s, and has a review-free command of its own', () => {
@@ -74,7 +74,24 @@ test('the promotional text in force fits, is the doc’s, and has a review-free 
   assert.match(promoFn, /read back differently/, 'the command verifies its own write');
   // A localisation created or filled from an en-US that has no promo text
   // still gets the text in force, never a blank.
-  assert.equal((src.match(/promotionalText: primaryFull\.promotionalText \?\? PROMOTIONAL_TEXT/g) ?? []).length, 2);
+  assert.equal((src.match(/promotionalText: promoFor\(s\.locale, primaryFull\.promotionalText\)/g) ?? []).length, 2);
   // And `plan` reports a blank or stale field as a step, so "nothing to do" means it.
   assert.match(src, /op: 'set-promo'/);
+});
+
+
+test('A88 (2026-09-16): es-MX carries the sentence in Spanish; the English locales take en-US verbatim', () => {
+  // A81's restore PATCHed the English string to all five localisations, so the
+  // Spanish storefront read an English sentence. The per-locale table is the fix,
+  // and every command that writes the field goes through `promoFor`.
+  const es = PROMOTIONAL_TEXT_BY_LOCALE['es-MX'];
+  assert.ok(es && es.length <= PROMO_LIMIT, `${es?.length} chars`);
+  assert.ok(DOC.includes(es), 'the Spanish text is not the doc’s');
+  assert.equal(promoFor('es-MX'), es);
+  assert.equal(promoFor('en-GB'), PROMOTIONAL_TEXT);
+  assert.equal(promoFor('en-AU', 'the live en-US text'), 'the live en-US text');
+  assert.equal(promoFor('es-MX', 'the live en-US text'), es, 'a locale with its own text never takes the en-US copy');
+  const src = readFileSync('scripts/asc-listing.mjs', 'utf8');
+  assert.doesNotMatch(src, /attributes: \{ promotionalText: PROMOTIONAL_TEXT \}/, 'no write path sends the en-US constant to every locale');
+  assert.match(src, /!== promoFor\(l\.locale\)\) steps\.push\(\{ op: 'set-promo'/);
 });

@@ -1,0 +1,11 @@
+App Store screenshot upload bundle
+order: docs/app-store/screenshot-v4-fix-directive.md §3
+target: custom product page, en-US, APP_IPHONE_69 (1320x2868)
+
+1  01-hook.png          <- 01-hook.png
+2  02-ten.png           <- 02-ten.png
+3  03-closet.png        <- 03-closet.png
+4  04-stylist.png       <- 04-stylist.png
+5  05-friends.png       <- 05-friends.png
+6  06-plan.png          <- 06-plan.png
+7  07-cover.png         <- 00-cover.png

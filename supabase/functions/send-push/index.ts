@@ -320,6 +320,8 @@ export default {
           ticket_id: t.id,
           token: t.token,
           channel: sendChannel,
+          user_id: t.userId,
+          dedupe_key: t.dedupeKey,
         })),
         { onConflict: 'ticket_id' },
       );
@@ -378,13 +380,33 @@ async function collectReceipts(admin: SupabaseClient<Database>): Promise<Respons
     return fail('claim_failed', 'Could not work out which receipts were due.', 500);
   }
 
-  const asked = ((claimed.data ?? []) as { ticket_id: string; token: string }[]).map((r) => ({
-    id: r.ticket_id,
-    token: r.token,
-  }));
+  type ClaimedReceipt = { ticket_id: string; token: string; channel: string; user_id: string | null; dedupe_key: string | null };
+  const rows = (claimed.data ?? []) as ClaimedReceipt[];
+  const asked = rows.map((r) => ({ id: r.ticket_id, token: r.token }));
   if (!asked.length) return Response.json({ ok: true, mode: 'receipts', asked: 0 });
 
   const { verdict, errors } = await fetchExpoReceipts(asked);
+
+  // A89: the verdict is written onto the send it answers for. Before this the
+  // only record of "delivered 3" was a log line, and the queue below empties
+  // on resolution — so a reader of `push_receipts` saw nothing and concluded
+  // the leg was not wired. A send row with neither column set is a receipt
+  // that has not been read (yet, or ever); it is never recorded as a failure.
+  const byTicket = new Map(rows.map((r) => [r.ticket_id, r]));
+  const stamp = async (ticketId: string, patch: { delivered_at?: string; receipt_error?: string }) => {
+    const row = byTicket.get(ticketId);
+    if (!row?.user_id || !row.dedupe_key) return;
+    const { error } = await admin
+      .from('push_sends')
+      .update(patch)
+      .eq('user_id', row.user_id)
+      .eq('channel', row.channel)
+      .eq('dedupe_key', row.dedupe_key);
+    if (error) console.error(`receipts: could not stamp a send — ${error.message}`);
+  };
+  const now = new Date().toISOString();
+  for (const id of verdict.delivered) await stamp(id, { delivered_at: now });
+  for (const f of verdict.failed) await stamp(f.ticketId, { receipt_error: f.reason });
 
   // Anything Expo answered for is finished with, however it answered. Only
   // `pending` stays, and `push_claim_receipts` will not offer it again for ten

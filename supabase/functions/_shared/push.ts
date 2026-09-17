@@ -88,11 +88,12 @@ export type PushOutcome = {
    * The accepted tickets' ids, paired with the token each was for.
    *
    * These are what `push_receipts` stores and what the receipt endpoint is
-   * asked about later. A ticket Expo accepted WITHOUT returning an id cannot be
+   * asked about later — each with the claim (user, dedupe key) it was sent
+   * for, so the verdict can be stamped onto `push_sends` (A89). A ticket Expo accepted WITHOUT returning an id cannot be
    * followed up — it is counted in `accepted` and absent here, rather than
    * being given a placeholder id that would never resolve.
    */
-  tickets: { id: string; token: string }[];
+  tickets: { id: string; token: string; userId: string; dedupeKey: string }[];
   /** Tickets Expo refused, for any reason. */
   refused: number;
   /** Tokens with no device behind them any more. Delete these rows. */
@@ -293,7 +294,16 @@ export async function sendExpoPush(envelopes: PushEnvelope[]): Promise<PushOutco
         // an `ok` ticket, but "always" is the caller's word for it, not a
         // guarantee — a missing id is counted as accepted and simply never
         // followed up, rather than parked under a key that resolves to nothing.
-        if (ticket.id && envelope) outcome.tickets.push({ id: ticket.id, token: envelope.to });
+        if (ticket.id && envelope) {
+          outcome.tickets.push({
+            id: ticket.id,
+            token: envelope.to,
+            // The claim this ticket was sent for, so its receipt can be written
+            // onto the send row (A89) instead of living only in a log line.
+            userId: envelope.userId,
+            dedupeKey: envelope.dedupeKey,
+          });
+        }
         return;
       }
 

@@ -18,6 +18,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { interpretReceipts } from '../supabase/functions/_shared/push.ts';
 
@@ -124,4 +125,33 @@ test('two tickets for the same device both retire it, and the caller dedupes', (
 test('nothing asked about produces nothing at all', () => {
   const v = interpretReceipts([], { 'ticket-a': { status: 'ok' } });
   assert.deepEqual(v, { delivered: [], unregistered: [], failed: [], pending: [] });
+});
+
+test('A89 (2026-09-17): a receipt is written onto the send it answers for, not only logged', () => {
+  // The first three sends ever were delivered (function log, 12:37Z 2026-09-16)
+  // and nothing in a table said so: `push_receipts` is a queue that empties on
+  // resolution, and the verdict lived in one log line. The queue row now
+  // carries the claim it was sent for, and the collector stamps `push_sends`.
+  const migration = readFileSync('supabase/migrations/20260917000000_push_receipts_stamp_sends.sql', 'utf8');
+  assert.match(migration, /alter table public\.push_receipts\s+add column if not exists user_id\s+uuid,\s+add column if not exists dedupe_key text;/);
+  assert.match(migration, /add column if not exists delivered_at\s+timestamptz,\s+add column if not exists receipt_error text;/);
+  assert.match(migration, /returns table \(ticket_id text, token text, user_id uuid, dedupe_key text\)/);
+  assert.match(migration, /returning r\.ticket_id, r\.token, r\.user_id, r\.dedupe_key;/);
+  assert.match(migration, /grant\s+execute on function public\.push_claim_receipts\(integer\) to service_role, postgres;/);
+
+  const push = readFileSync('supabase/functions/_shared/push.ts', 'utf8');
+  assert.match(push, /tickets: \{ id: string; token: string; userId: string; dedupeKey: string \}\[\];/);
+  assert.match(push, /userId: envelope\.userId,\s+dedupeKey: envelope\.dedupeKey,/);
+
+  const sender = readFileSync('supabase/functions/send-push/index.ts', 'utf8');
+  // Parked with the claim.
+  assert.match(sender, /channel: sendChannel,\s+user_id: t\.userId,\s+dedupe_key: t\.dedupeKey,/);
+  // Stamped by the claim: delivered → delivered_at, failed → receipt_error, and
+  // the stamp is keyed on the send's whole primary key.
+  const collect = sender.slice(sender.indexOf('async function collectReceipts'));
+  assert.match(collect, /for \(const id of verdict\.delivered\) await stamp\(id, \{ delivered_at: now \}\);/);
+  assert.match(collect, /for \(const f of verdict\.failed\) await stamp\(f\.ticketId, \{ receipt_error: f\.reason \}\);/);
+  assert.match(collect, /\.eq\('user_id', row\.user_id\)\s+\.eq\('channel', row\.channel\)\s+\.eq\('dedupe_key', row\.dedupe_key\)/);
+  // Pending is still not written anywhere — an unknown stays unknown.
+  assert.doesNotMatch(collect, /verdict\.pending\) await stamp/);
 });

@@ -294,3 +294,28 @@ test('12.13 (2026-09-16): a closet under the floor is claimed once, keyed "floor
   assert.match(copy, /body: 'Your closet is waiting for its first ten — a coat, a top, a pair of jeans is a start\.'/);
   assert.match(copy, /body: 'The day’s look is ready to read\.'/, 'the ten-plus sentence is unchanged');
 });
+
+test('A87b (2026-09-17): the floor note waits for a warm device, and a granted device says it is still here on launch', () => {
+  const migration = readFileSync(
+    'supabase/migrations/20260917000100_morning_edit_floor_recency.sql',
+    'utf8',
+  );
+  // The floor test and the once-keyed claim survive the recency term.
+  const floor = migration.match(/\(select count\(\*\) from public\.items i where i\.user_id = n\.user_id\) < (\d+) as on_floor/);
+  assert.ok(floor);
+  assert.equal(Number(floor[1]), TODAY_ACTIVATION_FLOOR);
+  assert.match(migration, /case when d\.on_floor then 'floor' else d\.local_date end/);
+  // Warm = a device seen inside 72 h; only the floor branch asks for it.
+  assert.match(migration, /t\.last_seen_at > now\(\) - interval '72 hours'\) as warm/);
+  assert.match(migration, /where not d\.on_floor or d\.warm/);
+  assert.match(migration, /returns table \(user_id uuid, dedupe_key text, floor boolean\)/);
+  assert.match(migration, /grant\s+execute on function public\.push_claim_morning_edit\(\) to service_role, postgres;/);
+  // The client half: an UPDATE of last_seen_at for a granted device, never an
+  // upsert (a Settings-granted device with no row must not gain one here), no
+  // analytics (push_token_registered means a grant), and Today calls it.
+  const touch = TOKEN.slice(TOKEN.indexOf('export async function touchPushToken'));
+  assert.match(touch, /if \(status !== 'granted'\) return;/);
+  assert.match(touch, /\.update\(\{ last_seen_at: new Date\(\)\.toISOString\(\) \}\)/);
+  assert.doesNotMatch(touch, /upsert|track\(/);
+  assert.match(TODAY, /void touchPushToken\(\);/);
+});

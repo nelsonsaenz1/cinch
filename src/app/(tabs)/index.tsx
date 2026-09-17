@@ -128,6 +128,7 @@ import { describeWeather, formatTemp, weatherSymbol } from '@/features/context/w
 import { useTripReminder } from '@/features/today/use-trip-reminder';
 import { InviteAskCard } from '@/components/today/invite-ask-card';
 import { PushAskCard } from '@/components/today/push-ask-card';
+import { touchPushToken } from '@/features/push/token';
 import { usePushAsk } from '@/features/push/use-push-ask';
 import { useInviteAsk } from '@/features/invite/use-invite-ask';
 import { pushAskSeen, type PushAskCloset } from '@/features/push/ask-spec';
@@ -791,6 +792,10 @@ export default function TodayScreen() {
   // repeatedly costs nothing.
   useEffect(() => {
     startTagSweeper();
+    // A87b: a device that granted notifications says it is still here, so the
+    // morning note's claim can tell a warm closet from a cold one. Updates an
+    // existing row only; writes nothing for anyone who never granted.
+    void touchPushToken();
   }, []);
 
   const wardrobe = useWardrobe();

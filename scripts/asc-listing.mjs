@@ -65,6 +65,19 @@ export const KEYWORD_LIMIT = 100;
 export const PROMOTIONAL_TEXT =
   'Ten pieces is all it takes. Cinch dresses you in clothes you already own — it never invents a garment or asks you to buy one first.';
 export const PROMO_LIMIT = 170;
+/**
+ * Locales that carry their own sentence. Everything else takes the en-US text
+ * verbatim (en-GB / en-CA / en-AU read English). A81's restore copied the
+ * English string to all five localisations, so the Spanish storefront was
+ * shown an English sentence for a day (ledger A88, 2026-09-16).
+ */
+export const PROMOTIONAL_TEXT_BY_LOCALE = {
+  'es-MX': 'Con diez prendas basta. Cinch te viste con la ropa que ya tienes: nunca inventa una prenda ni te pide que compres primero.',
+};
+/** The promotional text a localisation should carry. */
+export function promoFor(locale, enUsInForce) {
+  return PROMOTIONAL_TEXT_BY_LOCALE[locale] ?? enUsInForce ?? PROMOTIONAL_TEXT;
+}
 const EDITABLE = new Set(['PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED', 'METADATA_REJECTED', 'WAITING_FOR_REVIEW']);
 
 // ── auth ──────────────────────────────────────────────────────────────────
@@ -193,7 +206,7 @@ async function plan(versionString) {
   // Every localisation that exists, en-US included: the field is per
   // localisation and an API-created version has it blank on all of them.
   for (const l of locs) {
-    if ((l.promotionalText ?? '') !== PROMOTIONAL_TEXT) steps.push({ op: 'set-promo', locale: l.locale, id: l.id });
+    if ((l.promotionalText ?? '') !== promoFor(l.locale)) steps.push({ op: 'set-promo', locale: l.locale, id: l.id });
   }
   return { version: v, primary, steps };
 }
@@ -273,7 +286,7 @@ async function cmdApply(versionString) {
             locale: s.locale,
             description: primaryFull.description,
             keywords: s.keywords,
-            promotionalText: primaryFull.promotionalText ?? PROMOTIONAL_TEXT,
+            promotionalText: promoFor(s.locale, primaryFull.promotionalText),
             whatsNew: primaryFull.whatsNew ?? undefined,
             supportUrl: primaryFull.supportUrl ?? undefined,
             marketingUrl: primaryFull.marketingUrl ?? undefined,
@@ -289,7 +302,7 @@ async function cmdApply(versionString) {
           id: s.id,
           attributes: {
             description: primaryFull.description,
-            promotionalText: primaryFull.promotionalText ?? PROMOTIONAL_TEXT,
+            promotionalText: promoFor(s.locale, primaryFull.promotionalText),
             whatsNew: primaryFull.whatsNew ?? undefined,
             supportUrl: primaryFull.supportUrl ?? undefined,
             marketingUrl: primaryFull.marketingUrl ?? undefined,
@@ -301,15 +314,15 @@ async function cmdApply(versionString) {
       if (!toId) throw new Error(`no localisation id for ${s.locale}`);
       await copyScreenshots(s.from, toId);
     } else if (s.op === 'set-promo') {
-      await setPromo(s.id);
+      await setPromo(s.id, promoFor(s.locale));
     }
   }
   console.log('done — re-run `plan` to confirm nothing is left');
 }
 
-async function setPromo(localizationId) {
+async function setPromo(localizationId, text) {
   await api('PATCH', `/appStoreVersionLocalizations/${localizationId}`, {
-    data: { type: 'appStoreVersionLocalizations', id: localizationId, attributes: { promotionalText: PROMOTIONAL_TEXT } },
+    data: { type: 'appStoreVersionLocalizations', id: localizationId, attributes: { promotionalText: text } },
   });
 }
 
@@ -319,21 +332,24 @@ async function setPromo(localizationId) {
  * and the whole point of the command is the live page.
  */
 async function cmdPromo(versionString) {
-  if (PROMOTIONAL_TEXT.length > PROMO_LIMIT) throw new Error(`promotional text is ${PROMOTIONAL_TEXT.length} chars (limit ${PROMO_LIMIT})`);
+  for (const [locale, text] of [['en-US', PROMOTIONAL_TEXT], ...Object.entries(PROMOTIONAL_TEXT_BY_LOCALE)]) {
+    if (text.length > PROMO_LIMIT) throw new Error(`${locale} promotional text is ${text.length} chars (limit ${PROMO_LIMIT})`);
+  }
   const v = await target(versionString);
   const locs = await versionLocalizations(v.id);
   let changed = 0;
   for (const l of locs) {
-    if ((l.promotionalText ?? '') === PROMOTIONAL_TEXT) {
+    const want = promoFor(l.locale);
+    if ((l.promotionalText ?? '') === want) {
       console.log(`  ${l.locale}  already set`);
       continue;
     }
-    await setPromo(l.id);
+    await setPromo(l.id, want);
     changed += 1;
-    console.log(`  ${l.locale}  set (${(l.promotionalText ?? '').length} → ${PROMOTIONAL_TEXT.length} chars)`);
+    console.log(`  ${l.locale}  set (${(l.promotionalText ?? '').length} → ${want.length} chars)`);
   }
   for (const l of await versionLocalizations(v.id)) {
-    if ((l.promotionalText ?? '') !== PROMOTIONAL_TEXT) throw new Error(`${l.locale} read back differently`);
+    if ((l.promotionalText ?? '') !== promoFor(l.locale)) throw new Error(`${l.locale} read back differently`);
   }
   console.log(`${v.version}  ${v.state}  promotional text verified on ${locs.length} localisations (${changed} changed)`);
 }
