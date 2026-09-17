@@ -1069,3 +1069,79 @@ prediction can be scored while the argument that produced it goes unexamined —
 Related trap: the 32-row batch that carried her to the wall only landed because of the `enforce_item_limit`
 count race (audit ship 10, "not done, stated"). A bug that produced the revenue is a founder decision
 (12.15), not a fix-in-passing.
+
+## ASC `units` publishes LATER than impressions and page views — "no units row" is not "zero downloads" (2026-09-16)
+
+On 2026-09-16 at 23:1xZ the ASC daily table carried **09-15 impressions (245) and product page views (15)**
+while `measureId=units` for 09-15 read `-`, and 09-16 was blank on all three. That is two consecutive nights
+in which the acquisition measures published at different speeds. Consequences:
+
+1. Write **unpublished**, never **zero**, for a `-` in the units table, and never let a `-` stand in for a
+   download count in a reconciliation line.
+2. **Check, before a prediction's due date, whether its falsifier depends on ASC units.** P28 ("paid installs
+   ≈ ASC first-time downloads ±2 on every ≥$10 spend day") fell due 09-17 with 09-15 ($14.68) and 09-16
+   ($20.20) both qualifying and both unpublished — the prediction may be unscoreable on its own date, and
+   discovering that on the date is a process failure.
+3. A claim that installs have stopped therefore rests on the instruments that *did* read: Apple Ads'
+   own attribution (stable across a 24 h re-read) and PostHog `Application Installed`. **Neither can see a
+   download that never opened the app.** Say so in the same paragraph as the claim.
+
+## A send is not a delivery, and a delivery is not an open (2026-09-16)
+
+The first three `push_sends` rows in the product's history landed at 12:15:02.879Z 09-16. The sender reported
+`claimed 3, messages 3, accepted 3, refused 0` — **`accepted` is Expo's queue acknowledgement, not a delivery
+receipt.** `push_receipts` held **0 rows**. A briefing that wrote "3 push notifications delivered" would have
+been wrong at the first hop, and one that wrote "0 of 3 opened" without saying delivery was unread would have
+attributed a plumbing failure to user behaviour.
+
+**Print all three legs — sent / delivered / opened — or name which are unread.** Same family as the 09-02 rule
+(*an outbound result is not a user signal until the artefact has been read*): before attributing a campaign's
+zero to the audience, establish that the message could arrive.
+
+Related, and it is the more useful half: **check who the audience was before scoring the channel.** All three
+recipients' `push_tokens.last_seen_at` were **09-05, 09-05 and 09-11** — five to eleven days stale. The
+`floor` predicate claims closets under ten, which is definitionally the population that already stopped. A
+re-engagement wire whose first audience is selected for dormancy is testing the *come back* bin (9/9 against
+us), not the copy.
+
+## An empty table is a measurement failure, not a zero reading — `count(*)` lifetime before quoting a window (2026-09-16)
+
+`tag_corrections` returned 0 rows for the last 14 days **and 0 rows for all time**, while PostHog logged
+`item_tag_corrected` 3 times across 2 persons in 7 days. A zero from a table that has never been written to
+says nothing about users, and A53 had been open ten nights on the question that table exists to answer.
+
+**Before quoting a windowed zero from any Supabase table, run the unwindowed `count(*)`.** If it is also zero,
+the reading is *not instrumented*, not *zero*. This is the Supabase-side twin of the 09-08
+`ai_calls.outfit_generation` lesson: an instrument that has never fired is untested, not settled.
+
+## "Nobody came" needs a NO-EXCLUSIONS re-run printed beside it (2026-09-16)
+
+Every population number in this file is protected by exclusion CTEs — review devices, `$app_build='1'`,
+internal/family/gate accounts. Those same CTEs will hide a **real** person if the filter is wrong, and the
+filter has been wrong four times (09-01 ×2, 09-02, 09-07). So an ALERT whose content is *an absence* must
+carry a second query run with **no exclusions at all**, printed in the briefing.
+
+Tonight's ran every auth and install event from 09-15 00:00Z with nothing filtered, and returned only two
+non-US installs (Tokyo, Kuala Lumpur) and the engineering session's own keyed sim (`auth_completed` ×2, New
+York, `$app_build='1'` runtimes `d5b2f4ba` / `fde1a8ba`). That is what makes the zero safe to print. It also
+disposes of the standing alternative explanation — `reap_unverified_signups()` deletes never-verified
+`auth.users` rows hourly, but a person who requested a code and never verified still fires `auth_code_sent`,
+and none did.
+
+## An engineering session's re-read scores the ARGUMENT, not only the row (2026-09-16)
+
+Audit ship 13 read `9014d342`'s import rows by the second and corrected the 09-15 nightly's premise: **nine
+rows over 24 seconds, then `closet_limit_reached {held: 24}` at 20:29:39Z**, with the remaining 23 landing
+only after her trial started — not "32 rows at once", and not "a wall that arrived with the photos already
+saved". The wall refused her at ten exactly as A28 designed and she paid to get past it.
+
+The 09-08 rule said to diff an engineering log against `## Open` for contradictions. **Extend it:** when the
+contradiction lands on a *premise the prior thesis argued from*, the correction goes in §17 **and** the thesis
+section that used it is named. A row can be silently restated; an argument cannot.
+
+## Print a city as a city and a timezone as a timezone (2026-09-16)
+
+The 09-15 nightly located the first paying customer in "Indianapolis". PostHog's geo puts her in **Auburn,
+Indiana** (postal 46706); `America/Indiana/Indianapolis` is her *timezone*, read off `profiles.time_zone`. Her
+`review_prompt_shown` the next evening carries a **Detroit** IP. Neither is wrong; they measure different
+things. Name the source beside the place, and never convert a timezone into a city.
